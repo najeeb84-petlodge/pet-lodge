@@ -12,14 +12,19 @@ export function AuthProvider({ children }) {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select('id, first_name, last_name, email, phone, role')
         .eq('id', userId)
         .single()
-      if (!error && data) setProfile(data)
-      else setProfile({ id: userId, role: 'customer' }) // fallback
-      return data
+      if (!error && data) {
+        setProfile({
+          ...data,
+          full_name: `${data.first_name || ''} ${data.last_name || ''}`.trim()
+        })
+      } else {
+        setProfile({ id: userId, role: 'customer', full_name: 'User' })
+      }
     } catch (e) {
-      setProfile({ id: userId, role: 'customer' })
+      setProfile({ id: userId, role: 'customer', full_name: 'User' })
     }
   }
 
@@ -49,10 +54,10 @@ export function AuthProvider({ children }) {
   const signIn = (email, password) =>
     supabase.auth.signInWithPassword({ email, password })
 
-  const signUp = (email, password, fullName) =>
+  const signUp = (email, password, firstName, lastName) =>
     supabase.auth.signUp({
       email, password,
-      options: { data: { full_name: fullName } },
+      options: { data: { first_name: firstName, last_name: lastName } },
     })
 
   const signInWithGoogle = () =>
