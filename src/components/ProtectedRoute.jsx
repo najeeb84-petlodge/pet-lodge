@@ -1,24 +1,47 @@
+import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
 
-export default function ProtectedRoute({ children, requireStaff = false, requireAdmin = false }) {
-  const { user, profile, loading } = useAuth()
+const SUPABASE_URL = 'https://qcwbkpcwtxpokgseethp.supabase.co'
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjd2JrcGN3dHhwb2tnc2VldGhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzNDA1MDMsImV4cCI6MjA4OTkxNjUwM30.8kV-I-9skyBk8wlELT3Ft6j2iBCOtKuoYF7wXbcMZFU'
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="text-5xl mb-4">🐾</div>
-          <div className="animate-spin w-8 h-8 border-4 border-brand-600 border-t-transparent rounded-full mx-auto"/>
-        </div>
+function getStoredSession() {
+  try {
+    const raw = localStorage.getItem('sb-qcwbkpcwtxpokgseethp-auth-token')
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    const token = parsed.access_token || parsed?.currentSession?.access_token
+    const user  = parsed.user || parsed?.currentSession?.user
+    if (!token || !user) return null
+    return { token, user }
+  } catch { return null }
+}
+
+export default function ProtectedRoute({ children, requireStaff = false }) {
+  const [status, setStatus] = useState('checking') // checking | ok | redirect-login | redirect-customer
+
+  useEffect(() => {
+    const session = getStoredSession()
+    if (!session) { setStatus('redirect-login'); return }
+
+    const role = session.user?.user_metadata?.role ?? 'customer'
+    if (requireStaff && !['admin','super_admin','employee'].includes(role)) {
+      setStatus('redirect-customer')
+    } else {
+      setStatus('ok')
+    }
+  }, [])
+
+  if (status === 'checking') return (
+    <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#f8f9f6' }}>
+      <div style={{ textAlign:'center' }}>
+        <img src="/logo.jpg" alt="Pet Lodge" style={{ height:'64px', borderRadius:'8px', marginBottom:'1rem' }}/>
+        <div style={{ width:'32px', height:'32px', border:'3px solid #7aa63c', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.8s linear infinite', margin:'0 auto' }}/>
       </div>
-    )
-  }
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  )
 
-  if (!user) return <Navigate to="/login" replace />
-
-  if (requireAdmin && profile?.role !== 'admin') return <Navigate to="/unauthorized" replace />
-  if (requireStaff && !['admin','employee'].includes(profile?.role)) return <Navigate to="/customer/dashboard" replace />
-
+  if (status === 'redirect-login')    return <Navigate to="/login" replace />
+  if (status === 'redirect-customer') return <Navigate to="/customer/dashboard" replace />
   return children
 }
