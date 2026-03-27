@@ -1,51 +1,59 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { Mail, Lock, Loader2, Sparkles } from 'lucide-react'
 
 export default function Login() {
-  const [email, setEmail]     = useState('')
+  const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState('')
-  const [status, setStatus]   = useState('')
+  const [loading, setLoading]   = useState(false)
+  const [error, setError]       = useState('')
+  const [status, setStatus]     = useState('')
+
+  // Listen for successful auth and redirect
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        setStatus('Signed in! Loading your account...')
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', session.user.id)
+            .single()
+          const role = profile?.role ?? 'customer'
+          setStatus('Welcome! Redirecting...')
+          setTimeout(() => {
+            if (role === 'admin' || role === 'employee') {
+              window.location.href = '/admin/dashboard'
+            } else {
+              window.location.href = '/customer/dashboard'
+            }
+          }, 500)
+        } catch (e) {
+          window.location.href = '/customer/dashboard'
+        }
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [])
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
-    setStatus('Connecting...')
+    setStatus('Signing in...')
     setLoading(true)
-
-    try {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password })
-      if (signInError) throw signInError
-
-      setStatus('Checking your account...')
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', data.user.id)
-        .single()
-
-      const role = profile?.role ?? 'customer'
-      setStatus('Redirecting as ' + role + '...')
-
-      if (role === 'admin' || role === 'employee') {
-        window.location.replace('/admin/dashboard')
-      } else {
-        window.location.replace('/customer/dashboard')
-      }
-    } catch (err) {
-      setError(err.message || 'Sign in failed')
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) {
+      setError(error.message)
       setStatus('')
       setLoading(false)
     }
+    // If no error, onAuthStateChange above handles the redirect
   }
 
   async function handleMagicLink() {
     if (!email) { setError('Enter your email first'); return }
-    setStatus('Sending magic link...')
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: { emailRedirectTo: window.location.origin + '/auth/callback' }
@@ -93,7 +101,6 @@ export default function Login() {
             <span className="text-3xl">🐾</span>
             <h1 className="text-xl font-bold text-slate-800">Pet Lodge JO</h1>
           </div>
-
           <h2 className="text-2xl font-bold text-slate-900 mb-1">Welcome back</h2>
           <p className="text-slate-500 mb-8">Sign in to your account</p>
 
