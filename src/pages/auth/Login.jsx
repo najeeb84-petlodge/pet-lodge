@@ -1,72 +1,64 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { Mail, Lock, Loader2, Sparkles } from 'lucide-react'
 
 export default function Login() {
-  const { signInWithGoogle, signInWithMagicLink } = useAuth()
-
-  const [email, setEmail]         = useState('')
-  const [password, setPassword]   = useState('')
-  const [mode, setMode]           = useState('password')
-  const [loading, setLoading]     = useState(false)
-  const [error, setError]         = useState('')
-  const [magicSent, setMagicSent] = useState(false)
-  const [debug, setDebug]         = useState('')
+  const [email, setEmail]     = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError]     = useState('')
+  const [status, setStatus]   = useState('')
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
-    setDebug('')
+    setStatus('Connecting...')
     setLoading(true)
 
     try {
-      if (mode === 'magic') {
-        const { error } = await signInWithMagicLink(email)
-        if (error) throw error
-        setMagicSent(true)
-        setLoading(false)
-        return
-      }
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+      if (signInError) throw signInError
 
-      setDebug('Signing in...')
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) throw error
+      setStatus('Checking your account...')
 
-      setDebug('Signed in! Checking role...')
-      const { data: profile, error: profileError } = await supabase
+      const { data: profile } = await supabase
         .from('profiles')
-        .select('role, full_name')
+        .select('role')
         .eq('id', data.user.id)
         .single()
 
-      if (profileError) {
-        setDebug('Profile error: ' + profileError.message + ' — going to customer dashboard')
-        setTimeout(() => { window.location.href = '/customer/dashboard' }, 1500)
-        return
+      const role = profile?.role ?? 'customer'
+      setStatus('Redirecting as ' + role + '...')
+
+      if (role === 'admin' || role === 'employee') {
+        window.location.replace('/admin/dashboard')
+      } else {
+        window.location.replace('/customer/dashboard')
       }
-
-      setDebug('Role: ' + (profile?.role ?? 'none') + ' — redirecting...')
-      const role = profile?.role
-      setTimeout(() => {
-        if (role === 'admin' || role === 'employee') {
-          window.location.href = '/admin/dashboard'
-        } else {
-          window.location.href = '/customer/dashboard'
-        }
-      }, 800)
-
     } catch (err) {
-      setError(err.message || 'Something went wrong')
+      setError(err.message || 'Sign in failed')
+      setStatus('')
       setLoading(false)
     }
   }
 
-  async function handleGoogle() {
-    setError('')
-    const { error } = await signInWithGoogle()
+  async function handleMagicLink() {
+    if (!email) { setError('Enter your email first'); return }
+    setStatus('Sending magic link...')
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.origin + '/auth/callback' }
+    })
     if (error) setError(error.message)
+    else setStatus('Magic link sent! Check your email.')
+  }
+
+  async function handleGoogle() {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin + '/auth/callback' }
+    })
   }
 
   return (
@@ -86,11 +78,9 @@ export default function Login() {
           <p className="text-amber-100 text-lg">Professional boarding, grooming, and day care — all in one place.</p>
         </div>
         <div className="space-y-3">
-          {['Safe & comfortable boarding', 'Professional grooming services', 'Real-time booking management', 'Instant SMS & email updates'].map(f => (
+          {['Safe & comfortable boarding','Professional grooming services','Real-time booking management','Instant SMS & email updates'].map(f => (
             <div key={f} className="flex items-center gap-3 text-white">
-              <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center">
-                <Sparkles size={12}/>
-              </div>
+              <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center"><Sparkles size={12}/></div>
               <span className="text-sm">{f}</span>
             </div>
           ))}
@@ -107,53 +97,32 @@ export default function Login() {
           <h2 className="text-2xl font-bold text-slate-900 mb-1">Welcome back</h2>
           <p className="text-slate-500 mb-8">Sign in to your account</p>
 
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mb-4">
-              {error}
-            </div>
-          )}
+          {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mb-4">{error}</div>}
+          {status && <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg text-sm mb-4">{status}</div>}
 
-          {debug && (
-            <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg text-sm mb-4">
-              {debug}
-            </div>
-          )}
-
-          {magicSent ? (
-            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-4 rounded-lg text-sm text-center">
-              <Mail size={24} className="mx-auto mb-2"/>
-              <p className="font-medium">Check your email!</p>
-              <p>We sent a magic link to <strong>{email}</strong></p>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
-                <div className="relative">
-                  <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
-                  <input className="input pl-9" type="email" placeholder="you@example.com"
-                    value={email} onChange={e => setEmail(e.target.value)} required/>
-                </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+              <div className="relative">
+                <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
+                <input className="input pl-9" type="email" placeholder="you@example.com"
+                  value={email} onChange={e => setEmail(e.target.value)} required/>
               </div>
-
-              {mode === 'password' && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
-                  <div className="relative">
-                    <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
-                    <input className="input pl-9" type="password" placeholder="••••••••"
-                      value={password} onChange={e => setPassword(e.target.value)} required/>
-                  </div>
-                </div>
-              )}
-
-              <button type="submit" disabled={loading}
-                className="btn-primary w-full flex items-center justify-center gap-2 py-2.5">
-                {loading ? <Loader2 size={18} className="animate-spin"/> : null}
-                {mode === 'magic' ? 'Send Magic Link' : 'Sign In'}
-              </button>
-            </form>
-          )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
+              <div className="relative">
+                <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
+                <input className="input pl-9" type="password" placeholder="••••••••"
+                  value={password} onChange={e => setPassword(e.target.value)} required/>
+              </div>
+            </div>
+            <button type="submit" disabled={loading}
+              className="btn-primary w-full flex items-center justify-center gap-2 py-2.5">
+              {loading && <Loader2 size={18} className="animate-spin"/>}
+              Sign In
+            </button>
+          </form>
 
           <div className="flex items-center gap-3 my-6">
             <div className="flex-1 h-px bg-gray-200"/>
@@ -162,8 +131,7 @@ export default function Login() {
           </div>
 
           <div className="space-y-3">
-            <button onClick={handleGoogle}
-              className="btn-secondary w-full flex items-center justify-center gap-2">
+            <button onClick={handleGoogle} className="btn-secondary w-full flex items-center justify-center gap-2">
               <svg viewBox="0 0 24 24" className="w-4 h-4">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                 <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -172,11 +140,8 @@ export default function Login() {
               </svg>
               Continue with Google
             </button>
-
-            <button
-              onClick={() => { setMode(mode === 'magic' ? 'password' : 'magic'); setMagicSent(false); setError('') }}
-              className="btn-secondary w-full text-sm">
-              {mode === 'magic' ? '← Sign in with password' : '✨ Send me a magic link'}
+            <button onClick={handleMagicLink} className="btn-secondary w-full text-sm">
+              ✨ Send me a magic link
             </button>
           </div>
 
