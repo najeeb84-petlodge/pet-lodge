@@ -1,21 +1,37 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../contexts/AuthContext'
 
 export default function AuthCallback() {
+  const { user, profile, loading } = useAuth()
   const navigate = useNavigate()
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) { navigate('/login'); return }
-      supabase.from('profiles').select('role').eq('id', session.user.id).single()
-        .then(({ data }) => {
-          const role = data?.role
-          if (role === 'admin' || role === 'employee') navigate('/admin/dashboard')
-          else navigate('/customer/dashboard')
-        })
-    })
-  }, [])
+    if (loading) return // Wait for auth to finish loading
+
+    if (!user) {
+      navigate('/login')
+      return
+    }
+
+    // Profile loaded - redirect based on role
+    if (profile) {
+      if (profile.role === 'admin' || profile.role === 'employee') {
+        navigate('/admin/dashboard')
+      } else {
+        navigate('/customer/dashboard')
+      }
+      return
+    }
+
+    // Profile not found - default to customer dashboard
+    // but wait a moment in case it's still loading
+    const timer = setTimeout(() => {
+      navigate('/customer/dashboard')
+    }, 3000)
+
+    return () => clearTimeout(timer)
+  }, [user, profile, loading])
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
