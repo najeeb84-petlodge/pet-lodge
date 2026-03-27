@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import { supabase } from '../../lib/supabase'
 import { Mail, Lock, Loader2, Sparkles } from 'lucide-react'
 
 export default function Login() {
-  const { signIn, signInWithGoogle, signInWithMagicLink } = useAuth()
-  const navigate = useNavigate()
+  const { signInWithGoogle, signInWithMagicLink } = useAuth()
 
   const [email, setEmail]         = useState('')
   const [password, setPassword]   = useState('')
@@ -13,25 +13,52 @@ export default function Login() {
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState('')
   const [magicSent, setMagicSent] = useState(false)
+  const [debug, setDebug]         = useState('')
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+    setDebug('')
     setLoading(true)
+
     try {
       if (mode === 'magic') {
         const { error } = await signInWithMagicLink(email)
         if (error) throw error
         setMagicSent(true)
-      } else {
-        const { error } = await signIn(email, password)
-        if (error) throw error
-        // Let AuthCallback read the role and redirect correctly
-        navigate('/auth/callback')
+        setLoading(false)
+        return
       }
+
+      setDebug('Signing in...')
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) throw error
+
+      setDebug('Signed in! Checking role...')
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role, full_name')
+        .eq('id', data.user.id)
+        .single()
+
+      if (profileError) {
+        setDebug('Profile error: ' + profileError.message + ' — going to customer dashboard')
+        setTimeout(() => { window.location.href = '/customer/dashboard' }, 1500)
+        return
+      }
+
+      setDebug('Role: ' + (profile?.role ?? 'none') + ' — redirecting...')
+      const role = profile?.role
+      setTimeout(() => {
+        if (role === 'admin' || role === 'employee') {
+          window.location.href = '/admin/dashboard'
+        } else {
+          window.location.href = '/customer/dashboard'
+        }
+      }, 800)
+
     } catch (err) {
       setError(err.message || 'Something went wrong')
-    } finally {
       setLoading(false)
     }
   }
@@ -44,7 +71,6 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex">
-      {/* Left panel */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-amber-500 via-amber-600 to-orange-600 flex-col justify-between p-12">
         <div>
           <div className="flex items-center gap-3 mb-12">
@@ -71,7 +97,6 @@ export default function Login() {
         </div>
       </div>
 
-      {/* Right panel */}
       <div className="flex-1 flex items-center justify-center p-8 bg-gray-50">
         <div className="w-full max-w-md">
           <div className="lg:hidden flex items-center gap-2 mb-8">
@@ -85,6 +110,12 @@ export default function Login() {
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mb-4">
               {error}
+            </div>
+          )}
+
+          {debug && (
+            <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg text-sm mb-4">
+              {debug}
             </div>
           )}
 
