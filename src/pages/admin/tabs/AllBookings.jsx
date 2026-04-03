@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { dbQuery, dbUpdate } from '../../../lib/supabase'
 import { format } from 'date-fns'
 import { Search, Eye, Edit2, FileText, Mail, X, Loader2 } from 'lucide-react'
+import BookingModal from './BookingModal'
 
 const STATUS_OPTIONS = ['pending','confirmed','completed','cancelled']
 const STATUS_CLASS = { pending:'badge-pending', confirmed:'badge-confirmed', completed:'badge-completed', cancelled:'badge-cancelled' }
@@ -149,34 +150,11 @@ export default function AllBookings({ isSuperAdmin }) {
 
       {/* Detail modal */}
       {selected && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:50, padding:'1rem' }} onClick={() => setSelected(null)}>
-          <div style={{ background:'white', borderRadius:'1rem', padding:'1.5rem', width:'100%', maxWidth:'480px', maxHeight:'80vh', overflowY:'auto' }} onClick={e => e.stopPropagation()}>
-            <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'1rem' }}>
-              <h3 style={{ fontWeight:'700', fontSize:'1.1rem' }}>Booking Details</h3>
-              <button onClick={() => setSelected(null)} style={{ border:'none', background:'transparent', cursor:'pointer' }}><X size={18}/></button>
-            </div>
-            {[
-              ['Booking Ref', selected.booking_ref || selected.id?.slice(0,8)],
-              ['Customer', ownerName(selected)],
-              ['Email', selected.profiles?.email],
-              ['Phone', selected.profiles?.phone],
-              ['Pet', selected.pets?.name],
-              ['Service', selected.services?.name],
-              ['Check-in', selected.start_date ? format(new Date(selected.start_date),'PPP') : '—'],
-              ['Check-out', selected.end_date ? format(new Date(selected.end_date),'PPP') : '—'],
-              ['Days', selected.total_days],
-              ['Amount', `JD ${selected.total_amount ?? selected.total_price ?? 0}`],
-              ['Status', selected.status],
-              ['Notes', selected.additional_comments || 'None'],
-            ].map(([k,v]) => (
-              <div key={k} style={{ display:'flex', justifyContent:'space-between', borderBottom:'1px solid var(--border)', padding:'0.5rem 0', fontSize:'0.875rem' }}>
-                <span style={{ color:'var(--muted)' }}>{k}</span>
-                <span style={{ fontWeight:'500', textAlign:'right', textTransform:'capitalize' }}>{v ?? '—'}</span>
-              </div>
-            ))}
-            <button onClick={() => setSelected(null)} className="btn-secondary" style={{ width:'100%', marginTop:'1rem', justifyContent:'center' }}>Close</button>
-          </div>
-        </div>
+        <BookingModal
+          booking={selected}
+          onClose={() => setSelected(null)}
+          onUpdated={fetchAll}
+        />
       )}
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
