@@ -19,7 +19,7 @@ export default function AllBookings({ isSuperAdmin }) {
     setLoading(true)
     try {
       const [allBookings, pendingBookings, payments, mods] = await Promise.all([
-        dbQuery('bookings', '?select=*,profiles(first_name,last_name,phone,email)&order=created_at.desc'),
+        dbQuery('bookings', '?select=*&order=created_at.desc'),
         dbQuery('bookings', '?status=eq.pending&select=id'),
         dbQuery('payments', '?status=eq.paid&select=amount'),
         dbQuery('modification_requests', '?status=eq.pending&select=id'),
@@ -46,16 +46,15 @@ export default function AllBookings({ isSuperAdmin }) {
   const filtered = bookings.filter(b => {
     const s = search.toLowerCase()
     const matchSearch = !search ||
-      b.profiles?.first_name?.toLowerCase().includes(s) ||
-      b.profiles?.last_name?.toLowerCase().includes(s) ||
-      b.profiles?.email?.toLowerCase().includes(s) ||
+      b.customer_name?.toLowerCase().includes(s) ||
+      b.customer_email?.toLowerCase().includes(s) ||
       b.pets_data?.[0]?.name?.toLowerCase().includes(s) ||
       b.booking_ref?.toLowerCase().includes(s)
     const matchStatus = filterStatus === 'all' || b.status === filterStatus
     return matchSearch && matchStatus
   })
 
-  const ownerName = b => `${b.profiles?.first_name||''} ${b.profiles?.last_name||''}`.trim() || '—'
+  const ownerName = b => b.customer_name || '—'
 
   return (
     <div>
@@ -109,8 +108,8 @@ export default function AllBookings({ isSuperAdmin }) {
             {/* Customer */}
             <div style={{ flex:'1', minWidth:'160px' }}>
               <p style={{ fontWeight:'600', fontSize:'0.9rem' }}>{ownerName(b)} <span style={{ fontWeight:'400', color:'var(--muted)' }}>— {b.pets_data?.[0]?.name||'—'}</span></p>
-              <p style={{ fontSize:'0.75rem', color:'var(--muted)' }}>{b.profiles?.email}</p>
-              <p style={{ fontSize:'0.75rem', color:'var(--muted)' }}>{b.profiles?.phone}</p>
+              <p style={{ fontSize:'0.75rem', color:'var(--muted)' }}>{b.customer_email}</p>
+              <p style={{ fontSize:'0.75rem', color:'var(--muted)' }}>{b.customer_phone}</p>
               <p style={{ fontSize:'0.75rem', color:'var(--muted)' }}>ID: {b.booking_ref || b.id?.slice(0,8)}</p>
             </div>
 
