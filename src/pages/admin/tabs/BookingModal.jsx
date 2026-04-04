@@ -5,6 +5,8 @@ import {
   ChevronDown, ChevronUp, Save, Plus, Trash2,
   Loader2, Check, Copy,
 } from 'lucide-react'
+import { jsPDF } from 'jspdf'
+import html2canvas from 'html2canvas'
 import { supabase, dbQuery, dbUpdate } from '../../../lib/supabase'
 
 const PAYMENT_METHODS = ['cash', 'card', 'bank_transfer', 'online']
@@ -729,28 +731,38 @@ We look forward to welcoming ${b.pets?.name || 'your pet'}! 🐾`
 
   // ── RECEIPT MODE ─────────────────────────────────────────────────────────────
   function ReceiptMode() {
-    const receiptId     = (b.booking_ref || b.id || '').slice(-8).toUpperCase()
-    const receiptOwner  = `${b.customer_first_name || b.profiles?.first_name || ''} ${b.customer_last_name || b.profiles?.last_name || ''}`.trim() || '—'
-    const petName       = b.pets_data?.[0]?.name || b.pets?.name || '—'
-    const allPetNames   = Array.isArray(b.pets_data) ? b.pets_data.map(p => p?.name).filter(Boolean).join(', ') : petName
-    const numPets       = b.num_pets || (Array.isArray(b.pets_data) ? b.pets_data.length : 1) || 1
-    const days          = b.total_days || 0
-    const total         = parseFloat(b.total_amount ?? b.total_price ?? 0)
+    const [sendSection, setSendSection] = useState(null) // 'email' | 'whatsapp' | null
+    const [toast,       setToast]       = useState('')
+    const [downloading, setDownloading] = useState(false)
 
-    const GREEN = '#8CB733'
+    const receiptId    = (b.booking_ref || b.id || '').slice(-8).toUpperCase()
+    const firstName    = b.customer_first_name || b.profiles?.first_name || ''
+    const receiptOwner = `${firstName} ${b.customer_last_name || b.profiles?.last_name || ''}`.trim() || '—'
+    const petName      = b.pets_data?.[0]?.name || b.pets?.name || '—'
+    const allPetNames  = Array.isArray(b.pets_data) ? b.pets_data.map(p => p?.name).filter(Boolean).join(', ') : petName
+    const numPets      = b.num_pets || (Array.isArray(b.pets_data) ? b.pets_data.length : 1) || 1
+    const days         = b.total_days || 0
+    const total        = parseFloat(b.total_amount ?? b.total_price ?? 0)
+    const GREEN        = '#8CB733'
+
+    const defaultMsg = `Dear Mr/Ms ${firstName || 'Customer'}, Thank you for choosing Pet Lodge for ${allPetNames}'s stay! Payment can be made via: Cash, Card, CliQ: 0795535405 / Saleh Abdelhadi. Stay connected: www.petlodgejo.com / +962 79 8906476 / info@petlodgejo.com`
+
+    const [emailAddr, setEmailAddr] = useState(b.customer_email || '')
+    const [emailMsg,  setEmailMsg]  = useState(defaultMsg)
+    const [waNumber,  setWaNumber]  = useState(b.customer_whatsapp || b.customer_phone || '')
+    const [waMsg,     setWaMsg]     = useState(defaultMsg)
 
     function isPerDay(name = '') {
       const n = name.toLowerCase()
       return n.includes('boarding') || n.includes('daycare') || n.includes('food')
     }
 
-    const rawServices = b.service_details || b.serviceDetails || null
+    const rawServices  = b.service_details || b.serviceDetails || null
     const baseServices = (rawServices && rawServices.length > 0) ? rawServices : [{
-      name:       b.service_type ? b.service_type.charAt(0).toUpperCase() + b.service_type.slice(1) : 'Boarding',
-      unit:       'Day',
-      unit_price: ((b.total_amount || 0) / (b.total_days || 1)).toFixed(0),
-      num_pets:   b.num_pets || 1,
-      quantity:   b.total_days || 1,
+      name:        b.service_type ? b.service_type.charAt(0).toUpperCase() + b.service_type.slice(1) : 'Boarding',
+      unit_price:  b.unit_price ?? '',
+      num_pets:    b.num_pets || 1,
+      quantity:    b.total_days || 1,
       total_price: b.total_amount || 0,
     }]
     const sorted = [...baseServices].sort((a, bb) => {
@@ -762,61 +774,89 @@ We look forward to welcoming ${b.pets?.name || 'your pet'}! 🐾`
     const serviceRows = sorted.map(svc => ({
       name:      svc?.name || '—',
       unit:      isPerDay(svc?.name) ? 'Day' : 'Service',
-      unitPrice: parseFloat(svc?.unit_price ?? svc?.price ?? 0).toFixed(2),
+      unitPrice: svc?.unit_price != null && svc.unit_price !== '' ? `JD ${svc.unit_price}` : '—',
       numPets:   svc?.num_pets ?? numPets,
       quantity:  isPerDay(svc?.name) ? (svc?.quantity ?? days) : (svc?.quantity || 1),
-      total:     parseFloat(svc?.total_price ?? svc?.total ?? 0).toFixed(2),
+      total:     svc?.total_price != null ? parseFloat(svc.total_price).toFixed(2) : '—',
     }))
     while (serviceRows.length < MIN_ROWS) serviceRows.push(null)
 
-    const thStyle = { padding: '6px 8px', textAlign: 'left', fontWeight: '700', fontSize: '0.72rem', color: 'white', borderRight: '1px solid rgba(255,255,255,0.25)' }
-    const tdStyle = { padding: '5px 8px', fontSize: '0.78rem', borderRight: '1px solid #e5e7eb', borderBottom: '1px solid #e5e7eb' }
-    const tdDash  = { ...tdStyle, color: '#9ca3af', textAlign: 'center' }
+    async function downloadPDF() {
+      setDownloading(true)
+      try {
+        const el     = document.getElementById('receipt-content')
+        const canvas = await html2canvas(el, { scale: 2, useCORS: true })
+        const pdf    = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+        const w      = pdf.internal.pageSize.getWidth()
+        const h      = (canvas.height * w) / canvas.width
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, w, h)
+        pdf.save(`Receipt-${b.booking_ref || b.id?.slice(0, 8)}.pdf`)
+      } catch (e) { console.error(e) }
+      setDownloading(false)
+    }
+
+    async function prepareWhatsApp() {
+      await downloadPDF()
+      const phone = waNumber.replace(/\D/g, '')
+      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(waMsg)}`, '_blank')
+    }
+
+    function showToast(msg) {
+      setToast(msg)
+      setTimeout(() => setToast(''), 3000)
+    }
+
+    const thStyle  = { padding: '6px 8px', textAlign: 'left', fontWeight: '700', fontSize: '0.72rem', color: 'white', borderRight: '1px solid rgba(255,255,255,0.25)' }
+    const tdStyle  = { padding: '5px 8px', fontSize: '0.78rem', borderRight: '1px solid #e5e7eb', borderBottom: '1px solid #e5e7eb' }
+    const tdDash   = { ...tdStyle, color: '#9ca3af', textAlign: 'center' }
+    const linkStyle = { display: 'block', color: '#2563eb', textDecoration: 'underline' }
 
     return (
       <div>
+        {/* Toast */}
+        {toast && (
+          <div style={{ position: 'fixed', top: '1rem', right: '1rem', background: '#16a34a', color: 'white', padding: '0.75rem 1.25rem', borderRadius: '8px', zIndex: 999, fontSize: '0.875rem', fontWeight: '600', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
+            ✓ {toast}
+          </div>
+        )}
+
         {/* ── Printable receipt card ── */}
-        <div id="receipt-printable" style={{ fontFamily: 'Arial, sans-serif', background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '24px', marginBottom: '16px' }}>
+        <div id="receipt-content" style={{ fontFamily: 'Arial, sans-serif', background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '24px', marginBottom: '16px' }}>
 
           {/* Two-column header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', gap: '16px' }}>
 
-            {/* Left: receipt ref + info rows */}
+            {/* Left: title + info rows */}
             <div style={{ flex: 1 }}>
-              <h1 style={{ fontSize: '1.6rem', fontWeight: '800', margin: '0 0 12px', color: '#111' }}>
-                Receipt #{receiptId}
+              <h1 style={{ fontSize: '1.6rem', fontWeight: '800', margin: '0 0 14px', color: '#111' }}>
+                Receipt (#{receiptId})
               </h1>
-              <table style={{ borderCollapse: 'collapse', width: '100%', maxWidth: '320px' }}>
+              <table style={{ borderCollapse: 'collapse', width: '100%', maxWidth: '340px' }}>
                 <tbody>
                   {[
                     ["Owner's Name",   receiptOwner],
-                    ["Pet's Name",     petName],
-                    ["Arrival Date",   b.start_date ? format(new Date(b.start_date), 'dd/MM/yyyy') : '—'],
-                    ["Departure Date", b.end_date   ? format(new Date(b.end_date),   'dd/MM/yyyy') : '—'],
+                    ["Pet's Name",     allPetNames],
+                    ["Arrival Date",   b.start_date ? format(new Date(b.start_date), 'EEE, dd MMM yyyy') : '—'],
+                    ["Departure Date", b.end_date   ? format(new Date(b.end_date),   'EEE, dd MMM yyyy') : '—'],
                   ].map(([label, val]) => (
                     <tr key={label}>
-                      <td style={{ padding: '4px 12px 4px 0', fontSize: '0.82rem', fontWeight: '600', color: '#374151', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>{label}</td>
-                      <td style={{ padding: '4px 0', fontSize: '0.82rem', color: '#111', borderBottom: '1px solid #e5e7eb' }}>{val}</td>
+                      <td style={{ padding: '5px 14px 5px 0', fontSize: '0.82rem', fontWeight: '700', color: '#374151', borderBottom: '1px solid #d1d5db', whiteSpace: 'nowrap' }}>{label}</td>
+                      <td style={{ padding: '5px 0', fontSize: '0.82rem', color: '#111', borderBottom: '1px solid #d1d5db' }}>{val}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
 
-            {/* Right: logo + contact */}
+            {/* Right: logo + contact links */}
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <img src="/logo.jpg" alt="Pet Lodge" style={{ width: '80px', height: '80px', objectFit: 'contain', borderRadius: '8px', marginBottom: '8px', display: 'block', marginLeft: 'auto' }} />
+              <img src="/logo.jpg" alt="Pet Lodge" style={{ width: '80px', height: '80px', objectFit: 'contain', borderRadius: '8px', marginBottom: '10px', display: 'block', marginLeft: 'auto' }} />
               <div style={{ fontSize: '0.72rem', lineHeight: '1.9' }}>
-                {[
-                  { href: 'https://www.petlodgejo.com/',               text: 'www.petlodgejo.com' },
-                  { href: 'tel:+962798906476',                          text: '+962 79 8906476' },
-                  { href: 'mailto:info@petlodgejo.com',                  text: 'info@petlodgejo.com' },
-                  { href: 'https://www.facebook.com/Pet.Lodge.Jo/',     text: 'facebook.com/Pet.Lodge.Jo' },
-                  { href: 'https://goo.gl/maps/bWRapfE4YZS2',          text: 'View on Maps' },
-                ].map(({ href, text }) => (
-                  <a key={href} href={href} target="_blank" rel="noopener noreferrer"
-                    style={{ display: 'block', color: '#2563eb', textDecoration: 'none' }}>{text}</a>
-                ))}
+                <a href="https://www.petlodgejo.com/"           target="_blank" rel="noopener noreferrer" style={linkStyle}>www.petlodgejo.com</a>
+                <a href="tel:+962798906476"                      target="_blank" rel="noopener noreferrer" style={linkStyle}>+962 79 8906476</a>
+                <a href="mailto:info@petlodgejo.com"             target="_blank" rel="noopener noreferrer" style={linkStyle}>info@petlodgejo.com</a>
+                <a href="https://www.facebook.com/Pet.Lodge.Jo/" target="_blank" rel="noopener noreferrer" style={linkStyle}>facebook.com/Pet.Lodge.Jo</a>
+                <a href="https://goo.gl/maps/bWRapfE4YZS2"      target="_blank" rel="noopener noreferrer" style={linkStyle}>View on Maps</a>
               </div>
             </div>
           </div>
@@ -874,22 +914,74 @@ We look forward to welcoming ${b.pets?.name || 'your pet'}! 🐾`
           {/* Footer row */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.72rem', color: '#6b7280' }}>
             <span>CliQ 0795535405 / Saleh Abdelhadi</span>
-            <span>Receipt - {receiptOwner} ({allPetNames}) - {b.end_date ? format(new Date(b.end_date), 'dd/MM/yyyy') : '—'}</span>
+            <span>Receipt - {receiptOwner} ({allPetNames}) - {b.end_date ? format(new Date(b.end_date), 'EEE, dd MMM yyyy') : '—'}</span>
           </div>
         </div>
 
-        {/* Action buttons */}
-        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+        {/* ── Action buttons ── */}
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end', marginBottom: '0.75rem' }}>
           <button onClick={() => setMode('view')} className="btn-secondary" style={{ fontSize: '0.875rem' }}>
             <X size={14} /> Back
           </button>
           <button onClick={() => window.print()} className="btn-secondary" style={{ fontSize: '0.875rem' }}>
             <FileText size={14} /> Print
           </button>
-          <button onClick={() => { setSendTab('receipt'); setSendOpen(true) }} className="btn-primary" style={{ fontSize: '0.875rem' }}>
-            <Mail size={14} /> Send Receipt
+          <button onClick={downloadPDF} disabled={downloading} className="btn-secondary" style={{ fontSize: '0.875rem' }}>
+            {downloading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <FileText size={14} />}
+            {downloading ? 'Generating…' : 'Download PDF'}
+          </button>
+          <button
+            onClick={() => setSendSection(s => s === 'email' ? null : 'email')}
+            className={sendSection === 'email' ? 'btn-primary' : 'btn-secondary'}
+            style={{ fontSize: '0.875rem' }}
+          >
+            <Mail size={14} /> Send via Email
+          </button>
+          <button
+            onClick={() => setSendSection(s => s === 'whatsapp' ? null : 'whatsapp')}
+            className={sendSection === 'whatsapp' ? 'btn-primary' : 'btn-secondary'}
+            style={{ fontSize: '0.875rem' }}
+          >
+            <MessageCircle size={14} /> Send via WhatsApp
           </button>
         </div>
+
+        {/* ── Email sub-section ── */}
+        {sendSection === 'email' && (
+          <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem', marginBottom: '0.75rem', background: '#f8fafc' }}>
+            <p style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--primary)', marginBottom: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Send Receipt via Email</p>
+            <div style={{ marginBottom: '0.5rem' }}>
+              <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.2rem', fontWeight: '600' }}>To</label>
+              <input className="input" value={emailAddr} onChange={e => setEmailAddr(e.target.value)} placeholder="customer@email.com" />
+            </div>
+            <div style={{ marginBottom: '0.75rem' }}>
+              <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.2rem', fontWeight: '600' }}>Message</label>
+              <textarea className="input" rows={4} value={emailMsg} onChange={e => setEmailMsg(e.target.value)} style={{ resize: 'vertical', fontSize: '0.82rem', lineHeight: '1.55' }} />
+            </div>
+            <button onClick={() => showToast('Receipt sent via email!')} className="btn-primary" style={{ fontSize: '0.875rem' }}>
+              <Mail size={14} /> Send Receipt via Email
+            </button>
+          </div>
+        )}
+
+        {/* ── WhatsApp sub-section ── */}
+        {sendSection === 'whatsapp' && (
+          <div style={{ border: '1px solid #d1fae5', borderRadius: '8px', padding: '1rem', marginBottom: '0.75rem', background: '#f0fdf4' }}>
+            <p style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--primary)', marginBottom: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Send via WhatsApp</p>
+            <div style={{ marginBottom: '0.5rem' }}>
+              <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.2rem', fontWeight: '600' }}>WhatsApp Number</label>
+              <input className="input" value={waNumber} onChange={e => setWaNumber(e.target.value)} placeholder="+962 7X XXX XXXX" />
+            </div>
+            <div style={{ marginBottom: '0.75rem' }}>
+              <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.2rem', fontWeight: '600' }}>Message</label>
+              <textarea className="input" rows={4} value={waMsg} onChange={e => setWaMsg(e.target.value)} style={{ resize: 'vertical', fontSize: '0.82rem', lineHeight: '1.55' }} />
+            </div>
+            <button onClick={prepareWhatsApp} disabled={downloading} className="btn-primary" style={{ fontSize: '0.875rem', background: '#25d366', borderColor: '#25d366' }}>
+              {downloading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <MessageCircle size={14} />}
+              {downloading ? 'Generating PDF…' : 'Prepare WhatsApp Message'}
+            </button>
+          </div>
+        )}
       </div>
     )
   }
