@@ -1,19 +1,70 @@
 import { useEffect, useState } from 'react'
 import { dbQuery, dbUpdate } from '../../../lib/supabase'
-import { format } from 'date-fns'
-import { Search, Eye, Edit2, FileText, Mail, X, Loader2 } from 'lucide-react'
+import { format, isAfter, isBefore, isEqual } from 'date-fns'
+import { Search, Eye, Edit2, FileText, Mail, Loader2, SlidersHorizontal } from 'lucide-react'
 import BookingModal from './BookingModal'
 
-const STATUS_OPTIONS = ['pending','confirmed','completed','cancelled']
-const STATUS_CLASS = { pending:'badge-pending', confirmed:'badge-confirmed', completed:'badge-completed', cancelled:'badge-cancelled' }
+const STATUS_OPTIONS  = ['pending','confirmed','completed','cancelled']
+const STATUS_CLASS    = { pending:'badge-pending', confirmed:'badge-confirmed', completed:'badge-completed', cancelled:'badge-cancelled' }
+const PET_TYPES       = ['all','dog','cat']
+const SERVICE_TYPES   = ['all','boarding','daycare','grooming','training']
+
+const selStyle = { fontSize:'0.8rem', padding:'5px 8px', borderRadius:'6px', border:'1px solid var(--border)', background:'white', color:'var(--text)', cursor:'pointer' }
+const tagStyle = { display:'inline-block', fontSize:'0.68rem', fontWeight:'600', padding:'2px 7px', borderRadius:'4px', background:'#f1f5f9', color:'#475569', marginRight:'3px', marginBottom:'2px' }
+const noteStyle = { fontSize:'0.7rem', color:'#dc2626', marginTop:'2px' }
+
+// Parse dd/mm/yyyy → Date or null
+function parseDMY(str) {
+  if (!str) return null
+  const [d, m, y] = str.split('/')
+  if (!d || !m || !y) return null
+  const dt = new Date(+y, +m - 1, +d)
+  return isNaN(dt) ? null : dt
+}
+
+function ServiceTags({ b }) {
+  const items = Array.isArray(b.service_details)
+    ? b.service_details.map(s => s?.name || s).filter(Boolean)
+    : b.service_type
+      ? [b.service_type]
+      : []
+  if (!items.length) return null
+  return (
+    <div>
+      {items.map((name, i) => <span key={i} style={tagStyle}>{name}</span>)}
+    </div>
+  )
+}
+
+function Comments({ b }) {
+  const fields = [
+    { key:'special_food_req',     label:'Food'       },
+    { key:'additional_comments',  label:'Notes'      },
+    { key:'driver_comments',      label:'Driver'     },
+    { key:'medication_notes',     label:'Medication' },
+  ]
+  const lines = fields.filter(f => b[f.key])
+  if (!lines.length) return null
+  return (
+    <div>
+      {lines.map(f => (
+        <p key={f.key} style={noteStyle}><strong>{f.label}:</strong> {b[f.key]}</p>
+      ))}
+    </div>
+  )
+}
 
 export default function AllBookings({ isSuperAdmin }) {
-  const [bookings, setBookings] = useState([])
-  const [loading, setLoading]   = useState(true)
-  const [search, setSearch]     = useState('')
+  const [bookings, setBookings]       = useState([])
+  const [loading, setLoading]         = useState(true)
+  const [search, setSearch]           = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
-  const [selected, setSelected] = useState(null)
-  const [stats, setStats]       = useState({ total:0, pending:0, revenue:0, modRequests:0 })
+  const [filterPetType, setFilterPetType] = useState('all')
+  const [filterService, setFilterService] = useState('all')
+  const [dateFrom, setDateFrom]       = useState('')
+  const [dateTo, setDateTo]           = useState('')
+  const [selected, setSelected]       = useState(null)
+  const [stats, setStats]             = useState({ total:0, pending:0, revenue:0, modRequests:0 })
 
   async function fetchAll() {
     setLoading(true)
@@ -43,6 +94,18 @@ export default function AllBookings({ isSuperAdmin }) {
     setBookings(prev => prev.map(b => b.id === id ? { ...b, status } : b))
   }
 
+  function clearFilters() {
+    setSearch('')
+    setFilterStatus('all')
+    setFilterPetType('all')
+    setFilterService('all')
+    setDateFrom('')
+    setDateTo('')
+  }
+
+  const fromDate = parseDMY(dateFrom)
+  const toDate   = parseDMY(dateTo)
+
   const filtered = bookings.filter(b => {
     const s = search.toLowerCase()
     const matchSearch = !search ||
@@ -51,8 +114,17 @@ export default function AllBookings({ isSuperAdmin }) {
       b.customer_email?.toLowerCase().includes(s) ||
       b.pets_data?.[0]?.name?.toLowerCase().includes(s) ||
       b.booking_ref?.toLowerCase().includes(s)
-    const matchStatus = filterStatus === 'all' || b.status === filterStatus
-    return matchSearch && matchStatus
+
+    const matchStatus  = filterStatus === 'all'  || b.status === filterStatus
+    const matchPetType = filterPetType === 'all' || b.pets_data?.[0]?.type?.toLowerCase() === filterPetType
+    const matchService = filterService === 'all' || b.service_type?.toLowerCase() === filterService ||
+      (Array.isArray(b.service_details) && b.service_details.some(sd => sd?.category?.toLowerCase() === filterService || sd?.name?.toLowerCase().includes(filterService)))
+
+    const bStart = b.start_date ? new Date(b.start_date) : null
+    const matchFrom = !fromDate || !bStart || isAfter(bStart, fromDate) || isEqual(bStart, fromDate)
+    const matchTo   = !toDate   || !bStart || isBefore(bStart, toDate)  || isEqual(bStart, toDate)
+
+    return matchSearch && matchStatus && matchPetType && matchService && matchFrom && matchTo
   })
 
   const ownerName = b => `${b.customer_first_name||''} ${b.customer_last_name||''}`.trim() || '—'
@@ -62,8 +134,8 @@ export default function AllBookings({ isSuperAdmin }) {
       {/* Stats */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))', gap:'0.75rem', marginBottom:'1.5rem' }}>
         {[
-          { label:'Total Bookings', value:stats.total, icon:'📅' },
-          { label:'Pending Bookings', value:stats.pending, icon:'🐾' },
+          { label:'Total Bookings',       value:stats.total,   icon:'📅' },
+          { label:'Pending Bookings',     value:stats.pending, icon:'🐾' },
           ...(isSuperAdmin ? [{ label:'Monthly Revenue', value:`JD ${stats.revenue.toFixed(2)}`, icon:'$' }] : []),
           { label:'Modification Requests', value:stats.modRequests, icon:'🔔', orange:true },
         ].map(s => (
@@ -79,18 +151,36 @@ export default function AllBookings({ isSuperAdmin }) {
 
       {/* Filters */}
       <div className="card" style={{ marginBottom:'1rem' }}>
-        <div style={{ display:'flex', gap:'0.75rem', flexWrap:'wrap' }}>
+        {/* Row 1: search */}
+        <div style={{ display:'flex', gap:'0.75rem', flexWrap:'wrap', marginBottom:'0.6rem' }}>
           <div style={{ position:'relative', flex:1, minWidth:'200px' }}>
             <Search size={15} style={{ position:'absolute', left:'10px', top:'50%', transform:'translateY(-50%)', color:'var(--muted)' }}/>
             <input className="input" style={{ paddingLeft:'2rem' }} placeholder="Search by pet name, customer name, email, or booking ID..."
               value={search} onChange={e => setSearch(e.target.value)}/>
           </div>
-          <select className="input" style={{ width:'150px' }} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+        </div>
+        {/* Row 2: dropdowns + date range + clear */}
+        <div style={{ display:'flex', gap:'0.5rem', flexWrap:'wrap', alignItems:'center' }}>
+          <select style={selStyle} value={filterPetType} onChange={e => setFilterPetType(e.target.value)}>
+            {PET_TYPES.map(t => <option key={t} value={t}>{t === 'all' ? 'All Pet Types' : t.charAt(0).toUpperCase()+t.slice(1)}</option>)}
+          </select>
+          <select style={selStyle} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
             <option value="all">All Statuses</option>
             {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}
           </select>
-          <button onClick={() => { setSearch(''); setFilterStatus('all') }} className="btn-secondary" style={{ display:'flex', alignItems:'center', gap:'4px', fontSize:'0.875rem' }}>
-            <X size={14}/> Clear Filters
+          <select style={selStyle} value={filterService} onChange={e => setFilterService(e.target.value)}>
+            {SERVICE_TYPES.map(t => <option key={t} value={t}>{t === 'all' ? 'All Services' : t.charAt(0).toUpperCase()+t.slice(1)}</option>)}
+          </select>
+          <div style={{ display:'flex', alignItems:'center', gap:'4px' }}>
+            <input style={{ ...selStyle, width:'110px' }} placeholder="From dd/mm/yyyy"
+              value={dateFrom} onChange={e => setDateFrom(e.target.value)}/>
+            <span style={{ fontSize:'0.75rem', color:'var(--muted)' }}>–</span>
+            <input style={{ ...selStyle, width:'110px' }} placeholder="To dd/mm/yyyy"
+              value={dateTo} onChange={e => setDateTo(e.target.value)}/>
+          </div>
+          <button onClick={clearFilters} title="Clear all filters"
+            style={{ display:'flex', alignItems:'center', gap:'4px', padding:'5px 10px', borderRadius:'6px', border:'1px solid var(--border)', background:'white', cursor:'pointer', fontSize:'0.8rem', color:'var(--muted)' }}>
+            <SlidersHorizontal size={13}/> Clear
           </button>
         </div>
       </div>
@@ -121,9 +211,14 @@ export default function AllBookings({ isSuperAdmin }) {
               {b.total_days && <p style={{ fontSize:'0.75rem', color:'var(--muted)' }}>{b.total_days} days</p>}
             </div>
 
-            {/* Service tag */}
-            <div style={{ minWidth:'100px' }}>
-              {b.service_type && <span className="service-tag">{b.service_type}</span>}
+            {/* Services */}
+            <div style={{ minWidth:'120px' }}>
+              <ServiceTags b={b}/>
+            </div>
+
+            {/* Comments */}
+            <div style={{ minWidth:'140px', maxWidth:'200px' }}>
+              <Comments b={b}/>
             </div>
 
             {/* Amount */}
