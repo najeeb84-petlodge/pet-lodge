@@ -139,9 +139,9 @@ export default function AllBookings({ isSuperAdmin }) {
               </select>
               <div style={{ display:'flex', gap:'4px' }}>
                 <button onClick={() => setSelected(b)} style={{ padding:'6px', borderRadius:'6px', border:'none', background:'transparent', cursor:'pointer' }} title="View"><Eye size={15} style={{ color:'#3b82f6' }}/></button>
-                <button style={{ padding:'6px', borderRadius:'6px', border:'none', background:'transparent', cursor:'pointer' }} title="Edit"><Edit2 size={15} style={{ color:'var(--muted)' }}/></button>
-                <button style={{ padding:'6px', borderRadius:'6px', border:'none', background:'transparent', cursor:'pointer' }} title="Receipt"><FileText size={15} style={{ color:'#16a34a' }}/></button>
-                <button style={{ padding:'6px', borderRadius:'6px', border:'none', background:'transparent', cursor:'pointer' }} title="Email"><Mail size={15} style={{ color:'#ea580c' }}/></button>
+                <button onClick={() => setSelected(b)} style={{ padding:'6px', borderRadius:'6px', border:'none', background:'transparent', cursor:'pointer' }} title="Edit"><Edit2 size={15} style={{ color:'var(--muted)' }}/></button>
+                <button onClick={() => setSelected(b)} style={{ padding:'6px', borderRadius:'6px', border:'none', background:'transparent', cursor:'pointer' }} title="Receipt"><FileText size={15} style={{ color:'#16a34a' }}/></button>
+                <button onClick={() => setSelected(b)} style={{ padding:'6px', borderRadius:'6px', border:'none', background:'transparent', cursor:'pointer' }} title="Email"><Mail size={15} style={{ color:'#ea580c' }}/></button>
               </div>
             </div>
           </div>
