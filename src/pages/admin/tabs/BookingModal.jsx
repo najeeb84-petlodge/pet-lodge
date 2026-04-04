@@ -744,8 +744,16 @@ We look forward to welcoming ${b.pets?.name || 'your pet'}! 🐾`
       return n.includes('boarding') || n.includes('daycare') || n.includes('food')
     }
 
-    const rawServices = Array.isArray(b.service_details) ? b.service_details : []
-    const sorted = [...rawServices].sort((a, bb) => {
+    const rawServices = b.service_details || b.serviceDetails || null
+    const baseServices = (rawServices && rawServices.length > 0) ? rawServices : [{
+      name:       b.service_type ? b.service_type.charAt(0).toUpperCase() + b.service_type.slice(1) : 'Boarding',
+      unit:       'Day',
+      unit_price: ((b.total_amount || 0) / (b.total_days || 1)).toFixed(0),
+      num_pets:   b.num_pets || 1,
+      quantity:   b.total_days || 1,
+      total_price: b.total_amount || 0,
+    }]
+    const sorted = [...baseServices].sort((a, bb) => {
       const aFirst = /boarding|daycare/.test((a?.name || '').toLowerCase())
       const bFirst = /boarding|daycare/.test((bb?.name || '').toLowerCase())
       return (bFirst ? 1 : 0) - (aFirst ? 1 : 0)
@@ -755,8 +763,8 @@ We look forward to welcoming ${b.pets?.name || 'your pet'}! 🐾`
       name:      svc?.name || '—',
       unit:      isPerDay(svc?.name) ? 'Day' : 'Service',
       unitPrice: parseFloat(svc?.unit_price ?? svc?.price ?? 0).toFixed(2),
-      numPets,
-      quantity:  isPerDay(svc?.name) ? days : (svc?.quantity || 1),
+      numPets:   svc?.num_pets ?? numPets,
+      quantity:  isPerDay(svc?.name) ? (svc?.quantity ?? days) : (svc?.quantity || 1),
       total:     parseFloat(svc?.total_price ?? svc?.total ?? 0).toFixed(2),
     }))
     while (serviceRows.length < MIN_ROWS) serviceRows.push(null)
@@ -797,14 +805,12 @@ We look forward to welcoming ${b.pets?.name || 'your pet'}! 🐾`
 
             {/* Right: logo + contact */}
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '80px', height: '80px', background: GREEN, borderRadius: '8px', color: 'white', fontWeight: '800', fontSize: '0.95rem', lineHeight: '1.2', textAlign: 'center', marginBottom: '8px' }}>
-                Pet<br/>Lodge
-              </div>
+              <img src="/logo.jpg" alt="Pet Lodge" style={{ width: '80px', height: '80px', objectFit: 'contain', borderRadius: '8px', marginBottom: '8px', display: 'block', marginLeft: 'auto' }} />
               <div style={{ fontSize: '0.72rem', lineHeight: '1.9' }}>
                 {[
                   { href: 'https://www.petlodgejo.com/',               text: 'www.petlodgejo.com' },
                   { href: 'tel:+962798906476',                          text: '+962 79 8906476' },
-                  { href: 'mailto:Pet.Lodge.Jo@gmail.com',              text: 'Pet.Lodge.Jo@gmail.com' },
+                  { href: 'mailto:info@petlodgejo.com',                  text: 'info@petlodgejo.com' },
                   { href: 'https://www.facebook.com/Pet.Lodge.Jo/',     text: 'facebook.com/Pet.Lodge.Jo' },
                   { href: 'https://goo.gl/maps/bWRapfE4YZS2',          text: 'View on Maps' },
                 ].map(({ href, text }) => (

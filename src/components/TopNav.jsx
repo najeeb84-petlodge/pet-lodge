@@ -28,8 +28,8 @@ export default function TopNav() {
           <a href="tel:+96279 8906476" className="flex items-center gap-1 hover:text-white transition-colors">
             <Phone size={12} /> +962 79 8906476
           </a>
-          <a href="mailto:Pet.Lodge.Jo@gmail.com" className="flex items-center gap-1 hover:text-white transition-colors">
-            <Mail size={12} /> Pet.Lodge.Jo@gmail.com
+          <a href="mailto:info@petlodgejo.com" className="flex items-center gap-1 hover:text-white transition-colors">
+            <Mail size={12} /> info@petlodgejo.com
           </a>
           <a href="https://facebook.com/Pet.Lodge.Jo" target="_blank" rel="noreferrer" className="hover:text-white transition-colors">
             <Facebook size={14} />
