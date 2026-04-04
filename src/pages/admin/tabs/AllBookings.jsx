@@ -19,7 +19,7 @@ export default function AllBookings({ isSuperAdmin }) {
     setLoading(true)
     try {
       const [allBookings, pendingBookings, payments, mods] = await Promise.all([
-        dbQuery('bookings', '?select=*,profiles(first_name,last_name,phone,email),services(name,category)&order=created_at.desc'),
+        dbQuery('bookings', '?select=*,profiles(first_name,last_name,phone,email)&order=created_at.desc'),
         dbQuery('bookings', '?status=eq.pending&select=id'),
         dbQuery('payments', '?status=eq.paid&select=amount'),
         dbQuery('modification_requests', '?status=eq.pending&select=id'),
@@ -123,7 +123,7 @@ export default function AllBookings({ isSuperAdmin }) {
 
             {/* Service tag */}
             <div style={{ minWidth:'100px' }}>
-              {b.services?.name && <span className="service-tag">{b.services.name}</span>}
+              {b.service_type && <span className="service-tag">{b.service_type}</span>}
             </div>
 
             {/* Amount */}
