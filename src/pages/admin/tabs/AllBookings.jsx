@@ -46,7 +46,8 @@ export default function AllBookings({ isSuperAdmin }) {
   const filtered = bookings.filter(b => {
     const s = search.toLowerCase()
     const matchSearch = !search ||
-      b.customer_name?.toLowerCase().includes(s) ||
+      b.customer_first_name?.toLowerCase().includes(s) ||
+      b.customer_last_name?.toLowerCase().includes(s) ||
       b.customer_email?.toLowerCase().includes(s) ||
       b.pets_data?.[0]?.name?.toLowerCase().includes(s) ||
       b.booking_ref?.toLowerCase().includes(s)
@@ -54,7 +55,7 @@ export default function AllBookings({ isSuperAdmin }) {
     return matchSearch && matchStatus
   })
 
-  const ownerName = b => b.customer_name || '—'
+  const ownerName = b => `${b.customer_first_name||''} ${b.customer_last_name||''}`.trim() || '—'
 
   return (
     <div>
