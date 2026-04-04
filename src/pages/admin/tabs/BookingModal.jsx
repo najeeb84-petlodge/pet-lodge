@@ -340,7 +340,7 @@ We look forward to welcoming ${b.pets?.name || 'your pet'}! 🐾`
               <button onClick={() => { setSendTab('confirmation'); setSendOpen(true) }} style={headerBtnStyle}>
                 <Mail size={13} /> Email
               </button>
-              <button onClick={() => { setSendTab('receipt'); setSendOpen(true) }} style={headerBtnStyle}>
+              <button onClick={() => setMode('receipt')} style={headerBtnStyle}>
                 <FileText size={13} /> Receipt
               </button>
               <button onClick={() => { setSendTab('whatsapp'); setSendOpen(true) }} style={headerBtnStyle}>
@@ -354,7 +354,7 @@ We look forward to welcoming ${b.pets?.name || 'your pet'}! 🐾`
 
           {/* ── Body ── */}
           <div style={{ padding: '1.25rem', maxHeight: '78vh', overflowY: 'auto' }}>
-            {mode === 'view' ? <ViewMode /> : <EditMode />}
+            {mode === 'view' ? <ViewMode /> : mode === 'receipt' ? <ReceiptMode /> : <EditMode />}
           </div>
         </div>
       </div>
@@ -721,6 +721,167 @@ We look forward to welcoming ${b.pets?.name || 'your pet'}! 🐾`
           <button onClick={saveEdit} className="btn-primary" disabled={saving}>
             {saving ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={14} />}
             Save Changes
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ── RECEIPT MODE ─────────────────────────────────────────────────────────────
+  function ReceiptMode() {
+    const receiptId     = (b.booking_ref || b.id || '').slice(-8).toUpperCase()
+    const receiptOwner  = `${b.customer_first_name || b.profiles?.first_name || ''} ${b.customer_last_name || b.profiles?.last_name || ''}`.trim() || '—'
+    const petName       = b.pets_data?.[0]?.name || b.pets?.name || '—'
+    const allPetNames   = Array.isArray(b.pets_data) ? b.pets_data.map(p => p?.name).filter(Boolean).join(', ') : petName
+    const numPets       = b.num_pets || (Array.isArray(b.pets_data) ? b.pets_data.length : 1) || 1
+    const days          = b.total_days || 0
+    const total         = parseFloat(b.total_amount ?? b.total_price ?? 0)
+
+    const GREEN = '#8CB733'
+
+    function isPerDay(name = '') {
+      const n = name.toLowerCase()
+      return n.includes('boarding') || n.includes('daycare') || n.includes('food')
+    }
+
+    const rawServices = Array.isArray(b.service_details) ? b.service_details : []
+    const sorted = [...rawServices].sort((a, bb) => {
+      const aFirst = /boarding|daycare/.test((a?.name || '').toLowerCase())
+      const bFirst = /boarding|daycare/.test((bb?.name || '').toLowerCase())
+      return (bFirst ? 1 : 0) - (aFirst ? 1 : 0)
+    })
+    const MIN_ROWS = 8
+    const serviceRows = sorted.map(svc => ({
+      name:      svc?.name || '—',
+      unit:      isPerDay(svc?.name) ? 'Day' : 'Service',
+      unitPrice: parseFloat(svc?.unit_price ?? svc?.price ?? 0).toFixed(2),
+      numPets,
+      quantity:  isPerDay(svc?.name) ? days : (svc?.quantity || 1),
+      total:     parseFloat(svc?.total_price ?? svc?.total ?? 0).toFixed(2),
+    }))
+    while (serviceRows.length < MIN_ROWS) serviceRows.push(null)
+
+    const thStyle = { padding: '6px 8px', textAlign: 'left', fontWeight: '700', fontSize: '0.72rem', color: 'white', borderRight: '1px solid rgba(255,255,255,0.25)' }
+    const tdStyle = { padding: '5px 8px', fontSize: '0.78rem', borderRight: '1px solid #e5e7eb', borderBottom: '1px solid #e5e7eb' }
+    const tdDash  = { ...tdStyle, color: '#9ca3af', textAlign: 'center' }
+
+    return (
+      <div>
+        {/* ── Printable receipt card ── */}
+        <div id="receipt-printable" style={{ fontFamily: 'Arial, sans-serif', background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '24px', marginBottom: '16px' }}>
+
+          {/* Two-column header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', gap: '16px' }}>
+
+            {/* Left: receipt ref + info rows */}
+            <div style={{ flex: 1 }}>
+              <h1 style={{ fontSize: '1.6rem', fontWeight: '800', margin: '0 0 12px', color: '#111' }}>
+                Receipt #{receiptId}
+              </h1>
+              <table style={{ borderCollapse: 'collapse', width: '100%', maxWidth: '320px' }}>
+                <tbody>
+                  {[
+                    ["Owner's Name",   receiptOwner],
+                    ["Pet's Name",     petName],
+                    ["Arrival Date",   b.start_date ? format(new Date(b.start_date), 'dd/MM/yyyy') : '—'],
+                    ["Departure Date", b.end_date   ? format(new Date(b.end_date),   'dd/MM/yyyy') : '—'],
+                  ].map(([label, val]) => (
+                    <tr key={label}>
+                      <td style={{ padding: '4px 12px 4px 0', fontSize: '0.82rem', fontWeight: '600', color: '#374151', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>{label}</td>
+                      <td style={{ padding: '4px 0', fontSize: '0.82rem', color: '#111', borderBottom: '1px solid #e5e7eb' }}>{val}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Right: logo + contact */}
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '80px', height: '80px', background: GREEN, borderRadius: '8px', color: 'white', fontWeight: '800', fontSize: '0.95rem', lineHeight: '1.2', textAlign: 'center', marginBottom: '8px' }}>
+                Pet<br/>Lodge
+              </div>
+              <div style={{ fontSize: '0.72rem', lineHeight: '1.9' }}>
+                {[
+                  { href: 'https://www.petlodgejo.com/',               text: 'www.petlodgejo.com' },
+                  { href: 'tel:+962798906476',                          text: '+962 79 8906476' },
+                  { href: 'mailto:Pet.Lodge.Jo@gmail.com',              text: 'Pet.Lodge.Jo@gmail.com' },
+                  { href: 'https://www.facebook.com/Pet.Lodge.Jo/',     text: 'facebook.com/Pet.Lodge.Jo' },
+                  { href: 'https://goo.gl/maps/bWRapfE4YZS2',          text: 'View on Maps' },
+                ].map(({ href, text }) => (
+                  <a key={href} href={href} target="_blank" rel="noopener noreferrer"
+                    style={{ display: 'block', color: '#2563eb', textDecoration: 'none' }}>{text}</a>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Services table */}
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px', border: '1px solid #e5e7eb' }}>
+            <thead>
+              <tr style={{ background: GREEN }}>
+                {['Services provided','Unit','Unit Price','Number of Pets','Quantity','Total price'].map(h => (
+                  <th key={h} style={thStyle}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {serviceRows.map((row, i) => row ? (
+                <tr key={i} style={{ background: i % 2 === 0 ? 'white' : '#f9fafb' }}>
+                  <td style={tdStyle}>{row.name}</td>
+                  <td style={tdStyle}>{row.unit}</td>
+                  <td style={tdStyle}>{row.unitPrice}</td>
+                  <td style={{ ...tdStyle, textAlign: 'center' }}>{row.numPets}</td>
+                  <td style={{ ...tdStyle, textAlign: 'center' }}>{row.quantity}</td>
+                  <td style={{ ...tdStyle, fontWeight: '600' }}>{row.total}</td>
+                </tr>
+              ) : (
+                <tr key={i} style={{ background: i % 2 === 0 ? 'white' : '#f9fafb' }}>
+                  {[0,1,2,3,4,5].map(j => <td key={j} style={tdDash}>--</td>)}
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              {[
+                ['Total in JD', total.toFixed(2)],
+                [null,          null],
+                ['Amount due',  total.toFixed(2)],
+              ].map(([label, val], i) => (
+                <tr key={i} style={{ background: '#f3f4f6', borderTop: i === 0 ? '2px solid #d1d5db' : 'none' }}>
+                  <td colSpan={5} style={{ ...tdStyle, fontWeight: label ? '700' : '400', color: label ? '#111' : '#9ca3af', textAlign: 'right', paddingRight: '12px', borderRight: 'none' }}>
+                    {label ?? '--'}
+                  </td>
+                  <td style={{ ...tdStyle, fontWeight: label ? '700' : '400', color: label === 'Amount due' ? GREEN : label ? '#111' : '#9ca3af' }}>
+                    {val !== null ? val : '--'}
+                  </td>
+                </tr>
+              ))}
+            </tfoot>
+          </table>
+
+          {/* Referral box */}
+          <div style={{ border: '2px solid #e5e7eb', borderRadius: '6px', padding: '10px 16px', marginBottom: '14px', textAlign: 'center' }}>
+            <p style={{ margin: 0, color: '#2563eb', fontSize: '0.83rem', fontWeight: '600' }}>
+              Refer friends &amp; receive up to 10% discount on your and their next visit
+            </p>
+          </div>
+
+          {/* Footer row */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.72rem', color: '#6b7280' }}>
+            <span>CliQ 0795535405 / Saleh Abdelhadi</span>
+            <span>Receipt - {receiptOwner} ({allPetNames}) - {b.end_date ? format(new Date(b.end_date), 'dd/MM/yyyy') : '—'}</span>
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+          <button onClick={() => setMode('view')} className="btn-secondary" style={{ fontSize: '0.875rem' }}>
+            <X size={14} /> Back
+          </button>
+          <button onClick={() => window.print()} className="btn-secondary" style={{ fontSize: '0.875rem' }}>
+            <FileText size={14} /> Print
+          </button>
+          <button onClick={() => { setSendTab('receipt'); setSendOpen(true) }} className="btn-primary" style={{ fontSize: '0.875rem' }}>
+            <Mail size={14} /> Send Receipt
           </button>
         </div>
       </div>
