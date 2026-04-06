@@ -8,6 +8,7 @@ import AuthCallback from './pages/auth/AuthCallback'
 import Unauthorized from './pages/auth/Unauthorized'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import CustomerDashboard from './pages/customer/CustomerDashboard'
+import MyPets from './pages/customer/MyPets'
 
 export default function App() {
   return (
@@ -27,6 +28,11 @@ export default function App() {
           <Route path="/dashboard" element={
             <ProtectedRoute>
               <CustomerDashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/my-pets" element={
+            <ProtectedRoute>
+              <MyPets />
             </ProtectedRoute>
           } />
           <Route path="*" element={<Navigate to="/login" replace />} />
