@@ -4,11 +4,10 @@ import { Phone, Mail, Facebook, Instagram, MessageCircle } from 'lucide-react'
 
 export default function TopNav() {
   const { profile, signOut } = useAuth()
-  const navigate = useNavigate()
+  const navigate = useNavigate()  // used for My Bookings / Admin nav
 
-  async function handleSignOut() {
-    await signOut()
-    navigate('/')
+  function handleSignOut() {
+    signOut()
   }
 
   return (

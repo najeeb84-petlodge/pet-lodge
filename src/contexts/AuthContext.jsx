@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, SUPABASE_URL, SUPABASE_KEY, getAccessToken } from '../lib/supabase'
 
 const AuthContext = createContext({})
 
@@ -23,16 +23,39 @@ function getSessionFromStorage() {
 
 export function AuthProvider({ children }) {
   const stored = getSessionFromStorage()
-  const [user, setUser]     = useState(stored?.user ?? null)
+  const [user, setUser]       = useState(stored?.user ?? null)
   const [profile, setProfile] = useState(stored ? {
-    id: stored.user.id,
-    email: stored.user.email,
-    role: stored.role,
+    id:        stored.user.id,
+    email:     stored.user.email,
+    role:      stored.role,      // stale fallback — overwritten below immediately
     full_name: stored.full_name,
   } : null)
   const [loading, setLoading] = useState(false)
 
-  // Keep profile.role in sync with the profiles table (authoritative source)
+  // On mount: fetch current role from profiles table via REST (user_metadata.role is stale)
+  useEffect(() => {
+    const s = getSessionFromStorage()
+    if (!s?.user?.id) return
+    const userId = s.user.id
+    const token  = getAccessToken()
+    fetch(
+      `${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=role,first_name,last_name,email`,
+      { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token || SUPABASE_KEY}` } }
+    )
+      .then(r => r.json())
+      .then(data => {
+        const prof = Array.isArray(data) ? data[0] : null
+        if (!prof) return
+        setProfile(p => p ? {
+          ...p,
+          role:      prof.role ?? 'customer',
+          full_name: `${prof.first_name || ''} ${prof.last_name || ''}`.trim() || p.email?.split('@')[0] || 'User',
+        } : null)
+      })
+      .catch(() => {})
+  }, [])
+
+  // Keep in sync on subsequent auth events (login, token refresh)
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
@@ -44,9 +67,9 @@ export function AuthProvider({ children }) {
         if (prof) {
           setUser(session.user)
           setProfile({
-            id: prof.id,
-            email: prof.email,
-            role: prof.role ?? 'customer',
+            id:        prof.id,
+            email:     prof.email,
+            role:      prof.role ?? 'customer',
             full_name: `${prof.first_name || ''} ${prof.last_name || ''}`.trim() || session.user.email.split('@')[0] || 'User',
           })
         }
@@ -58,14 +81,14 @@ export function AuthProvider({ children }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  const signOut = async () => {
-    try { await supabase.auth.signOut() } catch { /* ignore — clear locally regardless */ }
+  const signOut = () => {
     localStorage.removeItem('sb-qcwbkpcwtxpokgseethp-auth-token')
     setUser(null)
     setProfile(null)
+    window.location.href = '/'
   }
 
-  const isAdmin    = ['admin','super_admin'].includes(profile?.role)
+  const isAdmin    = ['admin', 'super_admin'].includes(profile?.role)
   const isEmployee = profile?.role === 'employee'
   const isStaff    = isAdmin || isEmployee
 
