@@ -42,6 +42,6 @@ export default function ProtectedRoute({ children, requireStaff = false }) {
   )
 
   if (status === 'redirect-login')    return <Navigate to="/login" replace />
-  if (status === 'redirect-customer') return <Navigate to="/customer/dashboard" replace />
+  if (status === 'redirect-customer') return <Navigate to="/dashboard" replace />
   return children
 }

@@ -23,7 +23,8 @@ export default function App() {
               <AdminDashboard />
             </ProtectedRoute>
           } />
-          <Route path="/customer/dashboard" element={
+          <Route path="/customer/dashboard" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard" element={
             <ProtectedRoute>
               <CustomerDashboard />
             </ProtectedRoute>

@@ -47,7 +47,7 @@ export default function TopNav() {
           <span className="text-sm hidden sm:block" style={{ color: 'var(--border)' }}>
             {profile?.full_name?.split(' ')[0] || 'User'}
           </span>
-          <button onClick={() => navigate('/customer/dashboard')}
+          <button onClick={() => navigate('/dashboard')}
             className="text-sm hidden md:block hover:text-white transition-colors" style={{ color: 'var(--border)' }}>
             My Bookings
           </button>
