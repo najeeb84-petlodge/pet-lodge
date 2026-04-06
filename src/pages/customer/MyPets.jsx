@@ -55,7 +55,7 @@ const GENDERS   = ['Male', 'Female']
 const EMPTY_FORM = {
   name: '', type: 'Dog', breed: '', age: '', colour: '',
   gender: 'Male', desexed: false,
-  vet_name: '', vet_contact: '', special_medication: '',
+  vet_name: '', vet_phone: '', medication_notes: '',
   photo_url: '',
 }
 
@@ -243,7 +243,7 @@ function PetModal({ editPet, ownerId, onClose, onSaved }) {
     setError('')
 
     // Validate required
-    const req = ['name','type','breed','age','colour','gender','vet_name','vet_contact']
+    const req = ['name','type','breed','age','colour','gender','vet_name','vet_phone']
     for (const k of req) {
       if (!String(form[k] ?? '').trim()) {
         setError(`Please fill in all required fields.`)
@@ -263,18 +263,17 @@ function PetModal({ editPet, ownerId, onClose, onSaved }) {
       // if upload fails, proceed without photo (don't block save)
     }
 
-    // Only include columns confirmed to exist in the pets table.
-    // Add special_medication and photo_url back once those columns are created in Supabase.
     const body = {
-      name:       form.name.trim(),
-      type:       form.type,
-      breed:      form.breed.trim(),
-      age:        Number(form.age),
-      colour:     form.colour.trim(),
-      gender:     form.gender,
-      desexed:    Boolean(form.desexed),
-      vet_name:   form.vet_name.trim(),
-      vet_contact: form.vet_contact.trim(),
+      name:             form.name.trim(),
+      type:             form.type,
+      breed:            form.breed.trim(),
+      age:              Number(form.age),
+      colour:           form.colour.trim(),
+      gender:           form.gender,
+      desexed:          Boolean(form.desexed),
+      vet_name:         form.vet_name.trim(),
+      vet_phone:        form.vet_phone.trim(),
+      medication_notes: form.medication_notes.trim(),
     }
 
     let result
@@ -396,14 +395,14 @@ function PetModal({ editPet, ownerId, onClose, onSaved }) {
               </div>
               <div>
                 <Label>Vet Contact <Req /></Label>
-                <input className="input" value={form.vet_contact} onChange={e => set('vet_contact', e.target.value)}
+                <input className="input" value={form.vet_phone} onChange={e => set('vet_phone', e.target.value)}
                   placeholder="+962 6 XXX XXXX" />
               </div>
               <div className="col-span-2">
                 <Label>Special Medication Requirements</Label>
                 <textarea className="input resize-none" rows={3}
-                  value={form.special_medication}
-                  onChange={e => set('special_medication', e.target.value)}
+                  value={form.medication_notes}
+                  onChange={e => set('medication_notes', e.target.value)}
                   placeholder="Describe any medications, dosage, or special care needs…" />
               </div>
             </div>
