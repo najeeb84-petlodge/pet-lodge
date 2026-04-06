@@ -8,6 +8,7 @@ import { SUPABASE_URL, SUPABASE_KEY, getAccessToken } from '../../lib/supabase'
 /* ── REST helpers ─────────────────────────────────────────── */
 async function restFetch(path, opts = {}) {
   const token = getAccessToken()
+  if (!token) console.warn('[restFetch] No access token — request may fail RLS policies')
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...opts,
     headers: {

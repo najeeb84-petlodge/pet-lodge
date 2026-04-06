@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { CalendarPlus, PawPrint, ClipboardList, User, LogOut, Pencil, X, Check, Loader2 } from 'lucide-react'
 import TopNav from '../../components/TopNav'
 import { useAuth } from '../../contexts/AuthContext'
@@ -14,59 +14,47 @@ const STATUS_CLASS = {
 
 function formatDate(str) {
   if (!str) return '—'
-  // dd/mm/yyyy
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) {
-    const [d, m, y] = str.split('/')
-    return `${d}/${m}/${y}`
-  }
-  // ISO
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) return str
   try {
     return new Date(str).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
   } catch { return str }
 }
 
-async function restFetch(path, opts = {}) {
+async function restGet(path) {
   const token = getAccessToken()
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-    ...opts,
     headers: {
       apikey: SUPABASE_KEY,
       Authorization: `Bearer ${token || SUPABASE_KEY}`,
       'Content-Type': 'application/json',
-      Prefer: 'return=representation',
-      ...(opts.headers || {}),
     },
   })
-  if (!res.ok) return null
+  if (!res.ok) { console.error('[restGet]', path, res.status); return null }
   const text = await res.text()
-  return text ? JSON.parse(text) : null
+  return text ? JSON.parse(text) : []
 }
 
 export default function CustomerDashboard() {
   const { profile, signOut } = useAuth()
-  const navigate = useNavigate()
 
-  // Full profile (includes phone, whatsapp_number etc.)
-  const [fullProfile, setFullProfile] = useState(null)
-  // Bookings
-  const [bookings, setBookings] = useState([])
+  const [fullProfile, setFullProfile]   = useState(null)
+  const [bookings, setBookings]         = useState([])
   const [bookingsLoading, setBookingsLoading] = useState(true)
-  // Active count for "My Bookings" card
-  const [activeCount, setActiveCount] = useState(0)
-  // Edit profile state
-  const [editing, setEditing] = useState(false)
-  const [editForm, setEditForm] = useState({})
-  const [saving, setSaving] = useState(false)
-  const [saveError, setSaveError] = useState('')
+  const [activeCount, setActiveCount]   = useState(0)
+  const [editing, setEditing]           = useState(false)
+  const [editForm, setEditForm]         = useState({})
+  const [saving, setSaving]             = useState(false)
+  const [saveError, setSaveError]       = useState('')
 
-  const firstName = fullProfile?.first_name || profile?.full_name?.split(' ')[0] || 'there'
+  // Use first_name from the fetched profile only — avoids showing email username
+  const firstName = fullProfile?.first_name || ''
 
-  // Fetch full profile
+  // Fetch full profile row
   useEffect(() => {
     if (!profile?.id) return
-    restFetch(`profiles?id=eq.${profile.id}&select=id,first_name,last_name,email,phone,whatsapp_number,address_neighbourhood,address_street,address_flat`)
+    restGet(`profiles?id=eq.${profile.id}&select=id,first_name,last_name,email,phone,whatsapp_number,address_neighbourhood,address_street,address_flat`)
       .then(data => {
-        const prof = Array.isArray(data) ? data[0] : data
+        const prof = Array.isArray(data) ? data[0] : null
         if (prof) setFullProfile(prof)
       })
   }, [profile?.id])
@@ -76,25 +64,22 @@ export default function CustomerDashboard() {
     if (!profile?.email) return
     const email = encodeURIComponent(profile.email)
     setBookingsLoading(true)
-
-    // Last 3 for display
-    restFetch(`bookings?customer_email=eq.${email}&order=created_at.desc&limit=3&select=id,booking_reference,service_type,status,check_in_date,check_out_date,created_at`)
-      .then(data => {
-        setBookings(Array.isArray(data) ? data : [])
-      })
+    restGet(`bookings?customer_email=eq.${email}&order=created_at.desc&limit=3&select=id,booking_reference,service_type,status,check_in_date,check_out_date`)
+      .then(data => setBookings(Array.isArray(data) ? data : []))
       .finally(() => setBookingsLoading(false))
-
-    // Active count
-    restFetch(`bookings?customer_email=eq.${email}&status=in.(pending,confirmed)&select=id`)
+    restGet(`bookings?customer_email=eq.${email}&status=in.(pending,confirmed)&select=id`)
       .then(data => setActiveCount(Array.isArray(data) ? data.length : 0))
   }, [profile?.email])
 
   function startEdit() {
     setEditForm({
-      first_name:           fullProfile?.first_name || '',
-      last_name:            fullProfile?.last_name || '',
-      phone:                fullProfile?.phone || '',
-      whatsapp_number:      fullProfile?.whatsapp_number || '',
+      first_name:            fullProfile?.first_name            || '',
+      last_name:             fullProfile?.last_name             || '',
+      phone:                 fullProfile?.phone                 || '',
+      whatsapp_number:       fullProfile?.whatsapp_number       || '',
+      address_neighbourhood: fullProfile?.address_neighbourhood || '',
+      address_street:        fullProfile?.address_street        || '',
+      address_flat:          fullProfile?.address_flat          || '',
     })
     setSaveError('')
     setEditing(true)
@@ -104,21 +89,47 @@ export default function CustomerDashboard() {
     if (!fullProfile?.id) return
     setSaving(true)
     setSaveError('')
-    const result = await restFetch(`profiles?id=eq.${fullProfile.id}`, {
+
+    const token = getAccessToken()
+    if (!token) {
+      setSaving(false)
+      setSaveError('Not authenticated. Please sign in again.')
+      return
+    }
+
+    const payload = {
+      first_name:            editForm.first_name.trim(),
+      last_name:             editForm.last_name.trim(),
+      phone:                 editForm.phone.trim(),
+      whatsapp_number:       editForm.whatsapp_number.trim(),
+      address_neighbourhood: editForm.address_neighbourhood.trim(),
+      address_street:        editForm.address_street.trim(),
+      address_flat:          editForm.address_flat.trim(),
+    }
+
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${fullProfile.id}`, {
       method: 'PATCH',
-      body: JSON.stringify({
-        first_name:      editForm.first_name.trim(),
-        last_name:       editForm.last_name.trim(),
-        phone:           editForm.phone.trim(),
-        whatsapp_number: editForm.whatsapp_number.trim(),
-      }),
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify(payload),
     })
+
+    const text = await res.text()
+    console.log('[saveEdit] PATCH profiles →', res.status, text || '(empty body — ok)')
+
     setSaving(false)
-    if (result !== null) {
-      setFullProfile(p => ({ ...p, ...editForm }))
+
+    if (res.ok) {
+      setFullProfile(p => ({ ...p, ...payload }))
       setEditing(false)
     } else {
-      setSaveError('Failed to save. Please try again.')
+      let msg = text
+      try { msg = JSON.parse(text)?.message || msg } catch {}
+      setSaveError(`Save failed (${res.status}): ${msg}`)
     }
   }
 
@@ -136,7 +147,7 @@ export default function CustomerDashboard() {
         {/* Welcome header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-1" style={{ color: 'var(--text)' }}>
-            Welcome back, {firstName}!
+            Welcome back{firstName ? `, ${firstName}` : ''}!
           </h1>
           <p style={{ color: 'var(--muted)' }}>
             Manage your pet care bookings and discover our premium services.
@@ -145,8 +156,7 @@ export default function CustomerDashboard() {
 
         {/* Three action cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          {/* New Booking */}
-          <Link to="/booking" className="card flex flex-col items-center text-center gap-3 hover:shadow-md transition-shadow group">
+          <Link to="/booking" className="card flex flex-col items-center text-center gap-3 hover:shadow-md transition-shadow">
             <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'var(--light)' }}>
               <CalendarPlus size={22} style={{ color: 'var(--primary)' }} />
             </div>
@@ -157,8 +167,7 @@ export default function CustomerDashboard() {
             <span className="btn-primary text-sm w-full justify-center">Book Now</span>
           </Link>
 
-          {/* My Bookings */}
-          <Link to="/my-bookings" className="card flex flex-col items-center text-center gap-3 hover:shadow-md transition-shadow group">
+          <Link to="/my-bookings" className="card flex flex-col items-center text-center gap-3 hover:shadow-md transition-shadow">
             <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: '#eff6ff' }}>
               <ClipboardList size={22} className="text-blue-600" />
             </div>
@@ -171,8 +180,7 @@ export default function CustomerDashboard() {
             <span className="btn-secondary text-sm w-full justify-center">View Bookings</span>
           </Link>
 
-          {/* My Pets */}
-          <Link to="/my-pets" className="card flex flex-col items-center text-center gap-3 hover:shadow-md transition-shadow group">
+          <Link to="/my-pets" className="card flex flex-col items-center text-center gap-3 hover:shadow-md transition-shadow">
             <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: '#faf5ff' }}>
               <PawPrint size={22} className="text-purple-600" />
             </div>
@@ -209,23 +217,21 @@ export default function CustomerDashboard() {
           ) : (
             <div className="divide-y" style={{ borderColor: 'var(--border)' }}>
               {bookings.map(b => (
-                <div key={b.id} className="py-3 flex items-center justify-between gap-4">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-mono text-xs font-semibold" style={{ color: 'var(--primary)' }}>
-                        #{b.booking_reference || b.id?.slice(0, 8)}
-                      </span>
-                      <span className={STATUS_CLASS[b.status] || 'badge-pending'}>
-                        {b.status || 'pending'}
-                      </span>
-                    </div>
-                    <p className="text-sm font-medium mt-0.5 capitalize" style={{ color: 'var(--text)' }}>
-                      {b.service_type || 'Service'}
-                    </p>
-                    <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
-                      {b.check_in_date ? `${formatDate(b.check_in_date)}${b.check_out_date ? ` → ${formatDate(b.check_out_date)}` : ''}` : '—'}
-                    </p>
+                <div key={b.id} className="py-3">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-xs font-semibold" style={{ color: 'var(--primary)' }}>
+                      #{b.booking_reference || b.id?.slice(0, 8)}
+                    </span>
+                    <span className={STATUS_CLASS[b.status] || 'badge-pending'}>{b.status || 'pending'}</span>
                   </div>
+                  <p className="text-sm font-medium mt-0.5 capitalize" style={{ color: 'var(--text)' }}>
+                    {b.service_type || 'Service'}
+                  </p>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
+                    {b.check_in_date
+                      ? `${formatDate(b.check_in_date)}${b.check_out_date ? ` → ${formatDate(b.check_out_date)}` : ''}`
+                      : '—'}
+                  </p>
                 </div>
               ))}
             </div>
@@ -239,8 +245,7 @@ export default function CustomerDashboard() {
             <button
               onClick={handleSignOut}
               className="btn-secondary text-sm flex items-center gap-1.5"
-              style={{ color: '#dc2626', borderColor: '#fca5a5' }}
-            >
+              style={{ color: '#dc2626', borderColor: '#fca5a5' }}>
               <LogOut size={14} /> Sign Out
             </button>
           </div>
@@ -257,28 +262,19 @@ export default function CustomerDashboard() {
                 </button>
               ) : (
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={saveEdit}
-                    disabled={saving}
-                    className="btn-primary text-xs flex items-center gap-1.5"
-                  >
+                  <button onClick={saveEdit} disabled={saving} className="btn-primary text-xs flex items-center gap-1.5">
                     {saving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
                     Save
                   </button>
-                  <button
-                    onClick={() => { setEditing(false); setSaveError('') }}
-                    disabled={saving}
-                    className="btn-secondary text-xs flex items-center gap-1.5"
-                  >
+                  <button onClick={() => { setEditing(false); setSaveError('') }} disabled={saving}
+                    className="btn-secondary text-xs flex items-center gap-1.5">
                     <X size={12} /> Cancel
                   </button>
                 </div>
               )}
             </div>
 
-            {saveError && (
-              <p className="text-xs text-red-600 mb-3">{saveError}</p>
-            )}
+            {saveError && <p className="text-xs text-red-600 mb-3">{saveError}</p>}
 
             {!editing ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -286,17 +282,30 @@ export default function CustomerDashboard() {
                 <Field label="Email" value={fullProfile?.email || profile?.email || '—'} />
                 <Field label="Contact Number" value={fullProfile?.phone || '—'} />
                 <Field label="WhatsApp Number" value={fullProfile?.whatsapp_number || '—'} />
+                <Field label="Neighbourhood" value={fullProfile?.address_neighbourhood || '—'} />
+                <Field label="Street" value={fullProfile?.address_street || '—'} />
+                <Field label="Flat / Building" value={fullProfile?.address_flat || '—'} />
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <EditField label="First Name" value={editForm.first_name} onChange={v => setEditForm(f => ({ ...f, first_name: v }))} />
-                <EditField label="Last Name" value={editForm.last_name} onChange={v => setEditForm(f => ({ ...f, last_name: v }))} />
+                <EF label="First Name" k="first_name" form={editForm} set={setEditForm} />
+                <EF label="Last Name"  k="last_name"  form={editForm} set={setEditForm} />
                 <div>
                   <label className="block text-xs font-medium mb-1" style={{ color: 'var(--muted)' }}>Email</label>
-                  <p className="input text-sm cursor-not-allowed opacity-60">{fullProfile?.email || profile?.email || '—'}</p>
+                  <p className="input text-sm cursor-not-allowed opacity-60 bg-gray-50">
+                    {fullProfile?.email || profile?.email || '—'}
+                  </p>
                 </div>
-                <EditField label="Contact Number" value={editForm.phone} onChange={v => setEditForm(f => ({ ...f, phone: v }))} />
-                <EditField label="WhatsApp Number" value={editForm.whatsapp_number} onChange={v => setEditForm(f => ({ ...f, whatsapp_number: v }))} />
+                <EF label="Contact Number"  k="phone"           form={editForm} set={setEditForm} />
+                <EF label="WhatsApp Number" k="whatsapp_number" form={editForm} set={setEditForm} />
+                <div className="col-span-full border-t pt-3 mt-1" style={{ borderColor: 'var(--border)' }}>
+                  <p className="text-xs font-semibold mb-2" style={{ color: 'var(--muted)' }}>Address (used for transport pickup)</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <EF label="Neighbourhood" k="address_neighbourhood" form={editForm} set={setEditForm} />
+                    <EF label="Street"        k="address_street"        form={editForm} set={setEditForm} />
+                    <EF label="Flat / Building" k="address_flat"        form={editForm} set={setEditForm} />
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -316,15 +325,11 @@ function Field({ label, value }) {
   )
 }
 
-function EditField({ label, value, onChange }) {
+function EF({ label, k, form, set }) {
   return (
     <div>
       <label className="block text-xs font-medium mb-1" style={{ color: 'var(--muted)' }}>{label}</label>
-      <input
-        className="input text-sm"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-      />
+      <input className="input text-sm" value={form[k] || ''} onChange={e => set(f => ({ ...f, [k]: e.target.value }))} />
     </div>
   )
 }
