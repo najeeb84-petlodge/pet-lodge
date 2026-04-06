@@ -43,7 +43,7 @@ export default function TopNav() {
 
         {/* Right nav */}
         <div className="flex items-center gap-2">
-          <button className="btn-dark text-sm py-1.5 px-3">Book Now</button>
+          <button onClick={() => navigate('/booking')} className="btn-dark text-sm py-1.5 px-3">Book Now</button>
           <span className="text-sm hidden sm:block" style={{ color: 'var(--border)' }}>
             {profile?.full_name?.split(' ')[0] || 'User'}
           </span>
