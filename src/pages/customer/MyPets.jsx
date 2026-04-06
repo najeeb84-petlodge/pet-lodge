@@ -274,7 +274,7 @@ function PetModal({ editPet, ownerId, onClose, onSaved }) {
       vet_name:             form.vet_name.trim(),
       vet_contact:          form.vet_contact.trim(),
       special_medication:   form.special_medication.trim(),
-      photo_url,
+      // photo_url omitted until column is added to the pets table
     }
 
     let result
