@@ -10,7 +10,8 @@ import AdminDashboard  from './pages/admin/AdminDashboard'
 import CustomerDashboard from './pages/customer/CustomerDashboard'
 import MyPets          from './pages/customer/MyPets'
 import MyBookings      from './pages/customer/MyBookings'
-import NewBooking      from './pages/customer/NewBooking'
+import BookingWizard   from './pages/BookingWizard'
+import { WizardProvider } from './contexts/WizardContext'
 
 export default function App() {
   return (
@@ -41,7 +42,9 @@ export default function App() {
             <ProtectedRoute><MyBookings /></ProtectedRoute>
           } />
           <Route path="/booking" element={
-            <ProtectedRoute><NewBooking /></ProtectedRoute>
+            <ProtectedRoute>
+              <WizardProvider><BookingWizard /></WizardProvider>
+            </ProtectedRoute>
           } />
 
           <Route path="*" element={<Navigate to="/login" replace />} />
