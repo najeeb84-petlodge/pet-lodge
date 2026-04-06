@@ -27,12 +27,12 @@ async function restFetch(path, opts = {}) {
   return text ? JSON.parse(text) : []
 }
 
-async function uploadPetPhoto(file) {
-  const token = getAccessToken()
-  const ext   = file.name.split('.').pop()
-  const path  = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-  const res   = await fetch(
-    `${SUPABASE_URL}/storage/v1/object/pet-photos/${path}`,
+async function uploadPetPhoto(file, ownerId) {
+  const token    = getAccessToken()
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+  const filename = `${ownerId}_${Date.now()}_${safeName}`
+  const res = await fetch(
+    `${SUPABASE_URL}/storage/v1/object/pet-photos/${filename}`,
     {
       method: 'POST',
       headers: {
@@ -44,8 +44,12 @@ async function uploadPetPhoto(file) {
       body: file,
     }
   )
-  if (!res.ok) return null
-  return `${SUPABASE_URL}/storage/v1/object/public/pet-photos/${path}`
+  if (!res.ok) {
+    const err = await res.text()
+    console.error(`[uploadPetPhoto] ${res.status}`, err)
+    return null
+  }
+  return `${SUPABASE_URL}/storage/v1/object/public/pet-photos/${filename}`
 }
 
 /* ── Constants ─────────────────────────────────────────────── */
@@ -257,7 +261,7 @@ function PetModal({ editPet, ownerId, onClose, onSaved }) {
     // Upload photo if a new one was picked
     if (photoFile) {
       setUploadingPhoto(true)
-      const url = await uploadPetPhoto(photoFile)
+      const url = await uploadPetPhoto(photoFile, ownerId)
       setUploadingPhoto(false)
       if (url) photo_url = url
       // if upload fails, proceed without photo (don't block save)
@@ -274,6 +278,7 @@ function PetModal({ editPet, ownerId, onClose, onSaved }) {
       vet_name:         form.vet_name.trim(),
       vet_phone:        form.vet_phone.trim(),
       medication_notes: form.medication_notes.trim(),
+      ...(photo_url ? { photo_url } : {}),
     }
 
     let result
