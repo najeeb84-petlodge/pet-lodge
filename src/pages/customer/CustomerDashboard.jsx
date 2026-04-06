@@ -49,10 +49,10 @@ export default function CustomerDashboard() {
   // Use first_name from the fetched profile only — avoids showing email username
   const firstName = fullProfile?.first_name || ''
 
-  // Fetch full profile row
+  // Fetch full profile row — only columns confirmed to exist
   useEffect(() => {
     if (!profile?.id) return
-    restGet(`profiles?id=eq.${profile.id}&select=id,first_name,last_name,email,phone,whatsapp_number,address_neighbourhood,address_street,address_flat`)
+    restGet(`profiles?id=eq.${profile.id}&select=id,first_name,last_name,email`)
       .then(data => {
         const prof = Array.isArray(data) ? data[0] : null
         if (prof) setFullProfile(prof)
@@ -60,11 +60,12 @@ export default function CustomerDashboard() {
   }, [profile?.id])
 
   // Fetch recent bookings + active count
+  // Actual column names: booking_ref, start_date, end_date (not booking_reference / check_in_date)
   useEffect(() => {
     if (!profile?.email) return
     const email = encodeURIComponent(profile.email)
     setBookingsLoading(true)
-    restGet(`bookings?customer_email=eq.${email}&order=created_at.desc&limit=3&select=id,booking_reference,service_type,status,check_in_date,check_out_date`)
+    restGet(`bookings?customer_email=eq.${email}&order=created_at.desc&limit=3&select=id,booking_ref,service_type,status,start_date,end_date`)
       .then(data => setBookings(Array.isArray(data) ? data : []))
       .finally(() => setBookingsLoading(false))
     restGet(`bookings?customer_email=eq.${email}&status=in.(pending,confirmed)&select=id`)
@@ -73,13 +74,8 @@ export default function CustomerDashboard() {
 
   function startEdit() {
     setEditForm({
-      first_name:            fullProfile?.first_name            || '',
-      last_name:             fullProfile?.last_name             || '',
-      phone:                 fullProfile?.phone                 || '',
-      whatsapp_number:       fullProfile?.whatsapp_number       || '',
-      address_neighbourhood: fullProfile?.address_neighbourhood || '',
-      address_street:        fullProfile?.address_street        || '',
-      address_flat:          fullProfile?.address_flat          || '',
+      first_name: fullProfile?.first_name || '',
+      last_name:  fullProfile?.last_name  || '',
     })
     setSaveError('')
     setEditing(true)
@@ -98,13 +94,8 @@ export default function CustomerDashboard() {
     }
 
     const payload = {
-      first_name:            editForm.first_name.trim(),
-      last_name:             editForm.last_name.trim(),
-      phone:                 editForm.phone.trim(),
-      whatsapp_number:       editForm.whatsapp_number.trim(),
-      address_neighbourhood: editForm.address_neighbourhood.trim(),
-      address_street:        editForm.address_street.trim(),
-      address_flat:          editForm.address_flat.trim(),
+      first_name: editForm.first_name.trim(),
+      last_name:  editForm.last_name.trim(),
     }
 
     const url     = `${SUPABASE_URL}/rest/v1/profiles?id=eq.${fullProfile.id}`
@@ -223,7 +214,7 @@ export default function CustomerDashboard() {
                 <div key={b.id} className="py-3">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-mono text-xs font-semibold" style={{ color: 'var(--primary)' }}>
-                      #{b.booking_reference || b.id?.slice(0, 8)}
+                      #{b.booking_ref || b.id?.slice(0, 8)}
                     </span>
                     <span className={STATUS_CLASS[b.status] || 'badge-pending'}>{b.status || 'pending'}</span>
                   </div>
@@ -231,8 +222,8 @@ export default function CustomerDashboard() {
                     {b.service_type || 'Service'}
                   </p>
                   <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
-                    {b.check_in_date
-                      ? `${formatDate(b.check_in_date)}${b.check_out_date ? ` → ${formatDate(b.check_out_date)}` : ''}`
+                    {b.start_date
+                      ? `${formatDate(b.start_date)}${b.end_date ? ` → ${formatDate(b.end_date)}` : ''}`
                       : '—'}
                   </p>
                 </div>
@@ -281,33 +272,18 @@ export default function CustomerDashboard() {
 
             {!editing ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Field label="Name" value={`${fullProfile?.first_name || ''} ${fullProfile?.last_name || ''}`.trim() || '—'} />
+                <Field label="Name"  value={`${fullProfile?.first_name || ''} ${fullProfile?.last_name || ''}`.trim() || '—'} />
                 <Field label="Email" value={fullProfile?.email || profile?.email || '—'} />
-                <Field label="Contact Number" value={fullProfile?.phone || '—'} />
-                <Field label="WhatsApp Number" value={fullProfile?.whatsapp_number || '—'} />
-                <Field label="Neighbourhood" value={fullProfile?.address_neighbourhood || '—'} />
-                <Field label="Street" value={fullProfile?.address_street || '—'} />
-                <Field label="Flat / Building" value={fullProfile?.address_flat || '—'} />
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <EF label="First Name" k="first_name" form={editForm} set={setEditForm} />
                 <EF label="Last Name"  k="last_name"  form={editForm} set={setEditForm} />
-                <div>
+                <div className="col-span-full">
                   <label className="block text-xs font-medium mb-1" style={{ color: 'var(--muted)' }}>Email</label>
                   <p className="input text-sm cursor-not-allowed opacity-60 bg-gray-50">
                     {fullProfile?.email || profile?.email || '—'}
                   </p>
-                </div>
-                <EF label="Contact Number"  k="phone"           form={editForm} set={setEditForm} />
-                <EF label="WhatsApp Number" k="whatsapp_number" form={editForm} set={setEditForm} />
-                <div className="col-span-full border-t pt-3 mt-1" style={{ borderColor: 'var(--border)' }}>
-                  <p className="text-xs font-semibold mb-2" style={{ color: 'var(--muted)' }}>Address (used for transport pickup)</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <EF label="Neighbourhood" k="address_neighbourhood" form={editForm} set={setEditForm} />
-                    <EF label="Street"        k="address_street"        form={editForm} set={setEditForm} />
-                    <EF label="Flat / Building" k="address_flat"        form={editForm} set={setEditForm} />
-                  </div>
                 </div>
               </div>
             )}
