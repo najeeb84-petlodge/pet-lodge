@@ -18,9 +18,13 @@ async function restFetch(path, opts = {}) {
       ...(opts.headers || {}),
     },
   })
-  if (!res.ok) return null
   const text = await res.text()
-  return text ? JSON.parse(text) : null
+  if (!res.ok) {
+    console.error(`[restFetch] ${opts.method || 'GET'} ${path} → ${res.status}`, text)
+    // Return the parsed error so callers can show it
+    try { return { _error: true, status: res.status, body: JSON.parse(text) } } catch { return { _error: true, status: res.status, body: text } }
+  }
+  return text ? JSON.parse(text) : []
 }
 
 async function uploadPetPhoto(file) {
@@ -76,9 +80,11 @@ export default function MyPets() {
     if (!profile?.id) return
     setLoading(true)
     const data = await restFetch(`pets?owner_id=eq.${profile.id}&order=created_at.asc`)
-    setPets(Array.isArray(data) ? data : [])
+    setPets(Array.isArray(data) && !data?._error ? data : [])
     setLoading(false)
   }
+
+
 
   useEffect(() => { fetchPets() }, [profile?.id])
 
@@ -278,6 +284,7 @@ function PetModal({ editPet, ownerId, onClose, onSaved }) {
         body: JSON.stringify(body),
       })
     } else {
+      if (!ownerId) { setSaving(false); setError('Not authenticated. Please sign in again.'); return }
       result = await restFetch('pets', {
         method: 'POST',
         body: JSON.stringify({ ...body, owner_id: ownerId }),
@@ -285,10 +292,11 @@ function PetModal({ editPet, ownerId, onClose, onSaved }) {
     }
 
     setSaving(false)
-    if (result !== null) {
-      onSaved()
+    if (result?._error) {
+      const msg = result.body?.message || result.body?.hint || result.body?.details || JSON.stringify(result.body)
+      setError(`Save failed (${result.status}): ${msg}`)
     } else {
-      setError('Failed to save. Please try again.')
+      onSaved()
     }
   }
 
