@@ -49,12 +49,12 @@ async function uploadPetPhoto(file) {
 }
 
 /* ── Constants ─────────────────────────────────────────────── */
-const PET_TYPES = ['Dog', 'Cat', 'Other']
-const GENDERS   = ['Male', 'Female']
+const PET_TYPES = ['dog', 'cat', 'other']
+const GENDERS   = ['male', 'female']
 
 const EMPTY_FORM = {
-  name: '', type: 'Dog', breed: '', age: '', colour: '',
-  gender: 'Male', desexed: false,
+  name: '', type: 'dog', breed: '', age: '', colour: '',
+  gender: 'male', desexed: false,
   vet_name: '', vet_phone: '', medication_notes: '',
   photo_url: '',
 }
@@ -349,13 +349,13 @@ function PetModal({ editPet, ownerId, onClose, onSaved }) {
             <div>
               <Label>Pet Type <Req /></Label>
               <select className="input" value={form.type} onChange={e => set('type', e.target.value)}>
-                {PET_TYPES.map(t => <option key={t}>{t}</option>)}
+                {PET_TYPES.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
               </select>
             </div>
             <div>
               <Label>Gender <Req /></Label>
               <select className="input" value={form.gender} onChange={e => set('gender', e.target.value)}>
-                {GENDERS.map(g => <option key={g}>{g}</option>)}
+                {GENDERS.map(g => <option key={g} value={g}>{g.charAt(0).toUpperCase() + g.slice(1)}</option>)}
               </select>
             </div>
             <div>
