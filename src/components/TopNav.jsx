@@ -8,7 +8,7 @@ export default function TopNav() {
 
   async function handleSignOut() {
     await signOut()
-    navigate('/login')
+    navigate('/')
   }
 
   return (

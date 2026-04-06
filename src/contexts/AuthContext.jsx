@@ -59,7 +59,7 @@ export function AuthProvider({ children }) {
   }, [])
 
   const signOut = async () => {
-    await supabase.auth.signOut()
+    try { await supabase.auth.signOut() } catch { /* ignore — clear locally regardless */ }
     localStorage.removeItem('sb-qcwbkpcwtxpokgseethp-auth-token')
     setUser(null)
     setProfile(null)
