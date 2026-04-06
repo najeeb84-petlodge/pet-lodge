@@ -263,18 +263,18 @@ function PetModal({ editPet, ownerId, onClose, onSaved }) {
       // if upload fails, proceed without photo (don't block save)
     }
 
+    // Only include columns confirmed to exist in the pets table.
+    // Add special_medication and photo_url back once those columns are created in Supabase.
     const body = {
-      name:                 form.name.trim(),
-      type:                 form.type,
-      breed:                form.breed.trim(),
-      age:                  Number(form.age),
-      colour:               form.colour.trim(),
-      gender:               form.gender,
-      desexed:              Boolean(form.desexed),
-      vet_name:             form.vet_name.trim(),
-      vet_contact:          form.vet_contact.trim(),
-      special_medication:   form.special_medication.trim(),
-      // photo_url omitted until column is added to the pets table
+      name:       form.name.trim(),
+      type:       form.type,
+      breed:      form.breed.trim(),
+      age:        Number(form.age),
+      colour:     form.colour.trim(),
+      gender:     form.gender,
+      desexed:    Boolean(form.desexed),
+      vet_name:   form.vet_name.trim(),
+      vet_contact: form.vet_contact.trim(),
     }
 
     let result
