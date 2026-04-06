@@ -46,3 +46,14 @@ npm run dev
 | `admin` | — | Standard admin: bookings, calendar, receipts, payments. Cannot edit users, cannot edit Prices Master, Monthly Revenue hidden, no Excel export |
 
 > Check `profile.role === 'super_admin'` (or `=== 'admin'`) — the `isSuperAdmin` prop is passed down from `AdminDashboard` and gates super-admin-only UI.
+
+## UI Standards
+
+- **Mandatory form fields** must show a red asterisk next to their label.
+  Use: `<span className="text-red-500">*</span>` after the label text.
+  Optional fields get no asterisk.
+- **Never** make address, phone, or WhatsApp fields mandatory.
+- **Mandatory fields per form:**
+  - Profile edit: First Name, Last Name only
+  - Add/Edit Pet: Name, Type, Breed, Age, Colour, Gender, Vet Name, Vet Phone
+  - Booking wizard Step 1: First Name, Last Name, Email
