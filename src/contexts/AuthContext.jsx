@@ -30,7 +30,33 @@ export function AuthProvider({ children }) {
     role: stored.role,
     full_name: stored.full_name,
   } : null)
-  const [loading, setLoading] = useState(false) // Start false — we read from localStorage instantly
+  const [loading, setLoading] = useState(false)
+
+  // Keep profile.role in sync with the profiles table (authoritative source)
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('id, email, role, first_name, last_name')
+          .eq('id', session.user.id)
+          .single()
+        if (prof) {
+          setUser(session.user)
+          setProfile({
+            id: prof.id,
+            email: prof.email,
+            role: prof.role ?? 'customer',
+            full_name: `${prof.first_name || ''} ${prof.last_name || ''}`.trim() || session.user.email.split('@')[0] || 'User',
+          })
+        }
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null)
+        setProfile(null)
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [])
 
   const signOut = async () => {
     await supabase.auth.signOut()

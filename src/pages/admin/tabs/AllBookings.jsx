@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { dbQuery, dbUpdate } from '../../../lib/supabase'
 import { format, isAfter, isBefore, isEqual } from 'date-fns'
-import { Search, Eye, Edit2, FileText, Mail, Loader2, SlidersHorizontal } from 'lucide-react'
+import { Search, Eye, Loader2, SlidersHorizontal } from 'lucide-react'
 import BookingModal from './BookingModal'
 
 const STATUS_OPTIONS  = ['pending','confirmed','completed','cancelled']
@@ -233,10 +233,7 @@ export default function AllBookings({ isSuperAdmin }) {
                 {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}
               </select>
               <div style={{ display:'flex', gap:'4px' }}>
-                <button onClick={() => setSelected(b)} style={{ padding:'6px', borderRadius:'6px', border:'none', background:'transparent', cursor:'pointer' }} title="View"><Eye size={15} style={{ color:'#3b82f6' }}/></button>
-                <button onClick={() => setSelected(b)} style={{ padding:'6px', borderRadius:'6px', border:'none', background:'transparent', cursor:'pointer' }} title="Edit"><Edit2 size={15} style={{ color:'var(--muted)' }}/></button>
-                <button onClick={() => setSelected(b)} style={{ padding:'6px', borderRadius:'6px', border:'none', background:'transparent', cursor:'pointer' }} title="Receipt"><FileText size={15} style={{ color:'#16a34a' }}/></button>
-                <button onClick={() => setSelected(b)} style={{ padding:'6px', borderRadius:'6px', border:'none', background:'transparent', cursor:'pointer' }} title="Email"><Mail size={15} style={{ color:'#ea580c' }}/></button>
+                <button onClick={() => setSelected(b)} style={{ padding:'6px', borderRadius:'6px', border:'none', background:'transparent', cursor:'pointer' }} title="Open"><Eye size={15} style={{ color:'#3b82f6' }}/></button>
               </div>
             </div>
           </div>

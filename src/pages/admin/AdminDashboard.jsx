@@ -21,7 +21,7 @@ export default function AdminDashboard() {
   const { profile } = useAuth()
   const [activeTab, setActiveTab] = useState('bookings')
 
-  const isSuperAdmin = profile?.role === 'super_admin' || profile?.role === 'admin'
+  const isSuperAdmin = profile?.role === 'super_admin'
   const visibleTabs  = TABS.filter(t => !t.adminOnly || isSuperAdmin)
 
   return (
@@ -59,9 +59,9 @@ export default function AdminDashboard() {
         {activeTab === 'bookings'  && <AllBookings isSuperAdmin={isSuperAdmin}/>}
         {activeTab === 'mods'      && <ModificationRequests/>}
         {activeTab === 'calendar'  && <WeeklyCalendar/>}
-        {activeTab === 'prices'    && <PricesMaster/>}
+        {activeTab === 'prices'    && <PricesMaster isSuperAdmin={isSuperAdmin}/>}
         {activeTab === 'responses' && <FormResponses isSuperAdmin={isSuperAdmin}/>}
-        {activeTab === 'users'     && isSuperAdmin && <UserManagement/>}
+        {activeTab === 'users'     && isSuperAdmin && <UserManagement isSuperAdmin={isSuperAdmin}/>}
       </div>
     </div>
   )

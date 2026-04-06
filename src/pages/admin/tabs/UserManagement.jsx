@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { dbQuery, dbUpdate, SUPABASE_URL, SUPABASE_KEY, getAccessToken } from '../../../lib/supabase'
-import { Loader2, Plus } from 'lucide-react'
+import { dbQuery, dbUpdate } from '../../../lib/supabase'
+import { Loader2, Download } from 'lucide-react'
 import { useAuth } from '../../../contexts/AuthContext'
+import { format } from 'date-fns'
 
 const ROLE_BADGE = {
   super_admin: { bg:'#fee2e2', color:'#991b1b', label:'⊙ Super Admin' },
@@ -10,7 +11,7 @@ const ROLE_BADGE = {
   customer:    { bg:'#dcfce7', color:'#166534', label:'Customer' },
 }
 
-export default function UserManagement() {
+export default function UserManagement({ isSuperAdmin }) {
   const { profile: me } = useAuth()
   const [users, setUsers]     = useState([])
   const [loading, setLoading] = useState(true)
@@ -18,6 +19,26 @@ export default function UserManagement() {
   const [newRole, setNewRole]   = useState('admin')
   const [adding, setAdding]     = useState(false)
   const [error, setError]       = useState('')
+
+  async function exportCustomers() {
+    const customers = await dbQuery('profiles', '?role=eq.customer&order=created_at.desc')
+    const headers = ['Full Name', 'Email', 'Phone', 'WhatsApp', 'Registration Date']
+    const rows = (customers || []).map(c => [
+      `${c.first_name || ''} ${c.last_name || ''}`.trim() || '—',
+      c.email || '',
+      c.phone || '',
+      c.whatsapp || '',
+      c.created_at ? format(new Date(c.created_at), 'dd/MM/yyyy') : '',
+    ])
+    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `pet-lodge-customers-${format(new Date(), 'yyyyMMdd')}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   async function fetchUsers() {
     setLoading(true)
@@ -55,9 +76,16 @@ export default function UserManagement() {
 
   return (
     <div className="card">
-      <h2 className="font-bold text-lg mb-4 flex items-center gap-2" style={{ color:'var(--accent)' }}>
-        👥 User Management
-      </h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="font-bold text-lg flex items-center gap-2" style={{ color:'var(--accent)' }}>
+          👥 User Management
+        </h2>
+        {isSuperAdmin && (
+          <button onClick={exportCustomers} className="btn-secondary flex items-center gap-2 text-sm">
+            <Download size={14}/> Download Customer Base
+          </button>
+        )}
+      </div>
 
       {error && (
         <div style={{ background:'#fee2e2', border:'1px solid #fca5a5', color:'#991b1b', padding:'0.75rem', borderRadius:'0.5rem', fontSize:'0.875rem', marginBottom:'1rem' }}>

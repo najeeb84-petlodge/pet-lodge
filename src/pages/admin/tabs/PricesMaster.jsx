@@ -5,7 +5,7 @@ import { Edit2, Save, X, Loader2 } from 'lucide-react'
 const CATEGORIES = ['boarding','daycamp','grooming','walking','transport','training','other']
 const CAT_LABELS = { boarding:'Boarding Services', daycamp:'Day Camp Services', grooming:'Grooming Services', walking:'Walking Services', transport:'Transportation Services', training:'Training Services', other:'Other Services' }
 
-export default function PricesMaster() {
+export default function PricesMaster({ isSuperAdmin }) {
   const [services, setServices]   = useState([])
   const [loading, setLoading]     = useState(true)
   const [editing, setEditing]     = useState(null)
@@ -77,10 +77,12 @@ export default function PricesMaster() {
                         <p className="font-bold text-lg" style={{ color:'var(--accent)' }}>JD {parseFloat(s.price||0).toFixed(2)}</p>
                         <p className="text-xs text-gray-400">per {s.unit || 'day'}</p>
                       </div>
-                      <button onClick={() => { setEditing(s.id); setEditData({ name:s.name, description:s.description||'', price:s.price }) }}
-                        className="btn-secondary text-xs py-1.5 px-3 flex items-center gap-1">
-                        <Edit2 size={12}/> Edit
-                      </button>
+                      {isSuperAdmin && (
+                        <button onClick={() => { setEditing(s.id); setEditData({ name:s.name, description:s.description||'', price:s.price }) }}
+                          className="btn-secondary text-xs py-1.5 px-3 flex items-center gap-1">
+                          <Edit2 size={12}/> Edit
+                        </button>
+                      )}
                     </div>
                   </>
                 )}

@@ -831,26 +831,24 @@ We look forward to welcoming ${b.pets?.name || 'your pet'}! 🐾`
               <h1 style={{ fontSize: '1.6rem', fontWeight: '800', margin: '0 0 14px', color: '#111' }}>
                 Receipt (#{receiptId})
               </h1>
-              <table style={{ borderCollapse: 'collapse', width: '100%', maxWidth: '340px' }}>
-                <tbody>
-                  {[
-                    ["Owner's Name",   receiptOwner],
-                    ["Pet's Name",     allPetNames],
-                    ["Arrival Date",   b.start_date ? format(new Date(b.start_date), 'EEE, dd MMM yyyy') : '—'],
-                    ["Departure Date", b.end_date   ? format(new Date(b.end_date),   'EEE, dd MMM yyyy') : '—'],
-                  ].map(([label, val]) => (
-                    <tr key={label}>
-                      <td style={{ padding: '5px 14px 5px 0', fontSize: '0.82rem', fontWeight: '700', color: '#374151', borderBottom: '1px solid #d1d5db', whiteSpace: 'nowrap' }}>{label}</td>
-                      <td style={{ padding: '5px 0', fontSize: '0.82rem', color: '#111', borderBottom: '1px solid #d1d5db' }}>{val}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div style={{ width: '100%', maxWidth: '340px' }}>
+                {[
+                  ["Owner's Name",   receiptOwner],
+                  ["Pet's Name",     allPetNames],
+                  ["Arrival Date",   b.start_date ? format(new Date(b.start_date), 'EEE, d MMM yyyy') : '—'],
+                  ["Departure Date", b.end_date   ? format(new Date(b.end_date),   'EEE, d MMM yyyy') : '—'],
+                ].map(([label, val]) => (
+                  <div key={label} style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '7px' }}>
+                    <span style={{ fontSize: '0.82rem', fontWeight: '700', color: '#374151', minWidth: '140px', flexShrink: 0 }}>{label}</span>
+                    <span style={{ fontSize: '0.82rem', color: '#111', borderBottom: '1px solid #9ca3af', flex: 1, paddingBottom: '2px' }}>{val}</span>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* Right: logo + contact links */}
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <img src="/logo.jpg" alt="Pet Lodge" style={{ width: '80px', height: '80px', objectFit: 'contain', borderRadius: '8px', marginBottom: '10px', display: 'block', marginLeft: 'auto' }} />
+              <img src="/logo.jpg" alt="Pet Lodge" style={{ width: '100px', height: 'auto', borderRadius: '8px', marginBottom: '10px', display: 'block', marginLeft: 'auto' }} />
               <div style={{ fontSize: '0.72rem', lineHeight: '1.9' }}>
                 <a href="https://www.petlodgejo.com/"           target="_blank" rel="noopener noreferrer" style={linkStyle}>www.petlodgejo.com</a>
                 <a href="tel:+962798906476"                      target="_blank" rel="noopener noreferrer" style={linkStyle}>+962 79 8906476</a>
@@ -946,40 +944,103 @@ We look forward to welcoming ${b.pets?.name || 'your pet'}! 🐾`
           </button>
         </div>
 
-        {/* ── Email sub-section ── */}
-        {sendSection === 'email' && (
-          <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem', marginBottom: '0.75rem', background: '#f8fafc' }}>
-            <p style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--primary)', marginBottom: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Send Receipt via Email</p>
-            <div style={{ marginBottom: '0.5rem' }}>
-              <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.2rem', fontWeight: '600' }}>To</label>
-              <input className="input" value={emailAddr} onChange={e => setEmailAddr(e.target.value)} placeholder="customer@email.com" />
-            </div>
-            <div style={{ marginBottom: '0.75rem' }}>
-              <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.2rem', fontWeight: '600' }}>Message</label>
-              <textarea className="input" rows={4} value={emailMsg} onChange={e => setEmailMsg(e.target.value)} style={{ resize: 'vertical', fontSize: '0.82rem', lineHeight: '1.55' }} />
-            </div>
-            <button onClick={() => showToast('Receipt sent via email!')} className="btn-primary" style={{ fontSize: '0.875rem' }}>
-              <Mail size={14} /> Send Receipt via Email
-            </button>
-          </div>
-        )}
+        {/* ── Unified send panel ── */}
+        {sendSection && (
+          <div style={{ border: '1px solid #e2e8f0', borderRadius: '10px', padding: '1rem', marginBottom: '0.75rem', background: '#f8fafc' }}>
 
-        {/* ── WhatsApp sub-section ── */}
-        {sendSection === 'whatsapp' && (
-          <div style={{ border: '1px solid #d1fae5', borderRadius: '8px', padding: '1rem', marginBottom: '0.75rem', background: '#f0fdf4' }}>
-            <p style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--primary)', marginBottom: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Send via WhatsApp</p>
-            <div style={{ marginBottom: '0.5rem' }}>
-              <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.2rem', fontWeight: '600' }}>WhatsApp Number</label>
-              <input className="input" value={waNumber} onChange={e => setWaNumber(e.target.value)} placeholder="+962 7X XXX XXXX" />
+            {/* Customer Details */}
+            <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '0.75rem', marginBottom: '0.875rem' }}>
+              <p style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.5rem' }}>Customer Details</p>
+              {[
+                ['Name',  receiptOwner],
+                ['Email', b.customer_email || '—'],
+                ['Pet',   allPetNames],
+                ['Phone', b.customer_phone || b.customer_whatsapp || '—'],
+              ].map(([lbl, val]) => (
+                <div key={lbl} style={{ display: 'flex', gap: '0.5rem', fontSize: '0.82rem', marginBottom: '0.18rem' }}>
+                  <span style={{ fontWeight: '600', minWidth: '50px', color: 'var(--muted)' }}>{lbl}:</span>
+                  <span style={{ color: 'var(--text)' }}>{val}</span>
+                </div>
+              ))}
             </div>
-            <div style={{ marginBottom: '0.75rem' }}>
-              <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.2rem', fontWeight: '600' }}>Message</label>
-              <textarea className="input" rows={4} value={waMsg} onChange={e => setWaMsg(e.target.value)} style={{ resize: 'vertical', fontSize: '0.82rem', lineHeight: '1.55' }} />
+
+            {/* Delivery Method Toggle */}
+            <div style={{ marginBottom: '0.875rem' }}>
+              <p style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.4rem' }}>Choose Delivery Method</p>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                  onClick={() => setSendSection('email')}
+                  className={sendSection === 'email' ? 'btn-primary' : 'btn-secondary'}
+                  style={{ fontSize: '0.82rem' }}
+                >
+                  <Mail size={13} /> Email
+                </button>
+                <button
+                  onClick={() => setSendSection('whatsapp')}
+                  style={{
+                    fontSize: '0.82rem',
+                    display: 'inline-flex', alignItems: 'center', gap: '4px',
+                    padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', border: 'none',
+                    background: sendSection === 'whatsapp' ? '#25d366' : '#f1f5f9',
+                    color:      sendSection === 'whatsapp' ? 'white'   : 'var(--text)',
+                  }}
+                >
+                  <MessageCircle size={13} /> WhatsApp
+                </button>
+              </div>
             </div>
-            <button onClick={prepareWhatsApp} disabled={downloading} className="btn-primary" style={{ fontSize: '0.875rem', background: '#25d366', borderColor: '#25d366' }}>
-              {downloading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <MessageCircle size={14} />}
-              {downloading ? 'Generating PDF…' : 'Prepare WhatsApp Message'}
-            </button>
+
+            {/* ── Email fields ── */}
+            {sendSection === 'email' && (
+              <>
+                <div style={{ marginBottom: '0.5rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.2rem', fontWeight: '600' }}>Email Address</label>
+                  <input className="input" value={emailAddr} onChange={e => setEmailAddr(e.target.value)} placeholder="customer@email.com" />
+                </div>
+                <button onClick={() => showToast('Receipt sent via email!')} className="btn-primary" style={{ fontSize: '0.875rem', marginBottom: '0.875rem' }}>
+                  <Mail size={14} /> Send Receipt via Email
+                </button>
+                <div style={{ marginBottom: '0.5rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.2rem', fontWeight: '600' }}>Personalized Message</label>
+                  <textarea className="input" rows={4} value={emailMsg} onChange={e => setEmailMsg(e.target.value)} style={{ resize: 'vertical', fontSize: '0.82rem', lineHeight: '1.55' }} />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <button onClick={() => setEmailMsg(defaultMsg)} className="btn-secondary" style={{ fontSize: '0.8rem' }}>
+                    Reset to Template
+                  </button>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--muted)', fontStyle: 'italic' }}>
+                    Includes: personal greeting, pet names, payment options, contact links
+                  </span>
+                </div>
+              </>
+            )}
+
+            {/* ── WhatsApp fields ── */}
+            {sendSection === 'whatsapp' && (
+              <>
+                <div style={{ marginBottom: '0.5rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.2rem', fontWeight: '600' }}>WhatsApp Number</label>
+                  <input className="input" value={waNumber} onChange={e => setWaNumber(e.target.value)} placeholder="+962 7X XXX XXXX" />
+                </div>
+                <button onClick={prepareWhatsApp} disabled={downloading} style={{ fontSize: '0.875rem', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', border: 'none', background: '#25d366', color: 'white', marginBottom: '0.875rem' }}>
+                  {downloading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <MessageCircle size={14} />}
+                  {downloading ? 'Generating PDF…' : 'Prepare WhatsApp Message'}
+                </button>
+                <div style={{ marginBottom: '0.5rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.2rem', fontWeight: '600' }}>Personalized Message</label>
+                  <textarea className="input" rows={4} value={waMsg} onChange={e => setWaMsg(e.target.value)} style={{ resize: 'vertical', fontSize: '0.82rem', lineHeight: '1.55' }} />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <button onClick={() => setWaMsg(defaultMsg)} className="btn-secondary" style={{ fontSize: '0.8rem' }}>
+                    Reset to Template
+                  </button>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--muted)', fontStyle: 'italic' }}>
+                    Includes: personal greeting, pet names, payment options, contact links
+                  </span>
+                </div>
+              </>
+            )}
+
           </div>
         )}
       </div>
