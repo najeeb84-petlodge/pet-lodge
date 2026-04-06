@@ -107,19 +107,22 @@ export default function CustomerDashboard() {
       address_flat:          editForm.address_flat.trim(),
     }
 
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${fullProfile.id}`, {
-      method: 'PATCH',
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        Prefer: 'return=minimal',
-      },
-      body: JSON.stringify(payload),
-    })
+    const url     = `${SUPABASE_URL}/rest/v1/profiles?id=eq.${fullProfile.id}`
+    const headers = {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      Prefer: 'return=minimal',
+    }
+
+    console.log('[saveEdit] → URL:',     url)
+    console.log('[saveEdit] → headers:', { ...headers, Authorization: `Bearer ${token.slice(0,20)}…` })
+    console.log('[saveEdit] → payload:', payload)
+
+    const res = await fetch(url, { method: 'PATCH', headers, body: JSON.stringify(payload) })
 
     const text = await res.text()
-    console.log('[saveEdit] PATCH profiles →', res.status, text || '(empty body — ok)')
+    console.log('[saveEdit] ← status:', res.status, '| body:', text || '(empty — ok)')
 
     setSaving(false)
 
