@@ -3,13 +3,14 @@ import { createContext, useContext, useState } from 'react'
 const WizardContext = createContext({})
 
 const INITIAL_CUSTOMER_INFO = {
-  first_name:      '',
-  last_name:       '',
-  email:           '',
-  contact_number:  '',
-  whatsapp_number: '',
-  whatsapp_same:   false,
-  heard_from:      '',
+  first_name:             '',
+  last_name:              '',
+  email:                  '',
+  contact_number:         '',
+  whatsapp_number:        '',
+  whatsapp_same:          false,
+  how_they_heard:         [],   // array — multiple selection
+  newsletter_preferences: [],   // array — optional
 }
 
 export function WizardProvider({ children }) {
