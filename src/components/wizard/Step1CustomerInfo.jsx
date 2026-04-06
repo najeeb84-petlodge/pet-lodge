@@ -110,7 +110,8 @@ export default function Step1CustomerInfo() {
     if (!form.last_name.trim())    e.last_name       = true
     if (!form.email.trim())        e.email           = true
     if (!form.contact_number.trim()) e.contact_number = true
-    if (!form.how_they_heard.length) e.how_they_heard = true
+    if (!form.how_they_heard.length)         e.how_they_heard         = true
+    if (!form.newsletter_preferences.length) e.newsletter_preferences = true
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -202,13 +203,16 @@ export default function Step1CustomerInfo() {
         {/* Newsletter Preferences */}
         <div className="sm:col-span-2">
           <div className="border-t pt-4 mt-2" style={{ borderColor: 'var(--border)' }}>
-            <Label>Newsletter Preferences</Label>
+            <Label required>Newsletter Preferences</Label>
             <CheckboxList
               options={NEWSLETTER_OPTIONS}
               selected={form.newsletter_preferences}
               onChange={val => set('newsletter_preferences', val)}
-              error={false}
+              error={errors.newsletter_preferences}
             />
+            {errors.newsletter_preferences && (
+              <p className="text-xs text-red-500 mt-1">Please select at least one option</p>
+            )}
             <p className="text-xs mt-2" style={{ color: 'var(--muted)' }}>
               We send 2–3 newsletters per year. We promise not to spam your inbox. You can always unsubscribe.
             </p>
