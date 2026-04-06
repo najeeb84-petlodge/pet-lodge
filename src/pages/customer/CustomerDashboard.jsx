@@ -292,8 +292,8 @@ export default function CustomerDashboard() {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <EF label="First Name" k="first_name" form={editForm} set={setEditForm} />
-                <EF label="Last Name"  k="last_name"  form={editForm} set={setEditForm} />
+                <EF label="First Name" k="first_name" form={editForm} set={setEditForm} required />
+                <EF label="Last Name"  k="last_name"  form={editForm} set={setEditForm} required />
                 <div className="col-span-full">
                   <label className="block text-xs font-medium mb-1" style={{ color: 'var(--muted)' }}>Email</label>
                   <p className="input text-sm cursor-not-allowed opacity-60 bg-gray-50">
@@ -329,10 +329,12 @@ function Field({ label, value }) {
   )
 }
 
-function EF({ label, k, form, set }) {
+function EF({ label, k, form, set, required }) {
   return (
     <div>
-      <label className="block text-xs font-medium mb-1" style={{ color: 'var(--muted)' }}>{label}</label>
+      <label className="block text-xs font-medium mb-1" style={{ color: 'var(--muted)' }}>
+        {label}{required && <span style={{ color: 'red' }}> *</span>}
+      </label>
       <input className="input text-sm" value={form[k] || ''} onChange={e => set(f => ({ ...f, [k]: e.target.value }))} />
     </div>
   )

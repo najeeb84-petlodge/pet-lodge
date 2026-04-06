@@ -437,5 +437,5 @@ function Label({ children }) {
   return <label className="block text-xs font-medium mb-1" style={{ color: 'var(--muted)' }}>{children}</label>
 }
 function Req() {
-  return <span className="text-red-500 ml-0.5">*</span>
+  return <span style={{ color: 'red' }}> *</span>
 }
