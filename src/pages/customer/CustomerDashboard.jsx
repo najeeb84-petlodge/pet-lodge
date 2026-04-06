@@ -52,7 +52,7 @@ export default function CustomerDashboard() {
   // Fetch full profile row — only columns confirmed to exist
   useEffect(() => {
     if (!profile?.id) return
-    restGet(`profiles?id=eq.${profile.id}&select=id,first_name,last_name,email`)
+    restGet(`profiles?id=eq.${profile.id}&select=id,first_name,last_name,email,phone,whatsapp_number,address_neighbourhood,address_street,address_flat`)
       .then(data => {
         const prof = Array.isArray(data) ? data[0] : null
         if (prof) setFullProfile(prof)
@@ -74,8 +74,13 @@ export default function CustomerDashboard() {
 
   function startEdit() {
     setEditForm({
-      first_name: fullProfile?.first_name || '',
-      last_name:  fullProfile?.last_name  || '',
+      first_name:            fullProfile?.first_name            || '',
+      last_name:             fullProfile?.last_name             || '',
+      phone:                 fullProfile?.phone                 || '',
+      whatsapp_number:       fullProfile?.whatsapp_number       || '',
+      address_neighbourhood: fullProfile?.address_neighbourhood || '',
+      address_street:        fullProfile?.address_street        || '',
+      address_flat:          fullProfile?.address_flat          || '',
     })
     setSaveError('')
     setEditing(true)
@@ -94,8 +99,13 @@ export default function CustomerDashboard() {
     }
 
     const payload = {
-      first_name: editForm.first_name.trim(),
-      last_name:  editForm.last_name.trim(),
+      first_name:            editForm.first_name.trim(),
+      last_name:             editForm.last_name.trim(),
+      phone:                 editForm.phone.trim(),
+      whatsapp_number:       editForm.whatsapp_number.trim(),
+      address_neighbourhood: editForm.address_neighbourhood.trim(),
+      address_street:        editForm.address_street.trim(),
+      address_flat:          editForm.address_flat.trim(),
     }
 
     const url     = `${SUPABASE_URL}/rest/v1/profiles?id=eq.${fullProfile.id}`
@@ -272,8 +282,13 @@ export default function CustomerDashboard() {
 
             {!editing ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Field label="Name"  value={`${fullProfile?.first_name || ''} ${fullProfile?.last_name || ''}`.trim() || '—'} />
-                <Field label="Email" value={fullProfile?.email || profile?.email || '—'} />
+                <Field label="Name"           value={`${fullProfile?.first_name || ''} ${fullProfile?.last_name || ''}`.trim() || '—'} />
+                <Field label="Email"          value={fullProfile?.email || profile?.email || '—'} />
+                <Field label="Phone"          value={fullProfile?.phone || '—'} />
+                <Field label="WhatsApp"       value={fullProfile?.whatsapp_number || '—'} />
+                <Field label="Neighbourhood"  value={fullProfile?.address_neighbourhood || '—'} />
+                <Field label="Street"         value={fullProfile?.address_street || '—'} />
+                <Field label="Flat / Building" value={fullProfile?.address_flat || '—'} />
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -284,6 +299,16 @@ export default function CustomerDashboard() {
                   <p className="input text-sm cursor-not-allowed opacity-60 bg-gray-50">
                     {fullProfile?.email || profile?.email || '—'}
                   </p>
+                </div>
+                <EF label="Phone"          k="phone"                 form={editForm} set={setEditForm} />
+                <EF label="WhatsApp"       k="whatsapp_number"       form={editForm} set={setEditForm} />
+                <div className="col-span-full border-t pt-3 mt-1" style={{ borderColor: 'var(--border)' }}>
+                  <p className="text-xs font-semibold mb-2" style={{ color: 'var(--muted)' }}>Address</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <EF label="Neighbourhood"   k="address_neighbourhood" form={editForm} set={setEditForm} />
+                    <EF label="Street"          k="address_street"        form={editForm} set={setEditForm} />
+                    <EF label="Flat / Building" k="address_flat"          form={editForm} set={setEditForm} />
+                  </div>
                 </div>
               </div>
             )}
