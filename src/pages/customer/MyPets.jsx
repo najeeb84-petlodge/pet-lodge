@@ -14,6 +14,7 @@ async function restFetch(path, opts = {}) {
       apikey: SUPABASE_KEY,
       Authorization: `Bearer ${token || SUPABASE_KEY}`,
       'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache',
       Prefer: 'return=representation',
       ...(opts.headers || {}),
     },
