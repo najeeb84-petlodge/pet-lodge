@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Check, Loader2 } from 'lucide-react'
+import { Check, Loader2, Home, Sun, Footprints, Scissors, Stethoscope, GraduationCap, Plane } from 'lucide-react'
 import { useWizard } from '../../contexts/WizardContext'
 import { SUPABASE_URL, SUPABASE_KEY } from '../../lib/supabase'
 
@@ -9,7 +9,7 @@ const SERVICES = [
     id:       'boarding',
     label:    'Boarding',
     desc:     'Overnight stays with optional grooming & transport',
-    icon:     '🏠',
+    Icon:     Home,
     category: 'boarding',
     multiSelect: false,
     dateType: 'range',
@@ -19,7 +19,7 @@ const SERVICES = [
     id:       'day_camp',
     label:    'Doggy Day Camp',
     desc:     'Day care with exercise & socialization',
-    icon:     '☀️',
+    Icon:     Sun,
     category: 'day_camp',
     multiSelect: false,
     dateType: 'range',
@@ -29,7 +29,7 @@ const SERVICES = [
     id:       'dog_walking',
     label:    'Dog Walking',
     desc:     'Professional dog walking services',
-    icon:     '🐾',
+    Icon:     Footprints,
     category: 'dog_walking',
     multiSelect: false,
     dateType: 'range',
@@ -39,7 +39,7 @@ const SERVICES = [
     id:       'grooming',
     label:    'Grooming Only',
     desc:     'Bath, trim, nail clipping & more',
-    icon:     '✂️',
+    Icon:     Scissors,
     category: 'grooming',
     multiSelect: true,
     dateType: 'single',
@@ -49,7 +49,7 @@ const SERVICES = [
     id:       'transport',
     label:    'Vet Visits & Transport',
     desc:     'We handle vet trips & pet transportation',
-    icon:     '🩺',
+    Icon:     Stethoscope,
     category: 'transport',
     multiSelect: false,
     dateType: 'range',
@@ -59,7 +59,7 @@ const SERVICES = [
     id:       'training',
     label:    'Training',
     desc:     'Professional dog training programs',
-    icon:     '🎓',
+    Icon:     GraduationCap,
     category: 'training',
     multiSelect: false,
     dateType: 'single',
@@ -70,7 +70,7 @@ const SERVICES = [
     id:       'international',
     label:    'International Travel',
     desc:     'Pet relocation & travel assistance',
-    icon:     '✈️',
+    Icon:     Plane,
     category: null,
     multiSelect: false,
     dateType: 'international',
@@ -300,7 +300,11 @@ export default function Step3Services() {
                   <Check size={11} color="white" strokeWidth={3} />
                 </span>
               )}
-              <span className="text-2xl mb-2 block">{svc.icon}</span>
+              {/* Icon circle */}
+              <span className="flex items-center justify-center w-10 h-10 rounded-full mb-3"
+                style={{ background: isSelected ? '#2d3a1e' : '#f3f4f6' }}>
+                <svc.Icon size={22} color={isSelected ? 'white' : '#5a7a2e'} strokeWidth={1.75} />
+              </span>
               <p className="font-semibold text-sm" style={{ color: isSelected ? '#2d3a1e' : 'var(--text)' }}>
                 {svc.label}
               </p>
