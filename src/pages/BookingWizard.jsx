@@ -5,6 +5,7 @@ import { useWizard } from '../contexts/WizardContext'
 import StepProgress from '../components/wizard/StepProgress'
 import Step1CustomerInfo from '../components/wizard/Step1CustomerInfo'
 import Step2PetDetails from '../components/wizard/Step2PetDetails'
+import Step3Services from '../components/wizard/Step3Services'
 
 function StepPlaceholder({ title }) {
   return (
@@ -36,7 +37,7 @@ export default function BookingWizard() {
 
           {step === 1 && <Step1CustomerInfo />}
           {step === 2 && <Step2PetDetails />}
-          {step === 3 && <StepPlaceholder title="Services" />}
+          {step === 3 && <Step3Services />}
           {step === 4 && <StepPlaceholder title="Service Options" />}
           {step === 5 && <StepPlaceholder title="Confirmation" />}
         </div>
