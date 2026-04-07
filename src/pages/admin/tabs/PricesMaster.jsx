@@ -2,20 +2,37 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
 import { Edit2, Save, X, Loader2 } from 'lucide-react'
 
-const CATEGORIES = ['boarding','daycamp','grooming','walking','transport','training','other']
-const CAT_LABELS = { boarding:'Boarding Services', daycamp:'Day Camp Services', grooming:'Grooming Services', walking:'Walking Services', transport:'Transportation Services', training:'Training Services', other:'Other Services' }
+const CATEGORIES = ['boarding','day_camp','grooming','dog_walking','transport','training','other']
+const CAT_LABELS = { boarding:'Boarding Services', day_camp:'Day Camp Services', grooming:'Grooming Services', dog_walking:'Dog Walking Services', transport:'Transportation Services', training:'Training Services', other:'Other Services' }
 
 export default function PricesMaster({ isSuperAdmin }) {
   const [services, setServices]   = useState([])
   const [loading, setLoading]     = useState(true)
+  const [error, setError]         = useState(null)
   const [editing, setEditing]     = useState(null)
   const [editData, setEditData]   = useState({})
   const [saving, setSaving]       = useState(false)
 
   async function fetchServices() {
-    const { data } = await supabase.from('services').select('*').eq('active', true).order('category').order('sort_order').order('name')
-    setServices(data ?? [])
-    setLoading(false)
+    setLoading(true)
+    setError(null)
+    try {
+      const { data, error: qErr } = await supabase
+        .from('services')
+        .select('*')
+        .eq('active', true)
+        .order('category', { ascending: true })
+        .order('sort_order', { ascending: true })
+        .order('name',       { ascending: true })
+      if (qErr) throw qErr
+      console.log('[PricesMaster] services:', data?.map(r => ({ name: r.name, category: r.category })))
+      setServices(data ?? [])
+    } catch (e) {
+      console.error('[PricesMaster] fetch error:', e)
+      setError(e?.message || 'Failed to load services')
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { fetchServices() }, [])
@@ -33,13 +50,19 @@ export default function PricesMaster({ isSuperAdmin }) {
   }
 
   const grouped = services.reduce((acc, s) => {
-    const cat = s.category || 'other'
+    const cat = (s.category || 'other').toLowerCase().replace(/[\s-]+/g, '_')
     if (!acc[cat]) acc[cat] = []
     acc[cat].push(s)
     return acc
   }, {})
 
   if (loading) return <div className="flex items-center justify-center h-48"><Loader2 size={28} className="animate-spin" style={{ color:'var(--accent)' }}/></div>
+  if (error)   return (
+    <div className="flex flex-col items-center justify-center h-48 gap-3">
+      <p className="text-red-500 text-sm font-semibold">Error loading services: {error}</p>
+      <button onClick={fetchServices} className="btn-secondary text-sm">Retry</button>
+    </div>
+  )
 
   return (
     <div className="space-y-4">
