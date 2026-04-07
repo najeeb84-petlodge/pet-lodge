@@ -78,11 +78,29 @@ const SERVICES = [
 ]
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-function autoSelectBoarding(prices, petCount) {
-  if (!prices.length) return null
-  // Try to find one matching pet count e.g. "(2 dogs)" or "(2 cats)"
-  const match = prices.find(p => p.name.includes(`(${petCount}`))
-  return match?.id ?? prices[0]?.id ?? null
+/**
+ * Find the single best-matching boarding option given the exact dog/cat counts.
+ * Matches against name strings like "(1 dog)", "(2 dogs)", "(1 cat and 1 dog)", etc.
+ */
+function findBestBoardingMatch(options, dogCount, catCount) {
+  if (!options.length) return null
+  const n = (s) => (s || '').toLowerCase()
+
+  if (dogCount > 0 && catCount === 0) {
+    const term = dogCount === 1 ? '(1 dog)' : `(${dogCount} dog`
+    return options.find(p => n(p.name).includes(term.toLowerCase())) ?? null
+  }
+  if (catCount > 0 && dogCount === 0) {
+    const term = catCount === 1 ? '(1 cat)' : `(${catCount} cat`
+    return options.find(p => n(p.name).includes(term.toLowerCase())) ?? null
+  }
+  if (dogCount > 0 && catCount > 0) {
+    return options.find(p => {
+      const name = n(p.name)
+      return name.includes(`${catCount} cat`) && name.includes(`${dogCount} dog`)
+    }) ?? null
+  }
+  return options[0] ?? null
 }
 
 // ── Sub-panels ───────────────────────────────────────────────────────────────
@@ -170,23 +188,18 @@ export default function Step3Services() {
     nextStep, prevStep,
   } = useWizard()
 
-  const petCount = petsData.length || 1
-
-  // Determine pet type mix for boarding filter
-  const petTypes = petsData.map(p => (p.type || '').toLowerCase())
-  const hasDog   = petTypes.some(t => t === 'dog')
-  const hasCat   = petTypes.some(t => t === 'cat')
-  const isMixed  = hasDog && hasCat
-  // 'dog' | 'cat' | 'mixed' | 'other'
-  const boardingPetType = isMixed ? 'mixed' : hasDog ? 'dog' : hasCat ? 'cat' : 'other'
+  // Count dogs and cats from Step 2 pet selections
+  const dogCount = petsData.filter(p => (p.type || '').toLowerCase() === 'dog').length
+  const catCount = petsData.filter(p => (p.type || '').toLowerCase() === 'cat').length
 
   // prices keyed by category string
-  const [prices,  setPrices]  = useState({})
-  const [loading, setLoading] = useState(true)
+  const [prices,          setPrices]          = useState({})
+  const [loading,         setLoading]         = useState(true)
+  const [showAllBoarding, setShowAllBoarding] = useState(false)
 
   // per-service selection state
-  const [selected,   setSelected]   = useState(serviceType || null)      // service id
-  const [option,     setOption]     = useState(serviceOptions?.option ?? null)   // price id or array
+  const [selected,   setSelected]   = useState(serviceType || null)
+  const [option,     setOption]     = useState(serviceOptions?.option ?? null)
   const [startDate,  setStartDate]  = useState(serviceOptions?.startDate  ?? '')
   const [endDate,    setEndDate]    = useState(serviceOptions?.endDate    ?? '')
   const [tripType,   setTripType]   = useState(serviceOptions?.tripType   ?? 'one_way')
@@ -220,28 +233,29 @@ export default function Step3Services() {
       .finally(() => setLoading(false))
   }, [])
 
-  // Boarding options filtered by pet type — exclude food/flea rows
+  // All boarding options excluding food / flea / tick add-ons (those belong in Step 4)
   const EXCLUDE_KEYWORDS = ['food', 'flea', 'tick']
   const allBoarding = prices.boarding || []
-  const boardingOptions = allBoarding.filter(p => {
-    const nameLower = (p.name || '').toLowerCase()
-    // Exclude food and flea & tick items
-    if (EXCLUDE_KEYWORDS.some(kw => nameLower.includes(kw))) return false
-    // Filter by pet_type column: show rows matching the mix, or rows with pet_type='all'/'mixed'/null
-    const pt = (p.pet_type || '').toLowerCase().trim()
-    if (!pt || pt === 'all') return true
-    if (boardingPetType === 'mixed') return pt === 'mixed' || pt === 'all'
-    return pt === boardingPetType
-  })
+  const boardingOptions = allBoarding.filter(p =>
+    !EXCLUDE_KEYWORDS.some(kw => (p.name || '').toLowerCase().includes(kw))
+  )
 
-  // Auto-select boarding once prices load (first visit only)
+  // The single best-fit option for the pets selected in Step 2
+  const bestMatch = findBestBoardingMatch(boardingOptions, dogCount, catCount)
+
+  // What's actually rendered in the sub-panel
+  const visibleBoardingOptions = (showAllBoarding || !bestMatch)
+    ? boardingOptions
+    : boardingOptions.filter(p => p.id === bestMatch.id)
+
+  // Auto-select best match once prices load (first visit only)
   useEffect(() => {
-    if (serviceOptions?.option) return   // already restored from context
-    if (!boardingOptions.length) return
+    if (serviceOptions?.option) return   // restoring from wizard context
+    if (!bestMatch) return
     if (selected === 'boarding' && !option) {
-      setOption(autoSelectBoarding(boardingOptions, petCount))
+      setOption(bestMatch.id)
     }
-  }, [boardingOptions.length])
+  }, [bestMatch?.id])
 
   // When service changes reset option/dates (but preserve if re-selecting same)
   function selectService(svcId) {
@@ -251,10 +265,11 @@ export default function Step3Services() {
     setStartDate('')
     setEndDate('')
     setErrors({})
+    setShowAllBoarding(false)
 
-    // Auto-select boarding from filtered list
-    if (svcId === 'boarding' && boardingOptions.length) {
-      setOption(autoSelectBoarding(boardingOptions, petCount))
+    // Auto-select boarding best match
+    if (svcId === 'boarding' && bestMatch) {
+      setOption(bestMatch.id)
     }
   }
 
@@ -355,12 +370,25 @@ export default function Step3Services() {
             <>
               <p className="text-sm font-bold mb-3" style={{ color: 'var(--primary)' }}>Boarding Options</p>
               <PriceRadioList
-                prices={boardingOptions}
+                prices={visibleBoardingOptions}
                 selected={option}
                 onChange={setOption}
                 multiSelect={false}
               />
               {errors.option && <p className="text-xs text-red-500 mt-2">Please select an option</p>}
+
+              {/* Show all / collapse toggle */}
+              {bestMatch && boardingOptions.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllBoarding(v => !v)}
+                  className="mt-2 text-xs font-medium underline underline-offset-2"
+                  style={{ color: 'var(--muted)' }}
+                >
+                  {showAllBoarding ? 'Show recommended option only' : 'Show all boarding options'}
+                </button>
+              )}
+
               <div className="mt-4">
                 <p className="text-xs font-semibold mb-2" style={{ color: 'var(--muted)' }}>Service Dates</p>
                 <DateRange startVal={startDate} endVal={endDate}
