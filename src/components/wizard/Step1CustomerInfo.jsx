@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Loader2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
 import { useWizard } from '../../contexts/WizardContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { SUPABASE_URL, SUPABASE_KEY, getAccessToken } from '../../lib/supabase'
@@ -43,7 +43,7 @@ function CheckboxList({ options, selected, onChange, error }) {
   }
   return (
     <div className={`space-y-2 rounded-lg p-3 ${error ? 'border border-red-400 bg-red-50' : 'border bg-white'}`}
-      style={ error ? {} : { borderColor: 'var(--border)' }}>
+      style={error ? {} : { borderColor: 'var(--border)' }}>
       {options.map(opt => (
         <label key={opt} className="flex items-center gap-2 cursor-pointer select-none">
           <input
@@ -57,6 +57,58 @@ function CheckboxList({ options, selected, onChange, error }) {
       ))}
     </div>
   )
+}
+
+function CollapsibleCheckbox({ title, required, options, selected, onChange, error, note }) {
+  const [open, setOpen] = useState(selected.length === 0)
+  const summary = selected.length ? selected.join(', ') : null
+
+  return (
+    <div className="rounded-lg overflow-hidden" style={{ border: `1px solid ${error ? '#f87171' : 'var(--border)'}` }}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-3 py-2.5"
+        style={{ background: error ? '#fef2f2' : 'var(--light)' }}
+      >
+        <span className="text-xs font-medium" style={{ color: error ? '#dc2626' : 'var(--muted)' }}>
+          {title}{required && <Req />}
+          {!open && summary && (
+            <span className="ml-2 font-normal" style={{ color: 'var(--text)' }}>— {summary}</span>
+          )}
+        </span>
+        {open ? <ChevronUp size={15} style={{ color: 'var(--muted)', flexShrink: 0 }} />
+               : <ChevronDown size={15} style={{ color: 'var(--muted)', flexShrink: 0 }} />}
+      </button>
+      {open && (
+        <div className="p-3 border-t" style={{ borderColor: 'var(--border)' }}>
+          <CheckboxList options={options} selected={selected} onChange={onChange} error={false} />
+          {note && <p className="text-xs mt-2" style={{ color: 'var(--muted)' }}>{note}</p>}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// PATCH how_they_heard and newsletter_preferences back to profiles
+async function savePreferencesToProfile(profileId, howTheyHeard, newsletterPrefs) {
+  const token = getAccessToken()
+  await fetch(
+    `${SUPABASE_URL}/rest/v1/profiles?id=eq.${profileId}`,
+    {
+      method: 'PATCH',
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${token || SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({
+        how_they_heard:         howTheyHeard,
+        newsletter_preferences: newsletterPrefs,
+      }),
+    }
+  ).catch(() => {})
 }
 
 export default function Step1CustomerInfo() {
@@ -74,7 +126,7 @@ export default function Step1CustomerInfo() {
     setLoading(true)
     const token = getAccessToken()
     fetch(
-      `${SUPABASE_URL}/rest/v1/profiles?id=eq.${profile.id}&select=first_name,last_name,email,phone,whatsapp_number`,
+      `${SUPABASE_URL}/rest/v1/profiles?id=eq.${profile.id}&select=first_name,last_name,email,phone,whatsapp_number,how_they_heard,newsletter_preferences`,
       { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token || SUPABASE_KEY}` } }
     )
       .then(r => r.json())
@@ -83,11 +135,13 @@ export default function Step1CustomerInfo() {
         if (!p) return
         setForm(f => ({
           ...f,
-          first_name:      p.first_name      || f.first_name,
-          last_name:       p.last_name       || f.last_name,
-          email:           p.email           || f.email,
-          contact_number:  p.phone           || f.contact_number,
-          whatsapp_number: p.whatsapp_number || f.whatsapp_number,
+          first_name:             p.first_name             || f.first_name,
+          last_name:              p.last_name              || f.last_name,
+          email:                  p.email                  || f.email,
+          contact_number:         p.phone                  || f.contact_number,
+          whatsapp_number:        p.whatsapp_number        || f.whatsapp_number,
+          how_they_heard:         Array.isArray(p.how_they_heard)         ? p.how_they_heard         : f.how_they_heard,
+          newsletter_preferences: Array.isArray(p.newsletter_preferences) ? p.newsletter_preferences : f.newsletter_preferences,
         }))
       })
       .catch(() => {})
@@ -106,10 +160,10 @@ export default function Step1CustomerInfo() {
 
   function validate() {
     const e = {}
-    if (!form.first_name.trim())   e.first_name      = true
-    if (!form.last_name.trim())    e.last_name       = true
-    if (!form.email.trim())        e.email           = true
-    if (!form.contact_number.trim()) e.contact_number = true
+    if (!form.first_name.trim())        e.first_name             = true
+    if (!form.last_name.trim())         e.last_name              = true
+    if (!form.email.trim())             e.email                  = true
+    if (!form.contact_number.trim())    e.contact_number         = true
     if (!form.how_they_heard.length)         e.how_they_heard         = true
     if (!form.newsletter_preferences.length) e.newsletter_preferences = true
     setErrors(e)
@@ -119,6 +173,9 @@ export default function Step1CustomerInfo() {
   function handleNext() {
     if (!validate()) return
     setCustomerInfo(form)
+    if (profile?.id) {
+      savePreferencesToProfile(profile.id, form.how_they_heard, form.newsletter_preferences)
+    }
     nextStep()
   }
 
@@ -186,10 +243,11 @@ export default function Step1CustomerInfo() {
           </label>
         </div>
 
-        {/* How did you hear about us */}
+        {/* How did you hear about us — collapsible */}
         <div className="sm:col-span-2">
-          <Label required>How did you hear about us?</Label>
-          <CheckboxList
+          <CollapsibleCheckbox
+            title="How did you hear about us?"
+            required
             options={HEARD_FROM_OPTIONS}
             selected={form.how_they_heard}
             onChange={val => set('how_they_heard', val)}
@@ -200,22 +258,21 @@ export default function Step1CustomerInfo() {
           )}
         </div>
 
-        {/* Newsletter Preferences */}
+        {/* Newsletter Preferences — collapsible */}
         <div className="sm:col-span-2">
           <div className="border-t pt-4 mt-2" style={{ borderColor: 'var(--border)' }}>
-            <Label required>Newsletter Preferences</Label>
-            <CheckboxList
+            <CollapsibleCheckbox
+              title="Newsletter Preferences"
+              required
               options={NEWSLETTER_OPTIONS}
               selected={form.newsletter_preferences}
               onChange={val => set('newsletter_preferences', val)}
               error={errors.newsletter_preferences}
+              note="We send 2–3 newsletters per year. We promise not to spam your inbox. You can always unsubscribe."
             />
             {errors.newsletter_preferences && (
               <p className="text-xs text-red-500 mt-1">Please select at least one option</p>
             )}
-            <p className="text-xs mt-2" style={{ color: 'var(--muted)' }}>
-              We send 2–3 newsletters per year. We promise not to spam your inbox. You can always unsubscribe.
-            </p>
           </div>
         </div>
 
