@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, Check, Loader2 } from 'lucide-react'
 import { useWizard } from '../../contexts/WizardContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { SUPABASE_URL, SUPABASE_KEY, getAccessToken } from '../../lib/supabase'
@@ -17,6 +17,7 @@ function Label({ children, required }) {
 }
 
 const EMPTY_PET = {
+  _savedId:   null,
   name:        '',
   type:        '',
   breed:       '',
@@ -29,28 +30,50 @@ const EMPTY_PET = {
   medication:  '',
 }
 
+const PET_EMOJI = { dog: '🐶', cat: '🐱', other: '🐾' }
+function petEmoji(type) {
+  return PET_EMOJI[(type || '').toLowerCase()] ?? '🐾'
+}
+
+function savedToFormPet(sp) {
+  return {
+    _savedId:   sp.id,
+    name:       sp.name        || '',
+    type:       sp.type        || sp.species || '',
+    breed:      sp.breed       || '',
+    age:        sp.age != null  ? String(sp.age) : '',
+    colour:     sp.colour      || sp.color || '',
+    gender:     sp.gender      || '',
+    desexed:    sp.desexed      ? 'yes' : 'no',
+    vet_name:   sp.vet_name    || '',
+    vet_phone:  sp.vet_phone   || '',
+    medication: sp.medication_notes || '',
+  }
+}
+
+// Are all meaningful fields empty on a pet card?
+function isBlankPet(p) {
+  return !p._savedId && !p.name && !p.type && !p.breed && !p.age
+}
+
 export default function Step2PetDetails() {
   const { petsData, setPetsData, setHasIntactFemale, nextStep, prevStep } = useWizard()
   const { profile } = useAuth()
 
-  const [numPets,    setNumPets]    = useState(petsData.length || 1)
-  const [pets,       setPets]       = useState(() => {
-    if (petsData.length) return petsData
-    return [{ ...EMPTY_PET }]
-  })
-  const [open,       setOpen]       = useState([true])   // which cards are expanded
-  const [errors,     setErrors]     = useState([])
-  const [sameVet,    setSameVet]    = useState([])       // bool per pet index
-  const [savedPets,  setSavedPets]  = useState([])       // pets from DB
-  const [loadingDB,  setLoadingDB]  = useState(false)
+  const [pets,      setPets]      = useState(() => petsData.length ? petsData : [{ ...EMPTY_PET }])
+  const [open,      setOpen]      = useState(() => petsData.length ? petsData.map(() => false) : [true])
+  const [errors,    setErrors]    = useState([])
+  const [sameVet,   setSameVet]   = useState([])
+  const [savedPets, setSavedPets] = useState([])
+  const [loadingDB, setLoadingDB] = useState(false)
 
-  // Fetch saved pets for logged-in user
+  // ── Fetch saved pets for this user ──────────────────────────────────────────
   useEffect(() => {
     if (!profile?.id) return
     setLoadingDB(true)
     const token = getAccessToken()
     fetch(
-      `${SUPABASE_URL}/rest/v1/pets?user_id=eq.${profile.id}&select=*`,
+      `${SUPABASE_URL}/rest/v1/pets?user_id=eq.${profile.id}&select=*&order=name`,
       { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token || SUPABASE_KEY}` } }
     )
       .then(r => r.json())
@@ -59,43 +82,81 @@ export default function Step2PetDetails() {
       .finally(() => setLoadingDB(false))
   }, [profile?.id])
 
-  // Resize pets array when numPets changes
-  useEffect(() => {
-    setPets(prev => {
-      if (numPets > prev.length) {
-        return [...prev, ...Array.from({ length: numPets - prev.length }, () => ({ ...EMPTY_PET }))]
-      }
-      return prev.slice(0, numPets)
-    })
-    setOpen(prev => {
-      if (numPets > prev.length) return [...prev, ...Array(numPets - prev.length).fill(false)]
-      return prev.slice(0, numPets)
-    })
-    setErrors(prev => prev.slice(0, numPets))
-    setSameVet(prev => prev.slice(0, numPets))
-  }, [numPets])
+  // ── Saved-pet chip selection ─────────────────────────────────────────────────
+  function isSavedSelected(savedId) {
+    return pets.some(p => p._savedId === savedId)
+  }
 
+  function toggleSavedPet(sp) {
+    const existingIdx = pets.findIndex(p => p._savedId === sp.id)
+
+    if (existingIdx >= 0) {
+      // Deselect: remove from array; keep at least 1 blank card
+      if (pets.length === 1) {
+        setPets([{ ...EMPTY_PET }])
+        setOpen([true])
+        setSameVet([false])
+        setErrors([])
+      } else {
+        setPets(prev    => prev.filter((_, i) => i !== existingIdx))
+        setOpen(prev    => prev.filter((_, i) => i !== existingIdx))
+        setSameVet(prev => prev.filter((_, i) => i !== existingIdx))
+        setErrors(prev  => prev.filter((_, i) => i !== existingIdx))
+      }
+      return
+    }
+
+    // Select: insert after already-selected saved pets (before any blank new pets)
+    const savedSlots = pets.filter(p => p._savedId !== null).length
+    const newPet = savedToFormPet(sp)
+
+    // If there is exactly 1 totally-blank card and no saved pets yet, replace it
+    if (pets.length === 1 && isBlankPet(pets[0]) && savedSlots === 0) {
+      setPets([newPet])
+      setOpen([true])
+      setSameVet([false])
+      setErrors([])
+      return
+    }
+
+    // Otherwise insert at the saved-slots boundary
+    setPets(prev    => [...prev.slice(0, savedSlots), newPet, ...prev.slice(savedSlots)])
+    setOpen(prev    => [...prev.slice(0, savedSlots), true,   ...prev.slice(savedSlots)])
+    setSameVet(prev => [...prev.slice(0, savedSlots), false,  ...prev.slice(savedSlots)])
+    setErrors(prev  => [...prev.slice(0, savedSlots), {},     ...prev.slice(savedSlots)])
+  }
+
+  function addNewPet() {
+    setPets(prev    => [...prev, { ...EMPTY_PET }])
+    setOpen(prev    => [...prev, true])
+    setSameVet(prev => [...prev, false])
+    setErrors(prev  => [...prev, {}])
+  }
+
+  // ── Number of Pets dropdown ──────────────────────────────────────────────────
+  function handleNumPetsChange(n) {
+    const savedCount = pets.filter(p => p._savedId !== null).length
+    const target = Math.max(n, savedCount) // cannot drop below selected saved count
+    if (target > pets.length) {
+      const toAdd = target - pets.length
+      setPets(prev    => [...prev, ...Array.from({ length: toAdd }, () => ({ ...EMPTY_PET }))])
+      setOpen(prev    => [...prev, ...Array(toAdd).fill(false)])
+      setSameVet(prev => [...prev, ...Array(toAdd).fill(false)])
+      setErrors(prev  => [...prev, ...Array(toAdd).fill({})])
+    } else if (target < pets.length) {
+      setPets(prev    => prev.slice(0, target))
+      setOpen(prev    => prev.slice(0, target))
+      setSameVet(prev => prev.slice(0, target))
+      setErrors(prev  => prev.slice(0, target))
+    }
+  }
+
+  // ── Pet card field updates ───────────────────────────────────────────────────
   function updatePet(idx, key, val) {
     setPets(prev => prev.map((p, i) => i === idx ? { ...p, [key]: val } : p))
     if (errors[idx]?.[key]) {
       setErrors(prev => prev.map((e, i) => i === idx ? { ...e, [key]: false } : e))
     }
-  }
-
-  function loadFromSaved(petIdx, savedPet) {
-    setPets(prev => prev.map((p, i) => i === petIdx ? {
-      ...p,
-      name:       savedPet.name       || '',
-      type:       savedPet.type       || savedPet.species || '',
-      breed:      savedPet.breed      || '',
-      age:        savedPet.age        != null ? String(savedPet.age) : '',
-      colour:     savedPet.colour     || savedPet.color || '',
-      gender:     savedPet.gender     || '',
-      desexed:    savedPet.desexed    ? 'yes' : 'no',
-      vet_name:   savedPet.vet_name   || '',
-      vet_phone:  savedPet.vet_phone  || '',
-      medication: savedPet.medication_notes || '',
-    } : p))
   }
 
   function toggleCard(idx) {
@@ -109,7 +170,6 @@ export default function Step2PetDetails() {
       return next
     })
     if (checked) {
-      // Copy vet info from Pet 1
       updatePet(idx, 'vet_name',  pets[0].vet_name)
       updatePet(idx, 'vet_phone', pets[0].vet_phone)
     } else {
@@ -118,6 +178,7 @@ export default function Step2PetDetails() {
     }
   }
 
+  // ── Validation & submission ──────────────────────────────────────────────────
   const REQUIRED_FIELDS = ['name','type','breed','age','colour','gender','vet_name','vet_phone']
 
   function validate() {
@@ -127,7 +188,6 @@ export default function Step2PetDetails() {
       return e
     })
     setErrors(allErrors)
-    // Open any card with errors
     setOpen(prev => prev.map((o, i) => Object.keys(allErrors[i] || {}).length > 0 ? true : o))
     return allErrors.every(e => Object.keys(e).length === 0)
   }
@@ -140,8 +200,7 @@ export default function Step2PetDetails() {
     nextStep()
   }
 
-  const ic = (idx, key) =>
-    `input${errors[idx]?.[key] ? ' !border-red-400' : ''}`
+  const ic = (idx, key) => `input${errors[idx]?.[key] ? ' !border-red-400' : ''}`
 
   return (
     <div>
@@ -150,13 +209,86 @@ export default function Step2PetDetails() {
         Tell us about the pet(s) joining us.
       </p>
 
-      {/* Number of Pets */}
+      {/* ── Your Saved Pets ────────────────────────────────────────────────── */}
+      {profile?.id && (loadingDB || savedPets.length > 0) && (
+        <div className="mb-6 rounded-xl p-4" style={{ background: '#eef4e2', border: '1px solid #c6dba0' }}>
+          <div className="flex items-center gap-2 mb-1">
+            <p className="text-sm font-bold" style={{ color: 'var(--primary)' }}>Your Saved Pets</p>
+            {loadingDB && <Loader2 size={13} className="animate-spin" style={{ color: 'var(--primary)' }} />}
+          </div>
+
+          {!loadingDB && (
+            <>
+              <p className="text-xs mb-3" style={{ color: '#5a7a2e' }}>
+                Select your pets for this booking, or add a new one below.
+              </p>
+
+              <div className="flex flex-wrap gap-2 mb-4">
+                {savedPets.map(sp => {
+                  const isSelected = isSavedSelected(sp.id)
+                  return (
+                    <button
+                      key={sp.id}
+                      type="button"
+                      onClick={() => toggleSavedPet(sp)}
+                      className="relative flex items-center gap-2 pl-2.5 pr-3 py-2 rounded-xl text-left transition-all"
+                      style={{
+                        border:     `2px solid ${isSelected ? '#5a7a2e' : '#c6dba0'}`,
+                        background: isSelected ? '#2d3a1e' : 'white',
+                      }}
+                    >
+                      {/* Photo or emoji */}
+                      {sp.photo_url
+                        ? <img src={sp.photo_url} alt={sp.name}
+                            className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                        : <span className="text-xl leading-none w-8 h-8 flex items-center justify-center flex-shrink-0">
+                            {petEmoji(sp.type || sp.species)}
+                          </span>
+                      }
+
+                      <div>
+                        <p className="text-xs font-bold leading-tight"
+                          style={{ color: isSelected ? 'white' : 'var(--text)' }}>
+                          {sp.name}
+                        </p>
+                        <p className="text-xs leading-tight"
+                          style={{ color: isSelected ? '#c6dba0' : 'var(--muted)' }}>
+                          {[sp.type || sp.species, sp.breed].filter(Boolean).join(' · ')}
+                        </p>
+                      </div>
+
+                      {/* Selected checkmark */}
+                      {isSelected && (
+                        <span className="flex items-center justify-center w-4 h-4 rounded-full flex-shrink-0 ml-1"
+                          style={{ background: '#7aa63c' }}>
+                          <Check size={9} color="white" strokeWidth={3.5} />
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+
+              <button
+                type="button"
+                onClick={addNewPet}
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                style={{ border: '1.5px dashed #7aa63c', color: '#5a7a2e', background: 'white' }}
+              >
+                + Add a new pet
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── Number of Pets ────────────────────────────────────────────────── */}
       <div className="mb-6">
         <Label required>Number of Pets</Label>
         <select
           className="input w-40"
-          value={numPets}
-          onChange={e => setNumPets(Number(e.target.value))}
+          value={pets.length}
+          onChange={e => handleNumPetsChange(Number(e.target.value))}
         >
           {[1,2,3,4,5,6].map(n => (
             <option key={n} value={n}>{n} {n === 1 ? 'pet' : 'pets'}</option>
@@ -164,7 +296,7 @@ export default function Step2PetDetails() {
         </select>
       </div>
 
-      {/* Pet cards */}
+      {/* ── Pet cards ─────────────────────────────────────────────────────── */}
       {pets.map((pet, idx) => {
         const hasErr = Object.keys(errors[idx] || {}).length > 0
         return (
@@ -176,10 +308,18 @@ export default function Step2PetDetails() {
               type="button"
               onClick={() => toggleCard(idx)}
               className="w-full flex items-center justify-between px-4 py-3"
-              style={{ background: hasErr ? '#fef2f2' : 'var(--light)', borderBottom: open[idx] ? '1px solid var(--border)' : 'none' }}
+              style={{
+                background:   hasErr ? '#fef2f2' : 'var(--light)',
+                borderBottom: open[idx] ? '1px solid var(--border)' : 'none',
+              }}
             >
-              <span className="font-700 text-sm font-semibold" style={{ color: hasErr ? '#dc2626' : 'var(--primary)' }}>
+              <span className="font-semibold text-sm" style={{ color: hasErr ? '#dc2626' : 'var(--primary)' }}>
                 Pet {idx + 1}{pet.name ? ` — ${pet.name}` : ''}
+                {pet._savedId && (
+                  <span className="ml-2 text-xs font-normal" style={{ color: 'var(--muted)' }}>
+                    (saved profile)
+                  </span>
+                )}
                 {hasErr && <span className="ml-2 text-xs font-normal text-red-500">Fill in required fields</span>}
               </span>
               {open[idx] ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -187,30 +327,6 @@ export default function Step2PetDetails() {
 
             {open[idx] && (
               <div className="p-4">
-
-                {/* Load from My Pets */}
-                {savedPets.length > 0 && (
-                  <div className="mb-4 p-3 rounded-lg" style={{ background: '#eef4e2', border: '1px solid #c6dba0' }}>
-                    <p className="text-xs font-semibold mb-2" style={{ color: 'var(--primary)' }}>
-                      {loadingDB ? <Loader2 size={12} className="inline animate-spin mr-1" /> : null}
-                      Load from My Pets:
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {savedPets.map(sp => (
-                        <button
-                          key={sp.id}
-                          type="button"
-                          onClick={() => loadFromSaved(idx, sp)}
-                          className="text-xs px-3 py-1 rounded-full font-semibold transition-colors"
-                          style={{ background: 'white', border: '1px solid #7aa63c', color: '#5a7a2e' }}
-                        >
-                          {sp.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
                   {/* Pet Name */}
@@ -281,7 +397,9 @@ export default function Step2PetDetails() {
                             checked={pet.desexed === val}
                             onChange={() => updatePet(idx,'desexed',val)}
                             className="w-4 h-4 accent-[#7aa63c]" />
-                          <span className="text-sm capitalize" style={{ color: 'var(--text)' }}>{val === 'yes' ? 'Yes' : 'No'}</span>
+                          <span className="text-sm capitalize" style={{ color: 'var(--text)' }}>
+                            {val === 'yes' ? 'Yes' : 'No'}
+                          </span>
                         </label>
                       ))}
                     </div>
@@ -295,7 +413,7 @@ export default function Step2PetDetails() {
                     Vet Information{pet.name ? ` for ${pet.name}` : ''}
                   </p>
 
-                  {/* "Same vet as Pet 1" checkbox — only for idx > 0 when Pet 1 has vet info */}
+                  {/* Same vet as Pet 1 — only for idx > 0 when Pet 1 has vet info */}
                   {idx > 0 && (pets[0].vet_name || pets[0].vet_phone) && (
                     <label className="inline-flex items-center gap-2 mb-3 cursor-pointer select-none">
                       <input
@@ -311,8 +429,6 @@ export default function Step2PetDetails() {
                   )}
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
-                    {/* Vet Name */}
                     <div>
                       <Label required>Vet Name</Label>
                       <input
@@ -324,8 +440,6 @@ export default function Step2PetDetails() {
                       />
                       {errors[idx]?.vet_name && <p className="text-xs text-red-500 mt-1">Required</p>}
                     </div>
-
-                    {/* Vet Phone */}
                     <div>
                       <Label required>Vet Contact Number</Label>
                       <input
@@ -338,7 +452,6 @@ export default function Step2PetDetails() {
                       />
                       {errors[idx]?.vet_phone && <p className="text-xs text-red-500 mt-1">Required</p>}
                     </div>
-
                   </div>
                 </div>
 
