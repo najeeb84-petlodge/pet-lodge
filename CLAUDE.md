@@ -47,13 +47,24 @@ npm run dev
 
 > Check `profile.role === 'super_admin'` (or `=== 'admin'`) — the `isSuperAdmin` prop is passed down from `AdminDashboard` and gates super-admin-only UI.
 
-## UI Standards
+## UI & Mobile Standards
 
-- **Mandatory form fields** must show a red asterisk next to their label.
-  Use: `<span className="text-red-500">*</span>` after the label text.
-  Optional fields get no asterisk.
-- **Never** make address, phone, or WhatsApp fields mandatory.
+- All pages must be fully responsive (mobile-first)
+- Use Tailwind responsive prefixes: `sm:`, `md:`, `lg:` on all layouts
+- Forms: single column on mobile, two columns on `md:` and above
+- Modals: full screen on mobile (`w-full h-full`), centered card on `md:`
+- Navbar: hamburger menu on mobile
+- Wizard progress bar: show step numbers only on mobile, full labels on `md:`
+- Brand colors: `#2d3a1e`, `#5a7a2e`, `#7aa63c`, `#eef4e2`
+- No inline styles — use Tailwind classes only
+- Test every component at 375px width (iPhone SE)
+
+## Form Standards
+
+- Mandatory fields show a red asterisk: `<span className="text-red-500">*</span>`
+- Optional fields get no asterisk
+- Never make phone, WhatsApp, or address fields mandatory
 - **Mandatory fields per form:**
-  - Profile edit: First Name, Last Name only
+  - Profile: First Name, Last Name only
   - Add/Edit Pet: Name, Type, Breed, Age, Colour, Gender, Vet Name, Vet Phone
-  - Booking wizard Step 1: First Name, Last Name, Email
+  - Booking wizard Step 1: First Name, Last Name, Email, Contact Number
