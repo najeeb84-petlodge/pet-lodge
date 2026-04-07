@@ -201,12 +201,16 @@ export default function Step3Services() {
       .then(r => r.json())
       .then(data => {
         if (!Array.isArray(data)) return
+        // Log raw response so we can verify category values in the browser console
+        console.log('[Step3] raw services from DB:', data.map(r => ({ id: r.id, name: r.name, category: r.category, pet_type: r.pet_type })))
         const grouped = {}
         data.forEach(row => {
-          const cat = row.category || 'other'
+          // Normalise: lowercase + replace spaces/hyphens with underscores
+          const cat = (row.category || 'other').toLowerCase().replace(/[\s-]+/g, '_')
           if (!grouped[cat]) grouped[cat] = []
           grouped[cat].push(row)
         })
+        console.log('[Step3] grouped categories:', Object.keys(grouped))
         setPrices(grouped)
 
         // Auto-select boarding option based on pet count (filtered list computed after state sets)
@@ -224,7 +228,7 @@ export default function Step3Services() {
     // Exclude food and flea & tick items
     if (EXCLUDE_KEYWORDS.some(kw => nameLower.includes(kw))) return false
     // Filter by pet_type column: show rows matching the mix, or rows with pet_type='all'/'mixed'/null
-    const pt = (p.pet_type || '').toLowerCase()
+    const pt = (p.pet_type || '').toLowerCase().trim()
     if (!pt || pt === 'all') return true
     if (boardingPetType === 'mixed') return pt === 'mixed' || pt === 'all'
     return pt === boardingPetType
