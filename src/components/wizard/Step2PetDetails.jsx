@@ -40,6 +40,7 @@ export default function Step2PetDetails() {
   })
   const [open,       setOpen]       = useState([true])   // which cards are expanded
   const [errors,     setErrors]     = useState([])
+  const [sameVet,    setSameVet]    = useState([])       // bool per pet index
   const [savedPets,  setSavedPets]  = useState([])       // pets from DB
   const [loadingDB,  setLoadingDB]  = useState(false)
 
@@ -71,6 +72,7 @@ export default function Step2PetDetails() {
       return prev.slice(0, numPets)
     })
     setErrors(prev => prev.slice(0, numPets))
+    setSameVet(prev => prev.slice(0, numPets))
   }, [numPets])
 
   function updatePet(idx, key, val) {
@@ -98,6 +100,22 @@ export default function Step2PetDetails() {
 
   function toggleCard(idx) {
     setOpen(prev => prev.map((o, i) => i === idx ? !o : o))
+  }
+
+  function toggleSameVet(idx, checked) {
+    setSameVet(prev => {
+      const next = [...prev]
+      next[idx] = checked
+      return next
+    })
+    if (checked) {
+      // Copy vet info from Pet 1
+      updatePet(idx, 'vet_name',  pets[0].vet_name)
+      updatePet(idx, 'vet_phone', pets[0].vet_phone)
+    } else {
+      updatePet(idx, 'vet_name',  '')
+      updatePet(idx, 'vet_phone', '')
+    }
   }
 
   const REQUIRED_FIELDS = ['name','type','breed','age','colour','gender','vet_name','vet_phone']
@@ -276,21 +294,48 @@ export default function Step2PetDetails() {
                   <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: 'var(--primary)' }}>
                     Vet Information{pet.name ? ` for ${pet.name}` : ''}
                   </p>
+
+                  {/* "Same vet as Pet 1" checkbox — only for idx > 0 when Pet 1 has vet info */}
+                  {idx > 0 && (pets[0].vet_name || pets[0].vet_phone) && (
+                    <label className="inline-flex items-center gap-2 mb-3 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 accent-[#7aa63c]"
+                        checked={!!sameVet[idx]}
+                        onChange={e => toggleSameVet(idx, e.target.checked)}
+                      />
+                      <span className="text-sm" style={{ color: 'var(--text)' }}>
+                        Same vet as {pets[0].name || 'Pet 1'}
+                      </span>
+                    </label>
+                  )}
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
                     {/* Vet Name */}
                     <div>
                       <Label required>Vet Name</Label>
-                      <input className={ic(idx,'vet_name')} value={pet.vet_name}
-                        onChange={e => updatePet(idx,'vet_name',e.target.value)} placeholder="Dr. Smith" />
+                      <input
+                        className={ic(idx,'vet_name')}
+                        value={pet.vet_name}
+                        onChange={e => updatePet(idx,'vet_name',e.target.value)}
+                        placeholder="Dr. Smith"
+                        disabled={!!sameVet[idx]}
+                      />
                       {errors[idx]?.vet_name && <p className="text-xs text-red-500 mt-1">Required</p>}
                     </div>
 
                     {/* Vet Phone */}
                     <div>
                       <Label required>Vet Contact Number</Label>
-                      <input className={ic(idx,'vet_phone')} type="tel" value={pet.vet_phone}
-                        onChange={e => updatePet(idx,'vet_phone',e.target.value)} placeholder="+962 6 XXX XXXX" />
+                      <input
+                        className={ic(idx,'vet_phone')}
+                        type="tel"
+                        value={pet.vet_phone}
+                        onChange={e => updatePet(idx,'vet_phone',e.target.value)}
+                        placeholder="+962 6 XXX XXXX"
+                        disabled={!!sameVet[idx]}
+                      />
                       {errors[idx]?.vet_phone && <p className="text-xs text-red-500 mt-1">Required</p>}
                     </div>
 
