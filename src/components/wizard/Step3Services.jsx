@@ -172,6 +172,14 @@ export default function Step3Services() {
 
   const petCount = petsData.length || 1
 
+  // Determine pet type mix for boarding filter
+  const petTypes = petsData.map(p => (p.type || '').toLowerCase())
+  const hasDog   = petTypes.some(t => t === 'dog')
+  const hasCat   = petTypes.some(t => t === 'cat')
+  const isMixed  = hasDog && hasCat
+  // 'dog' | 'cat' | 'mixed' | 'other'
+  const boardingPetType = isMixed ? 'mixed' : hasDog ? 'dog' : hasCat ? 'cat' : 'other'
+
   // prices keyed by category string
   const [prices,  setPrices]  = useState({})
   const [loading, setLoading] = useState(true)
@@ -201,15 +209,35 @@ export default function Step3Services() {
         })
         setPrices(grouped)
 
-        // Auto-select boarding option based on pet count
-        if (!serviceOptions?.option && grouped.boarding?.length) {
-          const auto = autoSelectBoarding(grouped.boarding, petCount)
-          if (auto) setOption(auto)
-        }
+        // Auto-select boarding option based on pet count (filtered list computed after state sets)
+        // We'll do this after prices state is available via the effect below
       })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
+
+  // Boarding options filtered by pet type — exclude food/flea rows
+  const EXCLUDE_KEYWORDS = ['food', 'flea', 'tick']
+  const allBoarding = prices.boarding || []
+  const boardingOptions = allBoarding.filter(p => {
+    const nameLower = (p.name || '').toLowerCase()
+    // Exclude food and flea & tick items
+    if (EXCLUDE_KEYWORDS.some(kw => nameLower.includes(kw))) return false
+    // Filter by pet_type column: show rows matching the mix, or rows with pet_type='all'/'mixed'/null
+    const pt = (p.pet_type || '').toLowerCase()
+    if (!pt || pt === 'all') return true
+    if (boardingPetType === 'mixed') return pt === 'mixed' || pt === 'all'
+    return pt === boardingPetType
+  })
+
+  // Auto-select boarding once prices load (first visit only)
+  useEffect(() => {
+    if (serviceOptions?.option) return   // already restored from context
+    if (!boardingOptions.length) return
+    if (selected === 'boarding' && !option) {
+      setOption(autoSelectBoarding(boardingOptions, petCount))
+    }
+  }, [boardingOptions.length])
 
   // When service changes reset option/dates (but preserve if re-selecting same)
   function selectService(svcId) {
@@ -220,9 +248,9 @@ export default function Step3Services() {
     setEndDate('')
     setErrors({})
 
-    // Auto-select boarding
-    if (svcId === 'boarding' && prices.boarding?.length) {
-      setOption(autoSelectBoarding(prices.boarding, petCount))
+    // Auto-select boarding from filtered list
+    if (svcId === 'boarding' && boardingOptions.length) {
+      setOption(autoSelectBoarding(boardingOptions, petCount))
     }
   }
 
@@ -323,7 +351,7 @@ export default function Step3Services() {
             <>
               <p className="text-sm font-bold mb-3" style={{ color: 'var(--primary)' }}>Boarding Options</p>
               <PriceRadioList
-                prices={prices.boarding || []}
+                prices={boardingOptions}
                 selected={option}
                 onChange={setOption}
                 multiSelect={false}
