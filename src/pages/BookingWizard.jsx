@@ -4,6 +4,7 @@ import TopNav from '../components/TopNav'
 import { useWizard } from '../contexts/WizardContext'
 import StepProgress from '../components/wizard/StepProgress'
 import Step1CustomerInfo from '../components/wizard/Step1CustomerInfo'
+import Step2PetDetails from '../components/wizard/Step2PetDetails'
 
 function StepPlaceholder({ title }) {
   return (
@@ -34,7 +35,7 @@ export default function BookingWizard() {
           <StepProgress current={step} />
 
           {step === 1 && <Step1CustomerInfo />}
-          {step === 2 && <StepPlaceholder title="Pet Details" />}
+          {step === 2 && <Step2PetDetails />}
           {step === 3 && <StepPlaceholder title="Services" />}
           {step === 4 && <StepPlaceholder title="Service Options" />}
           {step === 5 && <StepPlaceholder title="Confirmation" />}

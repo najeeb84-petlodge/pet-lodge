@@ -17,6 +17,7 @@ export function WizardProvider({ children }) {
   const [step, setStep]                           = useState(1)
   const [customerInfo, setCustomerInfo]           = useState(INITIAL_CUSTOMER_INFO)
   const [petsData, setPetsData]                   = useState([])
+  const [hasIntactFemale, setHasIntactFemale]     = useState(false)
   const [serviceType, setServiceType]             = useState('')
   const [serviceOptions, setServiceOptions]       = useState({})
   const [serviceOptionDetails, setServiceOptionDetails] = useState({})
@@ -31,6 +32,7 @@ export function WizardProvider({ children }) {
       step, nextStep, prevStep, goToStep,
       customerInfo, setCustomerInfo,
       petsData, setPetsData,
+      hasIntactFemale, setHasIntactFemale,
       serviceType, setServiceType,
       serviceOptions, setServiceOptions,
       serviceOptionDetails, setServiceOptionDetails,
