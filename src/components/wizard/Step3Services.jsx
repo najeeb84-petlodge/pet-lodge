@@ -188,9 +188,10 @@ export default function Step3Services() {
     nextStep, prevStep,
   } = useWizard()
 
-  // Count dogs and cats from Step 2 pet selections
-  const dogCount = petsData.filter(p => (p.type || '').toLowerCase() === 'dog').length
-  const catCount = petsData.filter(p => (p.type || '').toLowerCase() === 'cat').length
+  // Count dogs and cats from Step 2 pet selections (guard against undefined)
+  const safePets = Array.isArray(petsData) ? petsData : []
+  const dogCount = safePets.filter(p => (p.type || '').toLowerCase() === 'dog').length
+  const catCount = safePets.filter(p => (p.type || '').toLowerCase() === 'cat').length
 
   // prices keyed by category string
   const [prices,          setPrices]          = useState({})

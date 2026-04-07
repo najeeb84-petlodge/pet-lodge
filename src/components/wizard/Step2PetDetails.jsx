@@ -73,12 +73,15 @@ export default function Step2PetDetails() {
     setLoadingDB(true)
     const token = getAccessToken()
     fetch(
-      `${SUPABASE_URL}/rest/v1/pets?user_id=eq.${profile.id}&select=*&order=name`,
+      `${SUPABASE_URL}/rest/v1/pets?owner_id=eq.${profile.id}&select=*&order=name`,
       { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token || SUPABASE_KEY}` } }
     )
       .then(r => r.json())
-      .then(data => setSavedPets(Array.isArray(data) ? data : []))
-      .catch(() => {})
+      .then(data => {
+        console.log('[Step2] saved pets response:', data)
+        setSavedPets(Array.isArray(data) ? data : [])
+      })
+      .catch(err => console.error('[Step2] pets fetch error:', err))
       .finally(() => setLoadingDB(false))
   }, [profile?.id])
 

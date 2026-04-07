@@ -16,21 +16,29 @@ export default function PricesMaster({ isSuperAdmin }) {
   async function fetchServices() {
     setLoading(true)
     setError(null)
+
+    // 10-second timeout so the spinner never runs forever
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 10_000)
+
     try {
       const { data, error: qErr } = await supabase
         .from('services')
         .select('*')
-        .eq('active', true)
         .order('category', { ascending: true })
-        .order('sort_order', { ascending: true })
-        .order('name',       { ascending: true })
+        .order('name',     { ascending: true })
+        .abortSignal(controller.signal)
       if (qErr) throw qErr
-      console.log('[PricesMaster] services:', data?.map(r => ({ name: r.name, category: r.category })))
-      setServices(data ?? [])
+      console.log('[PricesMaster] raw rows:', data?.map(r => ({ name: r.name, category: r.category, active: r.active })))
+      // Filter client-side so a missing `active` column doesn't break the query
+      const active = (data ?? []).filter(r => r.active !== false)
+      setServices(active)
     } catch (e) {
-      console.error('[PricesMaster] fetch error:', e)
-      setError(e?.message || 'Failed to load services')
+      const msg = e?.name === 'AbortError' ? 'Request timed out' : (e?.message || 'Failed to load services')
+      console.error('[PricesMaster] fetch error:', msg, e)
+      setError(msg)
     } finally {
+      clearTimeout(timer)
       setLoading(false)
     }
   }
