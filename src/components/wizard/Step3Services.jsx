@@ -133,7 +133,7 @@ function PriceRadioList({ prices, selected, onChange, multiSelect }) {
               {p.description && <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>{p.description}</p>}
             </div>
             <span className="text-sm font-bold flex-shrink-0" style={{ color: '#5a7a2e' }}>
-              JD {parseFloat(p.price || 0).toFixed(2)}{p.unit === 'day' ? '/day' : ''}
+              JD {parseFloat(p.price_per_day || 0).toFixed(2)}{p.unit === 'day' ? '/day' : ''}
             </span>
           </label>
         )
@@ -209,7 +209,7 @@ export default function Step3Services() {
   // Fetch all active services grouped by category
   useEffect(() => {
     fetch(
-      `${SUPABASE_URL}/rest/v1/services?active=eq.true&select=id,name,price,description,category,unit,pet_type,sort_order&order=sort_order,name`,
+      `${SUPABASE_URL}/rest/v1/services?active=eq.true&select=id,name,price_per_day,description,category,unit,pet_type&order=name`,
       { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
     )
       .then(r => r.json())
