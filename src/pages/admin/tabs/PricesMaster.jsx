@@ -1,16 +1,44 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
+import { SUPABASE_URL, SUPABASE_KEY, getAccessToken } from '../../../lib/supabase'
 import { Edit2, Save, X, Loader2, ToggleLeft, ToggleRight } from 'lucide-react'
 
 const CATEGORIES = ['boarding','day_camp','grooming','dog_walking','transport','training','other']
 const CAT_LABELS = {
-  boarding:   'Boarding Services',
-  day_camp:   'Day Camp Services',
-  grooming:   'Grooming Services',
-  dog_walking:'Dog Walking Services',
-  transport:  'Transportation Services',
-  training:   'Training Services',
-  other:      'Other Services',
+  boarding:    'Boarding Services',
+  day_camp:    'Day Camp Services',
+  grooming:    'Grooming Services',
+  dog_walking: 'Dog Walking Services',
+  transport:   'Transportation Services',
+  training:    'Training Services',
+  other:       'Other Services',
+}
+
+async function fetchRaw() {
+  const token = getAccessToken()
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 10_000)
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/services?select=*&order=category,name`,
+      {
+        signal: controller.signal,
+        headers: {
+          apikey:        SUPABASE_KEY,
+          Authorization: `Bearer ${token || SUPABASE_KEY}`,
+        },
+      }
+    )
+    clearTimeout(timer)
+    const body = await res.json()
+    if (!res.ok) throw new Error(body?.message || `HTTP ${res.status}`)
+    console.log('[PricesMaster] rows:', body?.map(r => ({ name: r.name, category: r.category, active: r.active })))
+    return { data: body, error: null }
+  } catch (e) {
+    clearTimeout(timer)
+    const msg = e?.name === 'AbortError' ? 'Request timed out after 10 s' : (e?.message || 'Failed to load')
+    return { data: null, error: msg }
+  }
 }
 
 export default function PricesMaster({ isSuperAdmin }) {
@@ -20,51 +48,58 @@ export default function PricesMaster({ isSuperAdmin }) {
   const [editing,  setEditing]  = useState(null)
   const [editData, setEditData] = useState({})
   const [saving,   setSaving]   = useState(false)
-  const timerRef = useRef(null)
 
-  async function fetchServices() {
+  async function load() {
     setLoading(true)
     setError(null)
-
-    // 10-second timeout using Promise.race (compatible with all supabase-js versions)
-    const timeout = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Request timed out')), 10_000)
-    )
-
-    try {
-      const { data, error: qErr } = await Promise.race([
-        supabase.from('services').select('*').order('category').order('name'),
-        timeout,
-      ])
-      if (qErr) throw qErr
-      console.log('[PricesMaster] rows:', data?.map(r => ({ name: r.name, category: r.category, active: r.active })))
-      setServices(data ?? [])
-    } catch (e) {
-      console.error('[PricesMaster] fetch error:', e)
-      setError(e?.message || 'Failed to load services')
-    } finally {
-      setLoading(false)
-    }
+    const { data, error: err } = await fetchRaw()
+    if (err) { setError(err); setLoading(false); return }
+    setServices(data ?? [])
+    setLoading(false)
   }
 
-  useEffect(() => { fetchServices() }, [])
+  useEffect(() => { load() }, [])
 
   async function saveEdit() {
     setSaving(true)
-    const { error: updErr } = await supabase.from('services').update({
-      name:         editData.name,
-      description:  editData.description,
-      price_per_day: parseFloat(editData.price_per_day),
-    }).eq('id', editing)
-    if (updErr) console.error('[PricesMaster] save error:', updErr)
+    const token = getAccessToken()
+    await fetch(
+      `${SUPABASE_URL}/rest/v1/services?id=eq.${editing}`,
+      {
+        method: 'PATCH',
+        headers: {
+          apikey:        SUPABASE_KEY,
+          Authorization: `Bearer ${token || SUPABASE_KEY}`,
+          'Content-Type': 'application/json',
+          Prefer:        'return=minimal',
+        },
+        body: JSON.stringify({
+          name:          editData.name,
+          description:   editData.description,
+          price_per_day: parseFloat(editData.price_per_day),
+        }),
+      }
+    )
     setEditing(null)
-    await fetchServices()
+    await load()
     setSaving(false)
   }
 
   async function toggleActive(s) {
-    await supabase.from('services').update({ active: !s.active }).eq('id', s.id)
-    // Optimistic local update to avoid a full refetch
+    const token = getAccessToken()
+    await fetch(
+      `${SUPABASE_URL}/rest/v1/services?id=eq.${s.id}`,
+      {
+        method: 'PATCH',
+        headers: {
+          apikey:        SUPABASE_KEY,
+          Authorization: `Bearer ${token || SUPABASE_KEY}`,
+          'Content-Type': 'application/json',
+          Prefer:        'return=minimal',
+        },
+        body: JSON.stringify({ active: !s.active }),
+      }
+    )
     setServices(prev => prev.map(r => r.id === s.id ? { ...r, active: !r.active } : r))
   }
 
@@ -75,7 +110,6 @@ export default function PricesMaster({ isSuperAdmin }) {
     return acc
   }, {})
 
-  // Show all categories that have services, including inactive ones
   const visibleCats = CATEGORIES.filter(cat => grouped[cat]?.length)
 
   if (loading) return (
@@ -87,14 +121,14 @@ export default function PricesMaster({ isSuperAdmin }) {
   if (error) return (
     <div className="flex flex-col items-center justify-center h-48 gap-3">
       <p className="text-red-500 text-sm font-semibold">Error: {error}</p>
-      <button onClick={fetchServices} className="btn-secondary text-sm">Retry</button>
+      <button onClick={load} className="btn-secondary text-sm">Retry</button>
     </div>
   )
 
   if (!visibleCats.length) return (
     <div className="flex flex-col items-center justify-center h-48 gap-3">
       <p className="text-sm" style={{ color: 'var(--muted)' }}>No services found.</p>
-      <button onClick={fetchServices} className="btn-secondary text-sm">Refresh</button>
+      <button onClick={load} className="btn-secondary text-sm">Refresh</button>
     </div>
   )
 
@@ -108,13 +142,9 @@ export default function PricesMaster({ isSuperAdmin }) {
               <div
                 key={s.id}
                 className="rounded-xl border p-4"
-                style={{
-                  borderColor: 'var(--border)',
-                  opacity: s.active === false ? 0.55 : 1,
-                }}
+                style={{ borderColor: 'var(--border)', opacity: s.active === false ? 0.55 : 1 }}
               >
                 {editing === s.id ? (
-                  /* ── Edit mode ── */
                   <div className="space-y-2">
                     <input
                       className="input text-sm"
@@ -132,65 +162,41 @@ export default function PricesMaster({ isSuperAdmin }) {
                       <span className="text-xs font-medium" style={{ color: 'var(--muted)' }}>JD</span>
                       <input
                         className="input text-sm flex-1"
-                        type="number"
-                        step="0.5"
-                        min="0"
+                        type="number" step="0.5" min="0"
                         value={editData.price_per_day}
                         onChange={e => setEditData(p => ({ ...p, price_per_day: e.target.value }))}
                         placeholder="Price per day"
                       />
                     </div>
                     <div className="flex gap-2 mt-2">
-                      <button
-                        onClick={saveEdit}
-                        disabled={saving}
-                        className="btn-primary text-xs py-1.5 px-3 flex items-center gap-1"
-                      >
+                      <button onClick={saveEdit} disabled={saving} className="btn-primary text-xs py-1.5 px-3 flex items-center gap-1">
                         {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save
                       </button>
-                      <button
-                        onClick={() => setEditing(null)}
-                        className="btn-secondary text-xs py-1.5 px-3 flex items-center gap-1"
-                      >
+                      <button onClick={() => setEditing(null)} className="btn-secondary text-xs py-1.5 px-3 flex items-center gap-1">
                         <X size={12} /> Cancel
                       </button>
                     </div>
                   </div>
                 ) : (
-                  /* ── View mode ── */
                   <>
                     <div className="flex items-start justify-between gap-2 mb-1">
                       <p className="font-semibold text-sm leading-snug">{s.name}</p>
-                      {/* Active toggle — super admin only */}
                       {isSuperAdmin && (
-                        <button
-                          onClick={() => toggleActive(s)}
-                          title={s.active === false ? 'Inactive — click to activate' : 'Active — click to deactivate'}
-                          className="flex-shrink-0 mt-0.5"
-                        >
+                        <button onClick={() => toggleActive(s)} title={s.active === false ? 'Inactive — click to activate' : 'Active — click to deactivate'} className="flex-shrink-0 mt-0.5">
                           {s.active === false
                             ? <ToggleLeft  size={20} className="text-gray-400" />
-                            : <ToggleRight size={20} style={{ color: '#7aa63c' }} />
-                          }
+                            : <ToggleRight size={20} style={{ color: '#7aa63c' }} />}
                         </button>
                       )}
                     </div>
-
-                    {s.description && (
-                      <p className="text-xs text-gray-400 mb-2">{s.description}</p>
-                    )}
-
+                    {s.description && <p className="text-xs text-gray-400 mb-2">{s.description}</p>}
                     {s.pet_type && (
-                      <div className="flex items-center gap-2 mb-3">
+                      <div className="mb-3">
                         <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 capitalize">
-                          {s.pet_type === 'all' ? 'All Pets'
-                            : s.pet_type === 'dog' ? 'Dog'
-                            : s.pet_type === 'cat' ? 'Cat'
-                            : s.pet_type}
+                          {s.pet_type === 'all' ? 'All Pets' : s.pet_type === 'dog' ? 'Dog' : s.pet_type === 'cat' ? 'Cat' : s.pet_type}
                         </span>
                       </div>
                     )}
-
                     <div className="flex items-center justify-between mt-2">
                       <div>
                         <p className="font-bold text-lg" style={{ color: 'var(--accent)' }}>
@@ -200,14 +206,7 @@ export default function PricesMaster({ isSuperAdmin }) {
                       </div>
                       {isSuperAdmin && (
                         <button
-                          onClick={() => {
-                            setEditing(s.id)
-                            setEditData({
-                              name:          s.name,
-                              description:   s.description || '',
-                              price_per_day: s.price_per_day,
-                            })
-                          }}
+                          onClick={() => { setEditing(s.id); setEditData({ name: s.name, description: s.description || '', price_per_day: s.price_per_day }) }}
                           className="btn-secondary text-xs py-1.5 px-3 flex items-center gap-1"
                         >
                           <Edit2 size={12} /> Edit
