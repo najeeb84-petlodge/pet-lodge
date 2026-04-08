@@ -9,7 +9,7 @@ export default function Prices() {
   const [editData, setEditData]   = useState({})
   const [saving, setSaving]       = useState(false)
   const [showAdd, setShowAdd]     = useState(false)
-  const [newService, setNewService] = useState({ name: '', description: '', price_per_day: '', category: '' })
+  const [newService, setNewService] = useState({ name: '', description: '', price: '', category: '' })
 
   async function fetchServices() {
     const { data } = await supabase.from('services').select('*').order('category').order('name')
@@ -21,7 +21,7 @@ export default function Prices() {
 
   function startEdit(s) {
     setEditing(s.id)
-    setEditData({ name: s.name, description: s.description ?? '', price_per_day: s.price_per_day, category: s.category ?? '' })
+    setEditData({ name: s.name, description: s.description ?? '', price: s.price, category: s.category ?? '' })
   }
 
   async function saveEdit(id) {
@@ -29,7 +29,7 @@ export default function Prices() {
     await supabase.from('services').update({
       name: editData.name,
       description: editData.description,
-      price_per_day: parseFloat(editData.price_per_day),
+      price: parseFloat(editData.price),
       category: editData.category,
     }).eq('id', id)
     setEditing(null)
@@ -43,16 +43,16 @@ export default function Prices() {
   }
 
   async function addService() {
-    if (!newService.name || !newService.price_per_day) return
+    if (!newService.name || !newService.price) return
     setSaving(true)
     await supabase.from('services').insert({
       name: newService.name,
       description: newService.description,
-      price_per_day: parseFloat(newService.price_per_day),
+      price: parseFloat(newService.price),
       category: newService.category,
       active: true,
     })
-    setNewService({ name: '', description: '', price_per_day: '', category: '' })
+    setNewService({ name: '', description: '', price: '', category: '' })
     setShowAdd(false)
     await fetchServices()
     setSaving(false)
@@ -94,8 +94,8 @@ export default function Prices() {
             </div>
             <div>
               <label className="text-xs font-medium text-slate-600 mb-1 block">Price per Day (JD) *</label>
-              <input className="input" type="number" step="0.5" placeholder="0.00" value={newService.price_per_day}
-                onChange={e => setNewService(p => ({ ...p, price_per_day: e.target.value }))}/>
+              <input className="input" type="number" step="0.5" placeholder="0.00" value={newService.price}
+                onChange={e => setNewService(p => ({ ...p, price: e.target.value }))}/>
             </div>
             <div>
               <label className="text-xs font-medium text-slate-600 mb-1 block">Description</label>
@@ -147,9 +147,9 @@ export default function Prices() {
                     </td>
                     <td className="py-3 pr-4">
                       {editing === s.id
-                        ? <input className="input text-sm py-1 w-24" type="number" step="0.5" value={editData.price_per_day}
-                            onChange={e => setEditData(p => ({ ...p, price_per_day: e.target.value }))}/>
-                        : <span className="font-semibold text-slate-900">JD {s.price_per_day}</span>}
+                        ? <input className="input text-sm py-1 w-24" type="number" step="0.5" value={editData.price}
+                            onChange={e => setEditData(p => ({ ...p, price: e.target.value }))}/>
+                        : <span className="font-semibold text-slate-900">JD {s.price}</span>}
                     </td>
                     <td className="py-3 pr-4">
                       <button onClick={() => toggleActive(s)} className="flex items-center gap-1 text-xs">

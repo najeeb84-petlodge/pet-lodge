@@ -13,7 +13,7 @@ export default function Receipts() {
   useEffect(() => {
     supabase
       .from('bookings')
-      .select('*, pets(name,species,breed), profiles(full_name,phone,email), services(name,price_per_day), payments(*)')
+      .select('*, pets(name,species,breed), profiles(full_name,phone,email), services(name,price), payments(*)')
       .in('status', ['completed', 'confirmed'])
       .order('created_at', { ascending: false })
       .then(({ data }) => { setBookings(data ?? []); setLoading(false) })
@@ -149,7 +149,7 @@ export default function Receipts() {
                           {selected.check_out ? format(new Date(selected.check_out), 'MMM d, yyyy') : ''}
                         </p>
                         <p className="text-xs text-slate-400">
-                          {nights(selected)} night{nights(selected) > 1 ? 's' : ''} × JD {selected.services?.price_per_day}
+                          {nights(selected)} night{nights(selected) > 1 ? 's' : ''} × JD {selected.services?.price}
                         </p>
                       </td>
                       <td className="py-2 text-right font-semibold text-slate-900">JD {selected.total_price ?? 0}</td>

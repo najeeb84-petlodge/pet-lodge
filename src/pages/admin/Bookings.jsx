@@ -25,7 +25,7 @@ export default function Bookings() {
     setLoading(true)
     let q = supabase
       .from('bookings')
-      .select('*, pets(name,species,breed), profiles(full_name,phone), services(name,price_per_day)')
+      .select('*, pets(name,species,breed), profiles(full_name,phone), services(name,price)')
       .order('created_at', { ascending: false })
 
     if (filter !== 'all') q = q.eq('status', filter)

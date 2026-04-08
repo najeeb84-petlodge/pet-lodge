@@ -76,7 +76,7 @@ export default function PricesMaster({ isSuperAdmin }) {
         body: JSON.stringify({
           name:          editData.name,
           description:   editData.description,
-          price_per_day: parseFloat(editData.price_per_day),
+          price: parseFloat(editData.price),
         }),
       }
     )
@@ -163,8 +163,8 @@ export default function PricesMaster({ isSuperAdmin }) {
                       <input
                         className="input text-sm flex-1"
                         type="number" step="0.5" min="0"
-                        value={editData.price_per_day}
-                        onChange={e => setEditData(p => ({ ...p, price_per_day: e.target.value }))}
+                        value={editData.price}
+                        onChange={e => setEditData(p => ({ ...p, price: e.target.value }))}
                         placeholder="Price per day"
                       />
                     </div>
@@ -200,13 +200,13 @@ export default function PricesMaster({ isSuperAdmin }) {
                     <div className="flex items-center justify-between mt-2">
                       <div>
                         <p className="font-bold text-lg" style={{ color: 'var(--accent)' }}>
-                          JD {parseFloat(s.price_per_day || 0).toFixed(2)}
+                          JD {parseFloat(s.price || 0).toFixed(2)}
                         </p>
                         <p className="text-xs text-gray-400">per {s.unit || 'day'}</p>
                       </div>
                       {isSuperAdmin && (
                         <button
-                          onClick={() => { setEditing(s.id); setEditData({ name: s.name, description: s.description || '', price_per_day: s.price_per_day }) }}
+                          onClick={() => { setEditing(s.id); setEditData({ name: s.name, description: s.description || '', price: s.price }) }}
                           className="btn-secondary text-xs py-1.5 px-3 flex items-center gap-1"
                         >
                           <Edit2 size={12} /> Edit

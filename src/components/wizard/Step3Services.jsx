@@ -133,7 +133,7 @@ function PriceRadioList({ prices, selected, onChange, multiSelect }) {
               {p.description && <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>{p.description}</p>}
             </div>
             <span className="text-sm font-bold flex-shrink-0" style={{ color: '#5a7a2e' }}>
-              JD {parseFloat(p.price_per_day || 0).toFixed(2)}{p.unit === 'day' ? '/day' : ''}
+              JD {parseFloat(p.price || 0).toFixed(2)}{p.unit === 'day' ? '/day' : ''}
             </span>
           </label>
         )
@@ -217,7 +217,7 @@ export default function Step3Services() {
   useEffect(() => {
     const token = getAccessToken()
     fetch(
-      `${SUPABASE_URL}/rest/v1/services?active=eq.true&select=id,name,price_per_day,description,category,unit,pet_type&order=name`,
+      `${SUPABASE_URL}/rest/v1/services?active=eq.true&select=id,name,price,description,category,unit,pet_type&order=name`,
       {
         headers: {
           apikey:        SUPABASE_KEY,
@@ -231,7 +231,7 @@ export default function Step3Services() {
       })
       .then(data => {
         if (!Array.isArray(data)) { console.error('[Step3] unexpected response:', data); return }
-        console.log('[Step3] raw services from DB:', data.map(r => ({ name: r.name, category: r.category, pet_type: r.pet_type, price_per_day: r.price_per_day })))
+        console.log('[Step3] raw services from DB:', data.map(r => ({ name: r.name, category: r.category, pet_type: r.pet_type, price: r.price })))
         const grouped = {}
         data.forEach(row => {
           const cat = (row.category || 'other').toLowerCase().replace(/[\s-]+/g, '_')
