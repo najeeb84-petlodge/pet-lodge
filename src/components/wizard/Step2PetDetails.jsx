@@ -139,6 +139,14 @@ export default function Step2PetDetails() {
   }
 
   function addNewPet() {
+    // If the only existing card is blank (no saved pet, no data entered), replace it
+    // rather than appending — so the count goes 0→1, not 1→2.
+    const hasMeaningfulCards = pets.some(p => p._savedId !== null || !isBlankPet(p))
+    if (!hasMeaningfulCards && pets.length === 1) {
+      // Already have 1 blank card — just open it, don't add another
+      setOpen([true])
+      return
+    }
     setPets(prev    => [...prev, { ...EMPTY_PET }])
     setOpen(prev    => [...prev, true])
     setSameVet(prev => [...prev, false])
