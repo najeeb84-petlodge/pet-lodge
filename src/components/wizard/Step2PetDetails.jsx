@@ -210,33 +210,45 @@ export default function Step2PetDetails() {
     const intact = pets.some(p => p.gender === 'Female' && p.desexed === 'no')
     setHasIntactFemale(intact)
 
-    // Silently save any manually entered pets (not from saved profiles) to the pets table
+    // Save manually entered pets to the pets table, then proceed
     if (profile?.id) {
       const token = getAccessToken()
       const newPets = pets.filter(p => !p._savedId)
-      for (const p of newPets) {
-        fetch(`${SUPABASE_URL}/rest/v1/pets`, {
-          method: 'POST',
-          headers: {
-            apikey:         SUPABASE_KEY,
-            Authorization:  `Bearer ${token || SUPABASE_KEY}`,
-            'Content-Type': 'application/json',
-            Prefer:         'return=minimal',
-          },
-          body: JSON.stringify({
-            owner_id:          profile.id,
-            name:              p.name,
-            type:              p.type,
-            breed:             p.breed,
-            age:               parseFloat(p.age) || null,
-            colour:            p.colour,
-            gender:            p.gender,
-            desexed:           p.desexed === 'yes',
-            vet_name:          p.vet_name   || null,
-            vet_phone:         p.vet_phone  || null,
-            medication_notes:  p.medication || null,
-          }),
-        }).catch(e => console.warn('[Step2] auto-save pet failed:', e))
+      if (newPets.length > 0) {
+        await Promise.all(newPets.map(async p => {
+          try {
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/pets`, {
+              method: 'POST',
+              headers: {
+                apikey:         SUPABASE_KEY,
+                Authorization:  `Bearer ${token || SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+                Prefer:         'return=representation',
+              },
+              body: JSON.stringify({
+                owner_id:         profile.id,
+                name:             p.name,
+                type:             p.type,
+                breed:            p.breed,
+                age:              parseInt(p.age) || null,
+                colour:           p.colour,
+                gender:           p.gender,
+                desexed:          p.desexed === 'yes',
+                vet_name:         p.vet_name         || null,
+                vet_phone:        p.vet_phone        || null,
+                medication_notes: p.medication       || '',
+              }),
+            })
+            const body = await res.json()
+            if (!res.ok) {
+              console.error('[Step2] save pet failed:', res.status, body)
+            } else {
+              console.log('[Step2] pet saved:', body)
+            }
+          } catch (e) {
+            console.error('[Step2] save pet error:', e)
+          }
+        }))
       }
     }
 
