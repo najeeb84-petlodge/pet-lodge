@@ -238,6 +238,14 @@ export default function Step3Services() {
           if (!grouped[cat]) grouped[cat] = []
           grouped[cat].push(row)
         })
+        // Alias DB category names that don't match our standard keys
+        const ALIASES = { daycamp: 'day_camp', walking: 'dog_walking' }
+        Object.entries(ALIASES).forEach(([from, to]) => {
+          if (grouped[from]) {
+            grouped[to] = [...(grouped[to] || []), ...grouped[from]]
+            delete grouped[from]
+          }
+        })
         console.log('[Step3] grouped categories:', Object.keys(grouped))
         setPrices(grouped)
       })
