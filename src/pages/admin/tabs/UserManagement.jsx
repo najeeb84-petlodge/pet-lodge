@@ -13,17 +13,38 @@ const ROLE_BADGE = {
 
 export default function UserManagement({ isSuperAdmin }) {
   const { profile: me } = useAuth()
-  const [users, setUsers]     = useState([])
-  const [loading, setLoading] = useState(true)
-  const [newEmail, setNewEmail] = useState('')
-  const [newRole, setNewRole]   = useState('admin')
-  const [adding, setAdding]     = useState(false)
-  const [error, setError]       = useState('')
+  const [users,      setUsers]     = useState([])
+  const [loading,    setLoading]   = useState(true)
+  const [newEmail,   setNewEmail]  = useState('')
+  const [newRole,    setNewRole]   = useState('admin')
+  const [adding,     setAdding]    = useState(false)
+  const [error,      setError]     = useState('')
 
-  async function exportCustomers() {
-    const customers = await dbQuery('profiles', '?role=eq.customer&order=created_at.desc')
+  // Customer Base state
+  const [customers,        setCustomers]        = useState([])
+  const [customersLoading, setCustomersLoading] = useState(true)
+
+  async function fetchUsers() {
+    setLoading(true)
+    try {
+      const data = await dbQuery('profiles', '?role=in.(admin,super_admin,employee)&order=created_at')
+      setUsers(Array.isArray(data) ? data : [])
+    } catch(e) {
+      setError('Could not load users')
+    }
+    setLoading(false)
+  }
+
+  async function fetchCustomers() {
+    setCustomersLoading(true)
+    const data = await dbQuery('profiles', '?role=eq.customer&order=created_at.desc')
+    setCustomers(Array.isArray(data) ? data : [])
+    setCustomersLoading(false)
+  }
+
+  function exportCustomers() {
     const headers = ['Full Name', 'Email', 'Phone', 'WhatsApp', 'Registration Date']
-    const rows = (customers || []).map(c => [
+    const rows = customers.map(c => [
       `${c.first_name || ''} ${c.last_name || ''}`.trim() || '—',
       c.email || '',
       c.phone || '',
@@ -40,18 +61,7 @@ export default function UserManagement({ isSuperAdmin }) {
     URL.revokeObjectURL(url)
   }
 
-  async function fetchUsers() {
-    setLoading(true)
-    try {
-      const data = await dbQuery('profiles', '?role=in.(admin,super_admin,employee)&order=created_at')
-      setUsers(Array.isArray(data) ? data : [])
-    } catch(e) {
-      setError('Could not load users')
-    }
-    setLoading(false)
-  }
-
-  useEffect(() => { fetchUsers() }, [])
+  useEffect(() => { fetchUsers(); fetchCustomers() }, [])
 
   async function addAdmin() {
     if (!newEmail) return
@@ -75,16 +85,12 @@ export default function UserManagement({ isSuperAdmin }) {
   }
 
   return (
+    <div className="space-y-6">
     <div className="card">
-      <div className="flex items-center justify-between mb-4">
+      <div className="mb-4">
         <h2 className="font-bold text-lg flex items-center gap-2" style={{ color:'var(--accent)' }}>
           👥 User Management
         </h2>
-        {isSuperAdmin && (
-          <button onClick={exportCustomers} className="btn-secondary flex items-center gap-2 text-sm">
-            <Download size={14}/> Download Customer Base
-          </button>
-        )}
       </div>
 
       {error && (
@@ -170,6 +176,69 @@ export default function UserManagement({ isSuperAdmin }) {
         </table>
       )}
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+
+    {/* ── Customer Base ─────────────────────────────────────────────── */}
+    <div className="card">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="font-bold text-lg flex items-center gap-2" style={{ color: 'var(--accent)' }}>
+          Customer Base
+          {!customersLoading && (
+            <span className="text-sm font-normal" style={{ color: 'var(--muted)' }}>
+              ({customers.length})
+            </span>
+          )}
+        </h2>
+        {isSuperAdmin && customers.length > 0 && (
+          <button onClick={exportCustomers} className="btn-secondary flex items-center gap-2 text-sm">
+            <Download size={14} /> Download CSV
+          </button>
+        )}
+      </div>
+
+      {customersLoading ? (
+        <div className="flex justify-center py-10">
+          <Loader2 size={24} className="animate-spin" style={{ color: 'var(--accent)' }} />
+        </div>
+      ) : customers.length === 0 ? (
+        <p className="text-center py-10 text-sm" style={{ color: 'var(--muted)' }}>No customers found.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table style={{ width: '100%', fontSize: '0.875rem', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                {['NAME', 'EMAIL', 'PHONE', 'JOINED DATE', 'ACTIONS'].map(h => (
+                  <th key={h} style={{ padding: '0.5rem 0.75rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: 'var(--muted)' }}>
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {customers.map((c, i) => (
+                <tr key={c.id} style={{ borderBottom: '1px solid var(--border)', background: i % 2 === 1 ? '#fafaf8' : 'white' }}>
+                  <td style={{ padding: '0.75rem', fontWeight: '500' }}>
+                    {`${c.first_name || ''} ${c.last_name || ''}`.trim() || '—'}
+                  </td>
+                  <td style={{ padding: '0.75rem', color: 'var(--muted)' }}>{c.email || '—'}</td>
+                  <td style={{ padding: '0.75rem', color: 'var(--muted)' }}>{c.phone || '—'}</td>
+                  <td style={{ padding: '0.75rem', color: 'var(--muted)', whiteSpace: 'nowrap' }}>
+                    {c.created_at ? format(new Date(c.created_at), 'dd MMM yyyy') : '—'}
+                  </td>
+                  <td style={{ padding: '0.75rem' }}>
+                    <button
+                      style={{ fontSize: '0.75rem', padding: '2px 10px', borderRadius: '4px', border: '1px solid var(--border)', color: 'var(--primary)', background: 'white', cursor: 'pointer' }}
+                    >
+                      View
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
     </div>
   )
 }
