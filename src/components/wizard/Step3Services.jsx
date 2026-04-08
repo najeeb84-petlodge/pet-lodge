@@ -421,9 +421,21 @@ export default function Step3Services() {
           {/* ── Day Camp ── */}
           {svcDef.id === 'day_camp' && (
             <>
-              <p className="text-sm font-bold mb-3" style={{ color: 'var(--primary)' }}>Day Camp Packages</p>
+              <p className="text-sm font-bold mb-2" style={{ color: 'var(--primary)' }}>Day Camp Packages</p>
+              <p className="text-xs mb-4" style={{ color: 'var(--muted)' }}>
+                Day care where your dog enjoys fresh &amp; green spacious facilities, socializes with friendly
+                dogs, and gets exercise. Prices include pick up and drop off.
+              </p>
               <PriceRadioList
-                prices={prices.day_camp || []}
+                prices={
+                  (prices.day_camp || [])
+                    .filter(p => !p.name.toLowerCase().includes('additional'))
+                    .sort((a, b) => {
+                      const ORDER = ['single', 'monthly', 'quarterly', 'annually']
+                      const rank = name => ORDER.findIndex(k => name.toLowerCase().includes(k))
+                      return rank(a.name) - rank(b.name)
+                    })
+                }
                 selected={option}
                 onChange={setOption}
                 multiSelect={false}
