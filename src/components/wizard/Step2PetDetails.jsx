@@ -204,11 +204,42 @@ export default function Step2PetDetails() {
     return allErrors.every(e => Object.keys(e).length === 0)
   }
 
-  function handleNext() {
+  async function handleNext() {
     if (!validate()) return
     setPetsData(pets)
     const intact = pets.some(p => p.gender === 'Female' && p.desexed === 'no')
     setHasIntactFemale(intact)
+
+    // Silently save any manually entered pets (not from saved profiles) to the pets table
+    if (profile?.id) {
+      const token = getAccessToken()
+      const newPets = pets.filter(p => !p._savedId)
+      for (const p of newPets) {
+        fetch(`${SUPABASE_URL}/rest/v1/pets`, {
+          method: 'POST',
+          headers: {
+            apikey:         SUPABASE_KEY,
+            Authorization:  `Bearer ${token || SUPABASE_KEY}`,
+            'Content-Type': 'application/json',
+            Prefer:         'return=minimal',
+          },
+          body: JSON.stringify({
+            owner_id:          profile.id,
+            name:              p.name,
+            type:              p.type,
+            breed:             p.breed,
+            age:               parseFloat(p.age) || null,
+            colour:            p.colour,
+            gender:            p.gender,
+            desexed:           p.desexed === 'yes',
+            vet_name:          p.vet_name   || null,
+            vet_phone:         p.vet_phone  || null,
+            medication_notes:  p.medication || null,
+          }),
+        }).catch(e => console.warn('[Step2] auto-save pet failed:', e))
+      }
+    }
+
     nextStep()
   }
 
