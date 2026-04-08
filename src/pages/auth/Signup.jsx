@@ -29,12 +29,24 @@ export default function Signup() {
   }
 
   if (success) return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+    <div className="min-h-screen flex items-center justify-center px-4" style={{ background: '#eef4e2' }}>
       <div className="card max-w-md w-full text-center">
-        <div className="text-5xl mb-4">📧</div>
-        <h2 className="text-xl font-bold text-slate-900 mb-2">Check your email</h2>
-        <p className="text-slate-500 mb-6">We sent a confirmation link to <strong>{email}</strong>. Click it to activate your account.</p>
-        <Link to="/login" className="btn-primary inline-block">Back to Login</Link>
+        <img src="/logo.jpg" alt="Pet Lodge JO" className="w-24 h-24 rounded-full object-cover mx-auto mb-5 border-4" style={{ borderColor: '#c6dba0' }} />
+        <h2 className="text-xl font-bold mb-2" style={{ color: '#2d3a1e' }}>Check your email</h2>
+        <p className="text-sm mb-2" style={{ color: '#5a7a2e' }}>
+          We sent a confirmation link to <strong>{email}</strong>. Click it to activate your account.
+        </p>
+        <p className="text-xs mb-6" style={{ color: '#7a8c6e' }}>
+          If you don't see it, check your spam folder or contact us at{' '}
+          <a href="mailto:info@petlodgejo.com" className="underline" style={{ color: '#5a7a2e' }}>info@petlodgejo.com</a>.
+        </p>
+        <Link
+          to="/login"
+          className="inline-block px-8 py-2.5 rounded-xl font-semibold text-sm text-white transition-colors"
+          style={{ background: '#8CB733' }}
+        >
+          Back to Login
+        </Link>
       </div>
     </div>
   )
