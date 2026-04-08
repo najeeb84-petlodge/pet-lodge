@@ -218,13 +218,41 @@ export default function Step2PetDetails() {
     const intact = pets.some(p => p.gender === 'Female' && p.desexed === 'no')
     setHasIntactFemale(intact)
 
+    // ── DEBUG: log auth session from localStorage ──────────────────
+    const rawSession = localStorage.getItem('sb-qcwbkpcwtxpokgseethp-auth-token')
+    const session    = rawSession ? JSON.parse(rawSession) : null
+    const dbgToken   = session?.access_token
+    const dbgUserId  = session?.user?.id
+    console.log('[Step2] localStorage session:', session)
+    console.log('[Step2] token:', dbgToken)
+    console.log('[Step2] userId from session:', dbgUserId)
+    console.log('[Step2] profile?.id from context:', profile?.id)
+    console.log('[Step2] all pets:', pets)
+    console.log('[Step2] new pets (no _savedId):', pets.filter(p => !p._savedId))
+    // ────────────────────────────────────────────────────────────────
+
     // Save manually entered pets to the pets table, then proceed
     if (profile?.id) {
-      const token = getAccessToken()
+      const token   = dbgToken || getAccessToken()
+      const ownerId = profile.id
       const newPets = pets.filter(p => !p._savedId)
       if (newPets.length > 0) {
         await Promise.all(newPets.map(async p => {
           try {
+            const payload = {
+              owner_id:         ownerId,
+              name:             p.name,
+              type:             p.type,
+              breed:            p.breed,
+              age:              parseInt(p.age) || null,
+              colour:           p.colour,
+              gender:           p.gender,
+              desexed:          p.desexed === 'yes',
+              vet_name:         p.vet_name         || null,
+              vet_phone:        p.vet_phone        || null,
+              medication_notes: p.medication       || '',
+            }
+            console.log('[Step2] posting pet payload:', payload)
             const res = await fetch(`${SUPABASE_URL}/rest/v1/pets`, {
               method: 'POST',
               headers: {
@@ -233,31 +261,25 @@ export default function Step2PetDetails() {
                 'Content-Type': 'application/json',
                 Prefer:         'return=representation',
               },
-              body: JSON.stringify({
-                owner_id:         profile.id,
-                name:             p.name,
-                type:             p.type,
-                breed:            p.breed,
-                age:              parseInt(p.age) || null,
-                colour:           p.colour,
-                gender:           p.gender,
-                desexed:          p.desexed === 'yes',
-                vet_name:         p.vet_name         || null,
-                vet_phone:        p.vet_phone        || null,
-                medication_notes: p.medication       || '',
-              }),
+              body: JSON.stringify(payload),
             })
+            console.log('[Step2] save response status:', res.status)
             const body = await res.json()
+            console.log('[Step2] save response body:', body)
             if (!res.ok) {
-              console.error('[Step2] save pet failed:', res.status, body)
+              console.error('[Step2] save pet FAILED:', res.status, body)
             } else {
-              console.log('[Step2] pet saved:', body)
+              console.log('[Step2] pet saved successfully:', body)
             }
           } catch (e) {
-            console.error('[Step2] save pet error:', e)
+            console.error('[Step2] save pet exception:', e)
           }
         }))
+      } else {
+        console.log('[Step2] no new pets to save (all from saved profiles)')
       }
+    } else {
+      console.log('[Step2] skipping pet save — no profile.id (user not logged in?)')
     }
 
     nextStep()
