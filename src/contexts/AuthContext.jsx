@@ -88,12 +88,50 @@ export function AuthProvider({ children }) {
     window.location.href = '/'
   }
 
+  async function signUp(email, password, fullName) {
+    const nameParts  = (fullName || '').trim().split(/\s+/)
+    const first_name = nameParts[0] || ''
+    const last_name  = nameParts.slice(1).join(' ') || ''
+
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { full_name: fullName, first_name, last_name } },
+    })
+    if (error) return { error }
+
+    // Create the profile row with role = 'customer'
+    const userId = data?.user?.id
+    if (userId) {
+      const token = data?.session?.access_token || getAccessToken()
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/profiles`, {
+        method: 'POST',
+        headers: {
+          apikey:         SUPABASE_KEY,
+          Authorization:  `Bearer ${token || SUPABASE_KEY}`,
+          'Content-Type': 'application/json',
+          Prefer:         'return=minimal',
+        },
+        body: JSON.stringify({
+          id:         userId,
+          email,
+          first_name,
+          last_name,
+          role:       'customer',
+        }),
+      })
+      if (!res.ok) console.warn('[signUp] profile insert failed:', res.status, await res.text())
+    }
+
+    return { data, error: null }
+  }
+
   const isAdmin    = ['admin', 'super_admin'].includes(profile?.role)
   const isEmployee = profile?.role === 'employee'
   const isStaff    = isAdmin || isEmployee
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signOut, isAdmin, isEmployee, isStaff }}>
+    <AuthContext.Provider value={{ user, profile, loading, signUp, signOut, isAdmin, isEmployee, isStaff }}>
       {children}
     </AuthContext.Provider>
   )
