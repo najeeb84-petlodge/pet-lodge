@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Check, Loader2, Home, Sun, Footprints, Scissors, Stethoscope, GraduationCap, Plane } from 'lucide-react'
 import { useWizard } from '../../contexts/WizardContext'
-import { SUPABASE_URL, SUPABASE_KEY } from '../../lib/supabase'
+import { SUPABASE_URL, SUPABASE_KEY, getAccessToken } from '../../lib/supabase'
 
 // ── Service definitions ──────────────────────────────────────────────────────
 const SERVICES = [
@@ -193,6 +193,12 @@ export default function Step3Services() {
   const petCount = safePets.length || 1
   const dogCount = safePets.filter(p => (p.type || '').toLowerCase() === 'dog').length
   const catCount = safePets.filter(p => (p.type || '').toLowerCase() === 'cat').length
+  // allCats = every pet is a cat (no dogs, no other). Hide dog-only services.
+  const allCats  = catCount > 0 && dogCount === 0 && catCount === safePets.length
+  const CAT_ONLY_HIDDEN = new Set(['day_camp', 'dog_walking', 'training'])
+
+  // Visible service cards after pet-type filter
+  const visibleServices = SERVICES.filter(s => !(allCats && CAT_ONLY_HIDDEN.has(s.id)))
 
   // prices keyed by category string
   const [prices,          setPrices]          = useState({})
@@ -209,29 +215,33 @@ export default function Step3Services() {
 
   // Fetch all active services grouped by category
   useEffect(() => {
+    const token = getAccessToken()
     fetch(
       `${SUPABASE_URL}/rest/v1/services?active=eq.true&select=id,name,price_per_day,description,category,unit,pet_type&order=name`,
-      { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+      {
+        headers: {
+          apikey:        SUPABASE_KEY,
+          Authorization: `Bearer ${token || SUPABASE_KEY}`,
+        },
+      }
     )
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok) { console.error('[Step3] services fetch failed:', r.status); return [] }
+        return r.json()
+      })
       .then(data => {
-        if (!Array.isArray(data)) return
-        // Log raw response so we can verify category values in the browser console
-        console.log('[Step3] raw services from DB:', data.map(r => ({ id: r.id, name: r.name, category: r.category, pet_type: r.pet_type })))
+        if (!Array.isArray(data)) { console.error('[Step3] unexpected response:', data); return }
+        console.log('[Step3] raw services from DB:', data.map(r => ({ name: r.name, category: r.category, pet_type: r.pet_type, price_per_day: r.price_per_day })))
         const grouped = {}
         data.forEach(row => {
-          // Normalise: lowercase + replace spaces/hyphens with underscores
           const cat = (row.category || 'other').toLowerCase().replace(/[\s-]+/g, '_')
           if (!grouped[cat]) grouped[cat] = []
           grouped[cat].push(row)
         })
         console.log('[Step3] grouped categories:', Object.keys(grouped))
         setPrices(grouped)
-
-        // Auto-select boarding option based on pet count (filtered list computed after state sets)
-        // We'll do this after prices state is available via the effect below
       })
-      .catch(() => {})
+      .catch(e => console.error('[Step3] fetch error:', e))
       .finally(() => setLoading(false))
   }, [])
 
@@ -329,7 +339,7 @@ export default function Step3Services() {
       {/* Service card grid */}
       {errors.service && <p className="text-xs text-red-500 mb-3">Please select a service</p>}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
-        {SERVICES.map(svc => {
+        {visibleServices.map(svc => {
           const isSelected = selected === svc.id
           return (
             <button
