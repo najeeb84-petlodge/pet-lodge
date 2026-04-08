@@ -190,6 +190,7 @@ export default function Step3Services() {
 
   // Count dogs and cats from Step 2 pet selections (guard against undefined)
   const safePets = Array.isArray(petsData) ? petsData : []
+  const petCount = safePets.length || 1
   const dogCount = safePets.filter(p => (p.type || '').toLowerCase() === 'dog').length
   const catCount = safePets.filter(p => (p.type || '').toLowerCase() === 'cat').length
 

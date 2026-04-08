@@ -35,15 +35,24 @@ function petEmoji(type) {
   return PET_EMOJI[(type || '').toLowerCase()] ?? '🐾'
 }
 
+function cap(s) {
+  // Capitalise first letter — DB stores 'dog'/'cat'/'male'/'female', dropdowns expect 'Dog'/'Male'
+  if (!s) return ''
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()
+}
+
 function savedToFormPet(sp) {
+  console.log('[Step2] selected saved pet raw data:', sp)
+  const rawType   = sp.type   || sp.species || ''
+  const rawGender = sp.gender || ''
   return {
     _savedId:   sp.id,
     name:       sp.name        || '',
-    type:       sp.type        || sp.species || '',
+    type:       cap(rawType),
     breed:      sp.breed       || '',
     age:        sp.age != null  ? String(sp.age) : '',
     colour:     sp.colour      || sp.color || '',
-    gender:     sp.gender      || '',
+    gender:     cap(rawGender),
     desexed:    sp.desexed      ? 'yes' : 'no',
     vet_name:   sp.vet_name    || '',
     vet_phone:  sp.vet_phone   || '',
