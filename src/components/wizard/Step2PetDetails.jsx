@@ -35,24 +35,16 @@ function petEmoji(type) {
   return PET_EMOJI[(type || '').toLowerCase()] ?? '🐾'
 }
 
-function cap(s) {
-  // Capitalise first letter — DB stores 'dog'/'cat'/'male'/'female', dropdowns expect 'Dog'/'Male'
-  if (!s) return ''
-  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()
-}
-
 function savedToFormPet(sp) {
   console.log('[Step2] selected saved pet raw data:', sp)
-  const rawType   = sp.type   || sp.species || ''
-  const rawGender = sp.gender || ''
   return {
     _savedId:   sp.id,
     name:       sp.name        || '',
-    type:       cap(rawType),
+    type:       (sp.type || sp.species || '').toLowerCase(),
     breed:      sp.breed       || '',
     age:        sp.age != null  ? String(sp.age) : '',
     colour:     sp.colour      || sp.color || '',
-    gender:     cap(rawGender),
+    gender:     (sp.gender || '').toLowerCase(),
     desexed:    sp.desexed      ? 'yes' : 'no',
     vet_name:   sp.vet_name    || '',
     vet_phone:  sp.vet_phone   || '',
@@ -215,7 +207,7 @@ export default function Step2PetDetails() {
   async function handleNext() {
     if (!validate()) return
     setPetsData(pets)
-    const intact = pets.some(p => p.gender === 'Female' && p.desexed === 'no')
+    const intact = pets.some(p => p.gender === 'female' && p.desexed === 'no')
     setHasIntactFemale(intact)
 
     // ── DEBUG: log auth session from localStorage ──────────────────
@@ -428,9 +420,8 @@ export default function Step2PetDetails() {
                     <select className={ic(idx,'type')} value={pet.type}
                       onChange={e => updatePet(idx,'type',e.target.value)}>
                       <option value="">— Select —</option>
-                      <option value="Dog">Dog</option>
-                      <option value="Cat">Cat</option>
-                      <option value="Other">Other</option>
+                      <option value="dog">Dog</option>
+                      <option value="cat">Cat</option>
                     </select>
                     {errors[idx]?.type && <p className="text-xs text-red-500 mt-1">Required</p>}
                   </div>
@@ -465,9 +456,8 @@ export default function Step2PetDetails() {
                     <select className={ic(idx,'gender')} value={pet.gender}
                       onChange={e => updatePet(idx,'gender',e.target.value)}>
                       <option value="">— Select —</option>
-                      <option value="Male">Male</option>
-                      <option value="Female">Female</option>
-                      <option value="Unknown">Unknown</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
                     </select>
                     {errors[idx]?.gender && <p className="text-xs text-red-500 mt-1">Required</p>}
                   </div>
