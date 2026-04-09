@@ -206,12 +206,13 @@ export default function Step3Services() {
   const [showAllBoarding, setShowAllBoarding] = useState(false)
 
   // per-service selection state
-  const [selected,   setSelected]   = useState(serviceType || null)
-  const [option,     setOption]     = useState(serviceOptions?.option ?? null)
-  const [startDate,  setStartDate]  = useState(serviceOptions?.startDate  ?? '')
-  const [endDate,    setEndDate]    = useState(serviceOptions?.endDate    ?? '')
-  const [tripType,   setTripType]   = useState(serviceOptions?.tripType   ?? 'one_way')
-  const [errors,     setErrors]     = useState({})
+  const [selected,        setSelected]        = useState(serviceType || null)
+  const [option,          setOption]          = useState(serviceOptions?.option ?? null)
+  const [startDate,       setStartDate]       = useState(serviceOptions?.startDate  ?? '')
+  const [endDate,         setEndDate]         = useState(serviceOptions?.endDate    ?? '')
+  const [tripType,        setTripType]        = useState(serviceOptions?.tripType   ?? 'one_way')
+  const [groomingDogSize, setGroomingDogSize] = useState(serviceOptions?.groomingDogSize ?? '')
+  const [errors,          setErrors]          = useState({})
 
   // Fetch all active services grouped by category
   useEffect(() => {
@@ -284,6 +285,7 @@ export default function Step3Services() {
     setOption(null)
     setStartDate('')
     setEndDate('')
+    setGroomingDogSize('')
     setErrors({})
     setShowAllBoarding(false)
 
@@ -298,12 +300,15 @@ export default function Step3Services() {
     if (!svc) { setErrors({ service: true }); return false }
     const e = {}
 
-    if (svc.id !== 'training' && svc.id !== 'international') {
+    if (svc.id === 'boarding' || svc.id === 'transport') {
       const opts = prices[svc.category] || []
       if (opts.length) {
-        const hasOption = svc.multiSelect ? (Array.isArray(option) && option.length > 0) : !!option
-        if (!hasOption) e.option = true
+        if (!option) e.option = true
       }
+    }
+
+    if (svc.id === 'grooming' && dogCount > 0 && !groomingDogSize) {
+      e.groomingDogSize = true
     }
 
     if (svc.dateType === 'range') {
@@ -323,7 +328,7 @@ export default function Step3Services() {
   function handleNext() {
     if (!validate()) return
     setServiceType(selected)
-    setServiceOptions({ option, startDate, endDate, tripType })
+    setServiceOptions({ option, startDate, endDate, tripType, groomingDogSize })
     nextStep()
   }
 
@@ -421,69 +426,61 @@ export default function Step3Services() {
           {/* ── Day Camp ── */}
           {svcDef.id === 'day_camp' && (
             <>
-              <p className="text-sm font-bold mb-2" style={{ color: 'var(--primary)' }}>Day Camp Packages</p>
+              <p className="text-sm font-bold mb-2" style={{ color: 'var(--primary)' }}>Day Camp</p>
               <p className="text-xs mb-4" style={{ color: 'var(--muted)' }}>
                 Day care where your dog enjoys fresh &amp; green spacious facilities, socializes with friendly
                 dogs, and gets exercise. Prices include pick up and drop off.
               </p>
-              <PriceRadioList
-                prices={
-                  (prices.day_camp || [])
-                    .filter(p => !p.name.toLowerCase().includes('additional'))
-                    .sort((a, b) => {
-                      const ORDER = ['single', 'monthly', 'quarterly', 'annually']
-                      const rank = name => ORDER.findIndex(k => name.toLowerCase().includes(k))
-                      return rank(a.name) - rank(b.name)
-                    })
-                }
-                selected={option}
-                onChange={setOption}
-                multiSelect={false}
-              />
-              {errors.option && <p className="text-xs text-red-500 mt-2">Please select an option</p>}
-              <div className="mt-4">
-                <p className="text-xs font-semibold mb-2" style={{ color: 'var(--muted)' }}>Service Dates</p>
-                <DateRange startVal={startDate} endVal={endDate}
-                  onStart={setStartDate} onEnd={setEndDate}
-                  error={{ start: errors.start, end: errors.end }} />
-              </div>
+              <p className="text-xs font-semibold mb-2" style={{ color: 'var(--muted)' }}>Service Dates</p>
+              <DateRange startVal={startDate} endVal={endDate}
+                onStart={setStartDate} onEnd={setEndDate}
+                error={{ start: errors.start, end: errors.end }} />
             </>
           )}
 
           {/* ── Dog Walking ── */}
           {svcDef.id === 'dog_walking' && (
             <>
-              <p className="text-sm font-bold mb-3" style={{ color: 'var(--primary)' }}>Dog Walking Options</p>
-              <PriceRadioList
-                prices={prices.dog_walking || []}
-                selected={option}
-                onChange={setOption}
-                multiSelect={false}
-              />
-              {errors.option && <p className="text-xs text-red-500 mt-2">Please select an option</p>}
-              <div className="mt-4">
-                <p className="text-xs font-semibold mb-2" style={{ color: 'var(--muted)' }}>Service Dates</p>
-                <DateRange startVal={startDate} endVal={endDate}
-                  onStart={setStartDate} onEnd={setEndDate}
-                  error={{ start: errors.start, end: errors.end }} />
-              </div>
+              <p className="text-sm font-bold mb-3" style={{ color: 'var(--primary)' }}>Dog Walking</p>
+              <p className="text-xs font-semibold mb-2" style={{ color: 'var(--muted)' }}>Service Dates</p>
+              <DateRange startVal={startDate} endVal={endDate}
+                onStart={setStartDate} onEnd={setEndDate}
+                error={{ start: errors.start, end: errors.end }} />
             </>
           )}
 
           {/* ── Grooming ── */}
           {svcDef.id === 'grooming' && (
             <>
-              <p className="text-sm font-bold mb-3" style={{ color: 'var(--primary)' }}>Grooming Services</p>
-              <PriceRadioList
-                prices={prices.grooming || []}
-                selected={option}
-                onChange={setOption}
-                multiSelect={true}
-              />
-              {errors.option && <p className="text-xs text-red-500 mt-2">Please select at least one service</p>}
-              <div className="mt-4">
-                <SingleDate val={startDate} onChange={setStartDate} label="Grooming Date" error={errors.start} />
-              </div>
+              <p className="text-sm font-bold mb-3" style={{ color: 'var(--primary)' }}>Grooming</p>
+              {dogCount > 0 && (
+                <div className="mb-4">
+                  <p className="text-sm font-semibold mb-2" style={{ color: 'var(--text)' }}>
+                    What size is your dog? <span className="text-red-500">*</span>
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    {[['small_medium', 'Small / Medium'], ['large', 'Large']].map(([val, lbl]) => (
+                      <label key={val} className="flex items-center gap-3 cursor-pointer p-3 rounded-lg flex-1"
+                        style={{
+                          border: `1px solid ${groomingDogSize === val ? '#7aa63c' : 'var(--border)'}`,
+                          background: groomingDogSize === val ? '#eef4e2' : 'white',
+                        }}>
+                        <input
+                          type="radio"
+                          name="grooming_dog_size"
+                          value={val}
+                          checked={groomingDogSize === val}
+                          onChange={() => setGroomingDogSize(val)}
+                          className="w-4 h-4 accent-[#7aa63c]"
+                        />
+                        <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>{lbl}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {errors.groomingDogSize && <p className="text-xs text-red-500 mt-2">Please select a size</p>}
+                </div>
+              )}
+              <SingleDate val={startDate} onChange={setStartDate} label="Grooming Date" error={errors.start} />
             </>
           )}
 

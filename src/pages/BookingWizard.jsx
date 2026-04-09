@@ -6,6 +6,7 @@ import StepProgress from '../components/wizard/StepProgress'
 import Step1CustomerInfo from '../components/wizard/Step1CustomerInfo'
 import Step2PetDetails from '../components/wizard/Step2PetDetails'
 import Step3Services from '../components/wizard/Step3Services'
+import Step4ServiceOptions from '../components/wizard/Step4ServiceOptions'
 
 function StepPlaceholder({ title }) {
   return (
@@ -38,7 +39,7 @@ export default function BookingWizard() {
           {step === 1 && <Step1CustomerInfo />}
           {step === 2 && <Step2PetDetails />}
           {step === 3 && <Step3Services />}
-          {step === 4 && <StepPlaceholder title="Service Options" />}
+          {step === 4 && <Step4ServiceOptions />}
           {step === 5 && <StepPlaceholder title="Confirmation" />}
         </div>
       </div>
