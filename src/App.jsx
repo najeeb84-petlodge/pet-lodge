@@ -42,7 +42,7 @@ export default function App() {
             <ProtectedRoute><MyBookings /></ProtectedRoute>
           } />
           <Route path="/booking" element={
-            <ProtectedRoute>
+            <ProtectedRoute allowGuest>
               <WizardProvider><BookingWizard /></WizardProvider>
             </ProtectedRoute>
           } />

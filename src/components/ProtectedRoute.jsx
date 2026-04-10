@@ -17,11 +17,12 @@ function getStoredSession() {
   } catch { return null }
 }
 
-export default function ProtectedRoute({ children, requireStaff = false }) {
+export default function ProtectedRoute({ children, requireStaff = false, allowGuest = false }) {
   // Synchronous — localStorage reads are instant, no async needed
   const session = getStoredSession()
+  const isGuest = allowGuest && !!localStorage.getItem('guest_email')
 
-  if (!session) return <Navigate to="/login" replace />
+  if (!session && !isGuest) return <Navigate to="/login" replace />
 
   const role = session.user?.user_metadata?.role ?? 'customer'
   if (requireStaff && !['admin', 'super_admin', 'employee'].includes(role)) {
