@@ -8,12 +8,12 @@ import { SUPABASE_URL, SUPABASE_KEY, getAccessToken } from '../../lib/supabase'
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const DAYS_OF_WEEK = [
+  { value: 'sat', label: 'Sat' },
+  { value: 'sun', label: 'Sun' },
   { value: 'mon', label: 'Mon' },
   { value: 'tue', label: 'Tue' },
   { value: 'wed', label: 'Wed' },
   { value: 'thu', label: 'Thu' },
-  { value: 'fri', label: 'Fri' },
-  { value: 'sat', label: 'Sat' },
 ]
 
 const WALKING_TIMES = [
@@ -45,6 +45,7 @@ function defaultBoardingPet(pet, idx) {
     transport: '',
     address_flat: '', address_street: '', address_neighbourhood: '',
     address_whatsapp_location: '', address_driver_comments: '',
+    pickupTime: '', dropoffTime: '',
     saveAddressToProfile: false,
   }
 }
@@ -53,7 +54,7 @@ function defaultDayCampPet(pet, idx) {
     petIndex: idx, petName: pet.name || `Pet ${idx + 1}`,
     packageId: '', packagePrice: 0, preferredDays: [], fleaTick: '', transportConfirmed: true,
     address_flat: '', address_street: '', address_neighbourhood: '',
-    address_whatsapp_location: '', saveAddressToProfile: false,
+    address_whatsapp_location: '', pickupTime: '', dropoffTime: '', saveAddressToProfile: false,
   }
 }
 function defaultDogWalkingPet(pet, idx) {
@@ -61,7 +62,7 @@ function defaultDogWalkingPet(pet, idx) {
     petIndex: idx, petName: pet.name || `Pet ${idx + 1}`,
     packageId: '', packagePrice: 0, preferredTime: '', walkerNotes: '',
     address_flat: '', address_street: '', address_neighbourhood: '',
-    address_whatsapp_location: '', saveAddressToProfile: false,
+    address_whatsapp_location: '', pickupTime: '', dropoffTime: '', saveAddressToProfile: false,
   }
 }
 function defaultGroomingPet(pet, idx) {
@@ -70,14 +71,14 @@ function defaultGroomingPet(pet, idx) {
     selectionMode: '', packageId: null, standaloneAddOns: [],
     transport: null,
     address_flat: '', address_street: '', address_neighbourhood: '',
-    address_whatsapp_location: '', saveAddressToProfile: false,
+    address_whatsapp_location: '', pickupTime: '', dropoffTime: '', saveAddressToProfile: false,
   }
 }
 function defaultTransport() {
   return {
     dateTime: '', vetAddress: '', notes: '',
     address_flat: '', address_street: '', address_neighbourhood: '',
-    address_whatsapp_location: '', saveAddressToProfile: false,
+    address_whatsapp_location: '', pickupTime: '', saveAddressToProfile: false,
     dropoff_same: true,
     dropoff_flat: '', dropoff_street: '', dropoff_neighbourhood: '', dropoff_whatsapp_location: '',
   }
@@ -371,12 +372,24 @@ function AddressGrid({ form, onChange, showWhatsApp = true }) {
 }
 
 // Address shown when transport !== 'self' (Boarding, Grooming standalone)
-function AddressFields({ form, onChange, show, profileHasAddress, showDriverComments = false }) {
+function AddressFields({ form, onChange, show, profileHasAddress, showDriverComments = false, showTimePickers = false }) {
   if (!show) return null
   return (
     <div className="mt-4 space-y-3">
       <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>Pick-up / Drop-off Address</p>
       <AddressGrid form={form} onChange={onChange} />
+      {showTimePickers && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--muted)' }}>Preferred pick-up time</label>
+            <TimeSelect value={form.pickupTime || ''} onChange={v => onChange({ pickupTime: v })} />
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--muted)' }}>Preferred drop-off time</label>
+            <TimeSelect value={form.dropoffTime || ''} onChange={v => onChange({ dropoffTime: v })} />
+          </div>
+        </div>
+      )}
       {showDriverComments && (
         <div>
           <label className="block text-xs font-medium mb-1" style={{ color: 'var(--muted)' }}>
@@ -400,8 +413,8 @@ function AddressFields({ form, onChange, show, profileHasAddress, showDriverComm
   )
 }
 
-// Collapsible address section (Day Camp, Dog Walking)
-function CollapsibleAddress({ form, onChange, profileHasAddress, label = 'Add pick-up / drop-off address' }) {
+// Collapsible address section (Day Camp, Dog Walking, Grooming package)
+function CollapsibleAddress({ form, onChange, profileHasAddress, label = 'Add pick-up / drop-off address', showTimePickers = false }) {
   const [open, setOpen] = useState(false)
   return (
     <div className="mt-4">
@@ -413,6 +426,18 @@ function CollapsibleAddress({ form, onChange, profileHasAddress, label = 'Add pi
       {open && (
         <div className="mt-3 space-y-3">
           <AddressGrid form={form} onChange={onChange} />
+          {showTimePickers && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--muted)' }}>Preferred pick-up time</label>
+                <TimeSelect value={form.pickupTime || ''} onChange={v => onChange({ pickupTime: v })} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--muted)' }}>Preferred drop-off time</label>
+                <TimeSelect value={form.dropoffTime || ''} onChange={v => onChange({ dropoffTime: v })} />
+              </div>
+            </div>
+          )}
           <label className="inline-flex items-center gap-2 cursor-pointer select-none">
             <input type="checkbox" className="w-4 h-4 accent-[#7aa63c]"
               checked={!!form.saveAddressToProfile}
@@ -543,11 +568,12 @@ function BoardingOptions({ form, onChange, petsData, prices, errors, profileHasA
           value={form.transport} onChange={v => onChange({ transport: v })} error={errors?.transport} />
       </div>
 
-      {/* Address with WhatsApp + driver comments */}
+      {/* Address with WhatsApp + driver comments + time pickers */}
       <AddressFields form={form} onChange={onChange}
         show={form.transport && form.transport !== 'self'}
         profileHasAddress={profileHasAddress}
-        showDriverComments={true} />
+        showDriverComments={true}
+        showTimePickers={true} />
     </div>
   )
 }
@@ -593,7 +619,7 @@ function DayCampOptions({ form, onChange, prices, errors, profileHasAddress, ser
         <InfoNote>Pick up and drop off is complimentary for Day Camp.</InfoNote>
       </div>
 
-      <CollapsibleAddress form={form} onChange={onChange} profileHasAddress={profileHasAddress} />
+      <CollapsibleAddress form={form} onChange={onChange} profileHasAddress={profileHasAddress} showTimePickers={true} />
     </div>
   )
 }
@@ -634,7 +660,7 @@ function DogWalkingOptions({ form, onChange, prices, errors, profileHasAddress }
       </div>
 
       <CollapsibleAddress form={form} onChange={onChange} profileHasAddress={profileHasAddress}
-        label="Add walking address" />
+        label="Add walking address" showTimePickers={true} />
     </div>
   )
 }
@@ -679,9 +705,7 @@ function GroomingOptions({ form, onChange, prices, petsData, errors, profileHasA
       {form.selectionMode === 'package' && (
         <div className="mt-2 space-y-3">
           <InfoNote>This package includes complimentary pick-up &amp; drop-off</InfoNote>
-          {petType === 'cat' && (
-            <CollapsibleAddress form={form} onChange={onChange} profileHasAddress={profileHasAddress} />
-          )}
+          <CollapsibleAddress form={form} onChange={onChange} profileHasAddress={profileHasAddress} showTimePickers={true} />
         </div>
       )}
 
@@ -708,7 +732,8 @@ function GroomingOptions({ form, onChange, prices, petsData, errors, profileHasA
             value={form.transport || ''} onChange={v => onChange({ transport: v })} />
           <AddressFields form={form} onChange={onChange}
             show={form.transport && form.transport !== 'self'}
-            profileHasAddress={profileHasAddress} />
+            profileHasAddress={profileHasAddress}
+            showTimePickers={true} />
         </div>
       )}
 
@@ -772,6 +797,10 @@ function TransportOptions({ form, onChange, errors, profileHasAddress }) {
               {profileHasAddress ? 'Update saved address' : 'Save this address to my profile'}
             </span>
           </label>
+          <div>
+            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--muted)' }}>Preferred pick-up time</label>
+            <TimeSelect value={form.pickupTime || ''} onChange={v => onChange({ pickupTime: v })} />
+          </div>
         </div>
       </div>
 
