@@ -35,23 +35,42 @@ export default function AuthCallback() {
         return
       }
 
-      // Decode user id + email from JWT payload (middle section)
-      let userId = null
+      // Verify the token and get the confirmed user object from Supabase
+      let userId    = null
       let userEmail = null
       try {
-        const payload = JSON.parse(atob(accessToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
-        userId    = payload.sub
-        userEmail = payload.email
-      } catch { /* non-fatal — we'll still store the token */ }
+        const userRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+          headers: {
+            apikey:        SUPABASE_KEY,
+            Authorization: `Bearer ${accessToken}`,
+          },
+        })
+        if (userRes.ok) {
+          const userData = await userRes.json()
+          userId    = userData.id
+          userEmail = userData.email
+        }
+      } catch { /* fall back to JWT decode below */ }
 
-      // Store session in localStorage so AuthContext / supabase client picks it up
-      localStorage.setItem(LS_KEY, JSON.stringify({
+      // Fallback: decode from JWT payload if /auth/v1/user failed
+      if (!userId) {
+        try {
+          const payload = JSON.parse(atob(accessToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+          userId    = payload.sub
+          userEmail = payload.email
+        } catch { /* non-fatal */ }
+      }
+
+      // Store session in localStorage — exact format expected by Supabase JS client + getAccessToken()
+      const session = {
         access_token:  accessToken,
         refresh_token: refreshToken,
-        expires_at:    Math.floor(Date.now() / 1000) + parseInt(expiresIn || '3600', 10),
-        token_type:    tokenType || 'bearer',
+        expires_in:    parseInt(expiresIn || '3600', 10),
+        token_type:    'bearer',
         user:          { id: userId, email: userEmail },
-      }))
+      }
+      localStorage.setItem(LS_KEY, JSON.stringify(session))
+      console.log('[AuthCallback] session stored:', session)
 
       // Clear the hash so tokens don't linger in browser history
       history.replaceState(null, '', window.location.pathname + window.location.search)
