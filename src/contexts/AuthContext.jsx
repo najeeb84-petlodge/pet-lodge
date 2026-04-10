@@ -24,9 +24,9 @@ function getSessionFromStorage() {
 export function AuthProvider({ children }) {
   const stored = getSessionFromStorage()
   const [user, setUser]       = useState(stored?.user ?? null)
-  const [profile, setProfile] = useState(stored ? {
-    id:        stored.user.id,
-    email:     stored.user.email,
+  const [profile, setProfile] = useState(stored?.user ? {
+    id:        stored.user?.id   ?? null,
+    email:     stored.user?.email ?? null,
     role:      stored.role,      // stale fallback — overwritten below immediately
     full_name: stored.full_name,
   } : null)

@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { ChevronLeft } from 'lucide-react'
 import TopNav from '../components/TopNav'
 import { useWizard } from '../contexts/WizardContext'
+import { useAuth } from '../contexts/AuthContext'
 import StepProgress from '../components/wizard/StepProgress'
 import Step1CustomerInfo from '../components/wizard/Step1CustomerInfo'
 import Step2PetDetails from '../components/wizard/Step2PetDetails'
@@ -19,6 +20,8 @@ function StepPlaceholder({ title }) {
 
 export default function BookingWizard() {
   const { step } = useWizard()
+  const { user } = useAuth()
+  const isGuest = !user && !!localStorage.getItem('guest_email')
 
   return (
     <div className="min-h-screen" style={{ background: '#f8f9f6' }}>

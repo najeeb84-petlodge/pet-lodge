@@ -119,6 +119,15 @@ export default function Step1CustomerInfo() {
   const [errors, setErrors]   = useState({})
   const [loading, setLoading] = useState(false)
 
+  // Pre-fill email for guest users (no profile, but guest_email in localStorage)
+  useEffect(() => {
+    if (profile?.id) return // logged-in users handled below
+    const guestEmail = localStorage.getItem('guest_email')
+    if (guestEmail && !form.email) {
+      setForm(f => ({ ...f, email: guestEmail }))
+    }
+  }, [])
+
   // Pre-fill from profiles on first mount if form is blank
   useEffect(() => {
     if (!profile?.id) return
