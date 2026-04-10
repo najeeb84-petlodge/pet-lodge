@@ -26,7 +26,7 @@ export default function AuthCallback() {
           try {
             const session = JSON.parse(stored)
             if (session?.access_token) {
-              await redirectByProfile(session.access_token, session.user?.id, navigate)
+              await redirectByProfile(session.access_token, session.user?.id, session.user?.email, navigate)
               return
             }
           } catch { /* fall through */ }
@@ -37,9 +37,11 @@ export default function AuthCallback() {
 
       // Decode user id + email from JWT payload (middle section)
       let userId = null
+      let userEmail = null
       try {
         const payload = JSON.parse(atob(accessToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
-        userId = payload.sub
+        userId    = payload.sub
+        userEmail = payload.email
       } catch { /* non-fatal — we'll still store the token */ }
 
       // Store session in localStorage so AuthContext / supabase client picks it up
@@ -48,13 +50,13 @@ export default function AuthCallback() {
         refresh_token: refreshToken,
         expires_at:    Math.floor(Date.now() / 1000) + parseInt(expiresIn || '3600', 10),
         token_type:    tokenType || 'bearer',
-        user:          { id: userId },
+        user:          { id: userId, email: userEmail },
       }))
 
       // Clear the hash so tokens don't linger in browser history
       history.replaceState(null, '', window.location.pathname + window.location.search)
 
-      await redirectByProfile(accessToken, userId, navigate)
+      await redirectByProfile(accessToken, userId, userEmail, navigate)
     }
 
     handleCallback()
@@ -82,33 +84,60 @@ export default function AuthCallback() {
   )
 }
 
-async function redirectByProfile(accessToken, userId, navigate) {
-  if (!userId) {
-    navigate('/dashboard')
-    return
+async function redirectByProfile(accessToken, userId, userEmail, navigate) {
+  const headers = {
+    apikey:          SUPABASE_KEY,
+    Authorization:   `Bearer ${accessToken}`,
+    'Content-Type':  'application/json',
   }
+
   try {
-    const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=role`,
-      {
-        headers: {
-          apikey:        SUPABASE_KEY,
-          Authorization: `Bearer ${accessToken}`,
-        },
+    // Look up profile by email — works regardless of which auth user id Supabase assigned
+    if (userEmail) {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/profiles?email=eq.${encodeURIComponent(userEmail)}&select=id,role`,
+        { headers }
+      )
+      const rows = await res.json()
+
+      if (Array.isArray(rows) && rows.length > 0) {
+        const profile = rows[0]
+
+        // If the stored profile id doesn't match the current auth user id, sync it
+        if (userId && profile.id !== userId) {
+          await fetch(
+            `${SUPABASE_URL}/rest/v1/profiles?email=eq.${encodeURIComponent(userEmail)}`,
+            {
+              method:  'PATCH',
+              headers: { ...headers, Prefer: 'return=minimal' },
+              body:    JSON.stringify({ id: userId }),
+            }
+          )
+        }
+
+        const { role } = profile
+        if (role === 'admin' || role === 'super_admin' || role === 'employee') {
+          navigate('/admin/dashboard')
+        } else {
+          navigate('/dashboard')
+        }
+        return
       }
-    )
-    const rows = await res.json()
-    if (Array.isArray(rows) && rows.length > 0) {
-      const { role } = rows[0]
-      if (role === 'admin' || role === 'super_admin' || role === 'employee') {
-        navigate('/admin/dashboard')
-      } else {
-        navigate('/dashboard')
-      }
-    } else {
-      // New OAuth user — no profile row yet
-      navigate('/dashboard')
     }
+
+    // No profile found by email — create a new customer profile
+    if (userId && userEmail) {
+      await fetch(
+        `${SUPABASE_URL}/rest/v1/profiles`,
+        {
+          method:  'POST',
+          headers: { ...headers, Prefer: 'return=minimal' },
+          body:    JSON.stringify({ id: userId, email: userEmail, role: 'customer' }),
+        }
+      )
+    }
+
+    navigate('/dashboard')
   } catch {
     navigate('/dashboard')
   }
