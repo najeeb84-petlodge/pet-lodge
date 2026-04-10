@@ -78,7 +78,7 @@ export default function Login() {
       const res = await fetch(`${SUPABASE_URL}/auth/v1/otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, redirect_to: CALLBACK_URL }),
       })
       if (!res.ok) {
         const data = await res.json()
