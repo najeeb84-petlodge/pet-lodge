@@ -667,6 +667,7 @@ function DogWalkingOptions({ form, onChange, prices, errors, profileHasAddress }
 
 function GroomingOptions({ form, onChange, prices, petsData, errors, profileHasAddress, groomingDogSize }) {
   const petType = (petsData[form.petIndex]?.type || '').toLowerCase()
+  const [transportOpen, setTransportOpen] = useState(false)
 
   // Filter packages by pet type + dog size from Step 3
   const allPkgs = (prices.grooming || []).filter(p => p.name?.toLowerCase().includes('package'))
@@ -678,7 +679,6 @@ function GroomingOptions({ form, onChange, prices, petsData, errors, profileHasA
       filteredPkgs = allPkgs.filter(p => p.name.toLowerCase().includes('large'))
     }
   } else {
-    // cat: Large/Cats package
     filteredPkgs = allPkgs.filter(p => p.name.toLowerCase().includes('large') || p.name.toLowerCase().includes('cat'))
   }
 
@@ -695,16 +695,18 @@ function GroomingOptions({ form, onChange, prices, petsData, errors, profileHasA
 
   return (
     <div>
-      {/* Packages */}
+      {/* Packages — complimentary note always visible at top */}
       <SectionHeading>Grooming Package</SectionHeading>
+      <div className="mb-3">
+        <InfoNote>This package includes complimentary pick-up &amp; drop-off</InfoNote>
+      </div>
       <div data-error={errors?.selectionMode ? 'true' : undefined}>
         <RadioGroup name={`groom-pkg-${form.petIndex}`} options={packages}
           value={form.selectionMode === 'package' ? form.packageId : ''}
           onChange={v => onChange({ selectionMode: 'package', packageId: v, standaloneAddOns: [], transport: null })} />
       </div>
       {form.selectionMode === 'package' && (
-        <div className="mt-2 space-y-3">
-          <InfoNote>This package includes complimentary pick-up &amp; drop-off</InfoNote>
+        <div className="mt-2">
           <CollapsibleAddress form={form} onChange={onChange} profileHasAddress={profileHasAddress} showTimePickers={true} />
         </div>
       )}
@@ -724,16 +726,27 @@ function GroomingOptions({ form, onChange, prices, petsData, errors, profileHasA
           error={errors?.standaloneAddOns} />
       </div>
 
-      {/* Transport + address (standalone only) */}
+      {/* Standalone transport — collapsible */}
       {form.selectionMode === 'standalone' && (
-        <div className="mt-5">
-          <SectionHeading>Pick-up / Drop-off</SectionHeading>
-          <RadioGroup name={`groom-transport-${form.petIndex}`} options={GROOMING_TRANSPORT_OPTIONS}
-            value={form.transport || ''} onChange={v => onChange({ transport: v })} />
-          <AddressFields form={form} onChange={onChange}
-            show={form.transport && form.transport !== 'self'}
-            profileHasAddress={profileHasAddress}
-            showTimePickers={true} />
+        <div className="mt-4 space-y-3">
+          <InfoNote>Pick-up &amp; drop-off available for standalone services (Round trip JD 30 / One way JD 15)</InfoNote>
+          <div>
+            <button type="button" onClick={() => setTransportOpen(v => !v)}
+              className="flex items-center gap-1.5 text-sm font-medium"
+              style={{ color: 'var(--primary)' }}>
+              Add pick-up / drop-off {transportOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </button>
+            {transportOpen && (
+              <div className="mt-3 space-y-3">
+                <RadioGroup name={`groom-transport-${form.petIndex}`} options={GROOMING_TRANSPORT_OPTIONS}
+                  value={form.transport || ''} onChange={v => onChange({ transport: v })} />
+                <AddressFields form={form} onChange={onChange}
+                  show={form.transport && form.transport !== 'self'}
+                  profileHasAddress={profileHasAddress}
+                  showTimePickers={true} />
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -854,6 +867,7 @@ function TransportOptions({ form, onChange, errors, profileHasAddress }) {
 }
 
 function TrainingOptions({ form, onChange, errors }) {
+  const [scheduleOpen, setScheduleOpen] = useState(false)
   return (
     <div>
       <InfoNote>
@@ -881,12 +895,21 @@ function TrainingOptions({ form, onChange, errors }) {
       </div>
 
       <div className="mt-5">
-        <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--muted)' }}>
-          Preferred schedule <span className="font-normal">(optional)</span>
-        </label>
-        <textarea className="input text-sm" rows={2} style={{ resize: 'vertical' }}
-          placeholder="e.g. Mon / Wed mornings, after 9am"
-          value={form.preferredSchedule} onChange={e => onChange({ preferredSchedule: e.target.value })} />
+        <button type="button" onClick={() => setScheduleOpen(v => !v)}
+          className="flex items-center gap-1.5 text-sm font-medium"
+          style={{ color: 'var(--primary)' }}>
+          Add scheduling preferences {scheduleOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </button>
+        {scheduleOpen && (
+          <div className="mt-3">
+            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--muted)' }}>
+              Preferred schedule <span className="font-normal">(optional)</span>
+            </label>
+            <textarea className="input text-sm" rows={2} style={{ resize: 'vertical' }}
+              placeholder="e.g. Mon / Wed mornings, after 9am"
+              value={form.preferredSchedule} onChange={e => onChange({ preferredSchedule: e.target.value })} />
+          </div>
+        )}
       </div>
     </div>
   )
