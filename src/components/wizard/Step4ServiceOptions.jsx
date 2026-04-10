@@ -61,6 +61,7 @@ function defaultDogWalkingPet(pet, idx) {
   return {
     petIndex: idx, petName: pet.name || `Pet ${idx + 1}`,
     packageId: '', packagePrice: 0, preferredTime: '', walkerNotes: '',
+    transport: '',
     address_flat: '', address_street: '', address_neighbourhood: '',
     address_whatsapp_location: '', pickupTime: '', dropoffTime: '', saveAddressToProfile: false,
   }
@@ -83,7 +84,14 @@ function defaultTransport() {
     dropoff_flat: '', dropoff_street: '', dropoff_neighbourhood: '', dropoff_whatsapp_location: '',
   }
 }
-function defaultTraining()      { return { sessionCount: 1, preferredSchedule: '' } }
+function defaultTraining() {
+  return {
+    sessionCount: 1, preferredSchedule: '',
+    transport: '',
+    address_flat: '', address_street: '', address_neighbourhood: '',
+    address_whatsapp_location: '', pickupTime: '', dropoffTime: '', saveAddressToProfile: false,
+  }
+}
 function defaultInternational() { return { requirementsText: '', additionalNotes: '' } }
 
 function initPerPetForms(petsData, serviceType) {
@@ -497,6 +505,51 @@ function TimeSelect({ value, onChange }) {
   )
 }
 
+// ── Shared collapsible delivery section (Dog Walking, Grooming package, Training) ──
+
+function CollapsibleDelivery({ form, onChange, profileHasAddress, infoNote, transportOptions, radioName = 'delivery', label = 'Add pick-up / drop-off' }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="mt-4 space-y-3">
+      <InfoNote>{infoNote}</InfoNote>
+      <div>
+        <button type="button" onClick={() => setOpen(v => !v)}
+          className="flex items-center gap-1.5 text-sm font-medium"
+          style={{ color: 'var(--primary)' }}>
+          {label} {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </button>
+        {open && (
+          <div className="mt-3 space-y-3">
+            {transportOptions && (
+              <RadioGroup name={radioName} options={transportOptions}
+                value={form.transport || ''} onChange={v => onChange({ transport: v })} />
+            )}
+            <AddressGrid form={form} onChange={onChange} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--muted)' }}>Preferred pick-up time</label>
+                <TimeSelect value={form.pickupTime || ''} onChange={v => onChange({ pickupTime: v })} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--muted)' }}>Preferred drop-off time</label>
+                <TimeSelect value={form.dropoffTime || ''} onChange={v => onChange({ dropoffTime: v })} />
+              </div>
+            </div>
+            <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+              <input type="checkbox" className="w-4 h-4 accent-[#7aa63c]"
+                checked={!!form.saveAddressToProfile}
+                onChange={e => onChange({ saveAddressToProfile: e.target.checked })} />
+              <span className="text-sm" style={{ color: 'var(--text)' }}>
+                {profileHasAddress ? 'Update saved address' : 'Save this address to my profile'}
+              </span>
+            </label>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Flea & Tick radio (reused in Boarding + Day Camp) ─────────────────────────
 
 const FLEA_TICK_OPTIONS = [
@@ -659,8 +712,12 @@ function DogWalkingOptions({ form, onChange, prices, errors, profileHasAddress }
           value={form.walkerNotes} onChange={e => onChange({ walkerNotes: e.target.value })} />
       </div>
 
-      <CollapsibleAddress form={form} onChange={onChange} profileHasAddress={profileHasAddress}
-        label="Add walking address" showTimePickers={true} />
+      <CollapsibleDelivery
+        form={form} onChange={onChange} profileHasAddress={profileHasAddress}
+        infoNote="Pick-up & drop-off is available for Dog Walking"
+        transportOptions={GROOMING_TRANSPORT_OPTIONS}
+        radioName={`walking-delivery-${form.petIndex}`}
+      />
     </div>
   )
 }
@@ -707,7 +764,12 @@ function GroomingOptions({ form, onChange, prices, petsData, errors, profileHasA
       </div>
       {form.selectionMode === 'package' && (
         <div className="mt-2">
-          <CollapsibleAddress form={form} onChange={onChange} profileHasAddress={profileHasAddress} showTimePickers={true} />
+          <CollapsibleDelivery
+            form={form} onChange={onChange} profileHasAddress={profileHasAddress}
+            infoNote="Pick-up & drop-off is included with this package"
+            transportOptions={GROOMING_TRANSPORT_OPTIONS}
+            radioName={`groom-pkg-delivery-${form.petIndex}`}
+          />
         </div>
       )}
 
@@ -866,7 +928,7 @@ function TransportOptions({ form, onChange, errors, profileHasAddress }) {
   )
 }
 
-function TrainingOptions({ form, onChange, errors }) {
+function TrainingOptions({ form, onChange, errors, profileHasAddress }) {
   const [scheduleOpen, setScheduleOpen] = useState(false)
   return (
     <div>
@@ -911,6 +973,13 @@ function TrainingOptions({ form, onChange, errors }) {
           </div>
         )}
       </div>
+
+      <CollapsibleDelivery
+        form={form} onChange={onChange} profileHasAddress={profileHasAddress}
+        infoNote="We can pick up and drop off your dog for training sessions"
+        transportOptions={GROOMING_TRANSPORT_OPTIONS}
+        radioName="training-delivery"
+      />
     </div>
   )
 }
@@ -1266,7 +1335,7 @@ export default function Step4ServiceOptions() {
       )}
       {serviceType === 'training' && (
         <div className="rounded-xl p-5 mb-4" style={{ border: '1px solid var(--border)', background: '#fafaf9' }}>
-          <TrainingOptions form={flatForm} onChange={patch => setFlatForm(f => ({ ...f, ...patch }))} errors={errors} />
+          <TrainingOptions form={flatForm} onChange={patch => setFlatForm(f => ({ ...f, ...patch }))} errors={errors} profileHasAddress={profileHasAddress} />
         </div>
       )}
       {serviceType === 'international' && (

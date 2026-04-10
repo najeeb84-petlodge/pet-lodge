@@ -3,15 +3,23 @@ import { supabase } from '../../../lib/supabase'
 import { SUPABASE_URL, SUPABASE_KEY, getAccessToken } from '../../../lib/supabase'
 import { Edit2, Save, X, Loader2, ToggleLeft, ToggleRight } from 'lucide-react'
 
-const CATEGORIES = ['boarding','day_camp','grooming','dog_walking','transport','training','other']
+// Preferred display order — covers both alias forms (daycamp/day_camp, walking/dog_walking)
+const CAT_ORDER = ['boarding', 'daycamp', 'day_camp', 'grooming', 'walking', 'dog_walking', 'transport', 'training', 'other']
+
 const CAT_LABELS = {
   boarding:    'Boarding Services',
   day_camp:    'Day Camp Services',
+  daycamp:     'Day Camp Services',
   grooming:    'Grooming Services',
   dog_walking: 'Dog Walking Services',
+  walking:     'Dog Walking Services',
   transport:   'Transportation Services',
   training:    'Training Services',
   other:       'Other Services',
+}
+
+function catLabel(cat) {
+  return CAT_LABELS[cat] || cat.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) + ' Services'
 }
 
 async function fetchRaw() {
@@ -110,7 +118,13 @@ export default function PricesMaster({ isSuperAdmin }) {
     return acc
   }, {})
 
-  const visibleCats = CATEGORIES.filter(cat => grouped[cat]?.length)
+  const visibleCats = Object.keys(grouped).sort((a, b) => {
+    const ai = CAT_ORDER.indexOf(a), bi = CAT_ORDER.indexOf(b)
+    if (ai === -1 && bi === -1) return a.localeCompare(b)
+    if (ai === -1) return 1
+    if (bi === -1) return -1
+    return ai - bi
+  })
 
   if (loading) return (
     <div className="flex items-center justify-center h-48">
@@ -136,7 +150,7 @@ export default function PricesMaster({ isSuperAdmin }) {
     <div className="space-y-4">
       {visibleCats.map(cat => (
         <div key={cat} className="card">
-          <h3 className="font-bold text-base mb-4">{CAT_LABELS[cat]}</h3>
+          <h3 className="font-bold text-base mb-4">{catLabel(cat)}</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {grouped[cat].map(s => (
               <div
