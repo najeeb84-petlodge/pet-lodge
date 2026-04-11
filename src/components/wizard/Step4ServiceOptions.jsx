@@ -44,7 +44,9 @@ function defaultBoardingPet(pet, idx) {
     foodChoice: 'owner_provided', foodNotes: '',
     fleaTick: '', groomingAddOns: [],
     groomingPackageId: null,
+    groomingAddOns: [],
     trainingSessions: 0,
+    trainingGoals: '',
     transport: '',
     address_flat: '', address_street: '', address_neighbourhood: '',
     address_whatsapp_location: '', address_driver_comments: '',
@@ -60,6 +62,7 @@ function defaultDayCampPet(pet, idx) {
     groomingPackageId: null,
     groomingAddOns: [],
     trainingSessions: 0,
+    trainingGoals: '',
     address_flat: '', address_street: '', address_neighbourhood: '',
     address_whatsapp_location: '', pickupTime: '', dropoffTime: '', saveAddressToProfile: false,
   }
@@ -152,7 +155,8 @@ function computeLineItems(serviceType, perPetForms, serviceOptions, prices, pets
         if (pf.trainingSessions > 0) {
           const sessionPkg = (prices.training_addon || [])[0]
           const price = parseFloat(sessionPkg?.price || 35)
-          items.push({ label: `Training (${pf.trainingSessions} session${pf.trainingSessions > 1 ? 's' : ''}) for ${pf.petName}`, amount: price * pf.trainingSessions })
+          const goalsNote = pf.trainingGoals ? ` — "${pf.trainingGoals.slice(0, 40)}"` : ''
+          items.push({ label: `Training (${pf.trainingSessions} session${pf.trainingSessions > 1 ? 's' : ''}) for ${pf.petName}${goalsNote}`, amount: price * pf.trainingSessions })
         }
       })
       return items
@@ -180,7 +184,8 @@ function computeLineItems(serviceType, perPetForms, serviceOptions, prices, pets
         if (pf.trainingSessions > 0) {
           const sessionPkg = (prices.training_addon || [])[0]
           const price = parseFloat(sessionPkg?.price || 35)
-          items.push({ label: `Training (${pf.trainingSessions} session${pf.trainingSessions > 1 ? 's' : ''}) for ${pf.petName}`, amount: price * pf.trainingSessions })
+          const goalsNote = pf.trainingGoals ? ` — "${pf.trainingGoals.slice(0, 40)}"` : ''
+          items.push({ label: `Training (${pf.trainingSessions} session${pf.trainingSessions > 1 ? 's' : ''}) for ${pf.petName}${goalsNote}`, amount: price * pf.trainingSessions })
         }
       })
       items.push({ label: 'Pick up & drop off', amount: 0, note: 'Complimentary' })
@@ -616,21 +621,12 @@ function FleaTickSection({ value, onChange, error }) {
 function BoardingGroomingSection({ form, onChange, prices, petsData, petIndex }) {
   const petType = (petsData[petIndex]?.type || '').toLowerCase()
 
-  const allPkgs = (prices.grooming_addon || []).filter(p =>
-    p.name.toLowerCase().includes('package')
-  )
+  const allPkgs = (prices.grooming_addon || []).filter(p => p.name.toLowerCase().includes('package'))
   const filteredPkgs = petType === 'cat'
     ? allPkgs.filter(p => p.name.toLowerCase().includes('large'))
+    : petType === 'dog'
+    ? allPkgs
     : allPkgs
-
-  const packageOptions = [
-    { value: '', label: 'No grooming package', sublabel: 'No charge' },
-    ...filteredPkgs.map(p => ({
-      value: p.id,
-      label: p.name,
-      sublabel: `JD ${parseFloat(p.price || 0).toFixed(0)}`,
-    })),
-  ]
 
   const individualItems = (prices.grooming_addon || [])
     .filter(p => !p.name.toLowerCase().includes('package'))
@@ -638,49 +634,94 @@ function BoardingGroomingSection({ form, onChange, prices, petsData, petIndex })
 
   return (
     <div className="mt-5">
-      <SectionHeading>Grooming Add-ons <span className="font-normal text-xs">(optional — discounted for staying guests)</span></SectionHeading>
-      <RadioGroup
-        name={`boarding-groom-pkg-${petIndex}`}
-        options={packageOptions}
-        value={form.groomingPackageId || ''}
-        onChange={v => onChange({ groomingPackageId: v || null })}
-      />
-      <div className="mt-3">
-        <p className="text-xs font-semibold mb-2" style={{ color: 'var(--muted)' }}>Individual services</p>
-        <CheckboxGroup
-          options={individualItems}
-          selected={form.groomingAddOns || []}
-          onChange={v => onChange({ groomingAddOns: v })}
-        />
+      <p className="text-xs font-semibold mb-2" style={{ color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        Grooming Add-ons <span className="font-normal normal-case">(optional)</span>
+      </p>
+      <div className="rounded-lg p-3 space-y-2" style={{ background: '#fafaf8', border: '1px solid var(--border)' }}>
+        {filteredPkgs.map(p => {
+          const checked = form.groomingPackageId === p.id
+          return (
+            <label key={p.id} className="flex items-center gap-2 cursor-pointer select-none">
+              <input type="radio" name={`boarding-groom-pkg-${petIndex}`}
+                className="w-3.5 h-3.5 accent-[#7aa63c]"
+                checked={checked}
+                onChange={() => onChange({ groomingPackageId: checked ? null : p.id })} />
+              <span className="text-sm" style={{ color: 'var(--text)' }}>
+                {p.name} — JD {parseFloat(p.price || 0).toFixed(0)}
+                <span className="ml-1 text-xs px-1.5 py-0.5 rounded" style={{ background: '#eef4e2', color: '#5a7a2e' }}>guest rate</span>
+              </span>
+            </label>
+          )
+        })}
+        {filteredPkgs.length > 0 && individualItems.length > 0 && (
+          <div className="border-t my-1" style={{ borderColor: 'var(--border)' }} />
+        )}
+        {individualItems.map(item => (
+          <label key={item.value} className="flex items-center gap-2 cursor-pointer select-none">
+            <input type="checkbox" className="w-3.5 h-3.5 accent-[#7aa63c]"
+              checked={(form.groomingAddOns || []).includes(item.value)}
+              onChange={() => {
+                const current = form.groomingAddOns || []
+                onChange({ groomingAddOns: current.includes(item.value) ? current.filter(v => v !== item.value) : [...current, item.value] })
+              }} />
+            <span className="text-sm" style={{ color: 'var(--text)' }}>{item.label}</span>
+          </label>
+        ))}
       </div>
     </div>
   )
 }
 
-function BoardingTrainingSection({ form, onChange, prices }) {
+function BoardingTrainingSection({ form, onChange, prices, petsData, petIndex }) {
+  const [open, setOpen] = useState(false)
+  const petType = (petsData[petIndex]?.type || '').toLowerCase()
+  if (petType === 'cat') return null
+
   const sessionPkg = (prices.training_addon || [])[0]
   const sessionPrice = sessionPkg ? parseFloat(sessionPkg.price || 35).toFixed(0) : '35'
   const count = form.trainingSessions || 0
 
   return (
-    <div className="mt-5">
-      <SectionHeading>Training Sessions <span className="font-normal text-xs">(optional — JD {sessionPrice}/session)</span></SectionHeading>
-      <div className="flex items-center gap-3">
-        <button type="button"
-          onClick={() => onChange({ trainingSessions: Math.max(0, count - 1) })}
-          className="w-9 h-9 rounded-lg border flex items-center justify-center text-lg font-bold"
-          style={{ borderColor: 'var(--border)', color: 'var(--primary)' }}>−</button>
-        <span className="text-2xl font-bold w-8 text-center" style={{ color: 'var(--text)' }}>{count}</span>
-        <button type="button"
-          onClick={() => onChange({ trainingSessions: Math.min(10, count + 1) })}
-          className="w-9 h-9 rounded-lg border flex items-center justify-center text-lg font-bold"
-          style={{ borderColor: 'var(--border)', color: 'var(--primary)' }}>+</button>
-        {count > 0 && (
-          <span className="text-sm" style={{ color: 'var(--muted)' }}>
-            × JD {sessionPrice} = <strong>JD {(count * parseFloat(sessionPrice)).toFixed(2)}</strong>
-          </span>
-        )}
-      </div>
+    <div className="mt-4">
+      <button type="button" onClick={() => setOpen(v => !v)}
+        className="flex items-center gap-1.5 text-xs font-semibold w-full text-left"
+        style={{ color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        Training Sessions <span className="font-normal normal-case ml-1">(optional)</span>
+        {open ? <ChevronUp size={13} className="ml-auto" /> : <ChevronDown size={13} className="ml-auto" />}
+      </button>
+      {open && (
+        <div className="mt-3 rounded-lg p-3 space-y-3" style={{ background: '#fafaf8', border: '1px solid var(--border)' }}>
+          <InfoNote>
+            The number of sessions varies by dog and behaviour — a free assessment will determine the exact amount. Our team will contact you to arrange.
+          </InfoNote>
+          <div className="flex items-center gap-3">
+            <button type="button"
+              onClick={() => onChange({ trainingSessions: Math.max(0, count - 1) })}
+              className="w-8 h-8 rounded-lg border flex items-center justify-center text-lg font-bold"
+              style={{ borderColor: 'var(--border)', color: 'var(--primary)' }}>−</button>
+            <span className="text-xl font-bold w-7 text-center" style={{ color: 'var(--text)' }}>{count}</span>
+            <button type="button"
+              onClick={() => onChange({ trainingSessions: Math.min(10, count + 1) })}
+              className="w-8 h-8 rounded-lg border flex items-center justify-center text-lg font-bold"
+              style={{ borderColor: 'var(--border)', color: 'var(--primary)' }}>+</button>
+            {count > 0 && (
+              <span className="text-sm" style={{ color: 'var(--muted)' }}>
+                × JD {sessionPrice} = <strong>JD {(count * parseFloat(sessionPrice)).toFixed(2)}</strong>
+                <span className="ml-1 font-normal">(est.)</span>
+              </span>
+            )}
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--muted)' }}>
+              Training goals <span className="font-normal">(optional)</span>
+            </label>
+            <textarea className="input text-sm" rows={2} style={{ resize: 'vertical' }}
+              placeholder="e.g. stop jumping, basic commands, leash manners…"
+              value={form.trainingGoals || ''}
+              onChange={e => onChange({ trainingGoals: e.target.value })} />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -700,12 +741,6 @@ function BoardingOptions({ form, onChange, petsData, prices, errors, profileHasA
         { value: 'owner_provided', label: 'Owner provided',                         sublabel: 'No charge' },
       ]
 
-  const groomingItems = [
-    { value: 'hair_trim', label: 'Hair Trim — JD 20' },
-    { value: 'nail_clip', label: 'Nail Clip — JD 10' },
-    { value: 'bathing',   label: 'Bathing — JD 15' },
-  ]
-
   return (
     <div>
       {/* Food */}
@@ -724,13 +759,6 @@ function BoardingOptions({ form, onChange, petsData, prices, errors, profileHasA
       {/* Flea & Tick */}
       <FleaTickSection value={form.fleaTick} onChange={v => onChange({ fleaTick: v })} error={errors?.fleaTick} />
 
-      {/* Grooming add-ons */}
-      <div className="mt-5">
-        <SectionHeading>Grooming Add-ons <span className="font-normal text-xs">(optional)</span></SectionHeading>
-        <CheckboxGroup options={groomingItems} selected={form.groomingAddOns}
-          onChange={v => onChange({ groomingAddOns: v })} />
-      </div>
-
       {/* Transport */}
       <div className="mt-5" data-error={errors?.transport ? 'true' : undefined}>
         <SectionHeading>Pick-up / Drop-off</SectionHeading>
@@ -746,12 +774,12 @@ function BoardingOptions({ form, onChange, petsData, prices, errors, profileHasA
         transport={form.transport || ''} />
 
       <BoardingGroomingSection form={form} onChange={onChange} prices={prices} petsData={petsData} petIndex={form.petIndex} />
-      <BoardingTrainingSection form={form} onChange={onChange} prices={prices} />
+      <BoardingTrainingSection form={form} onChange={onChange} prices={prices} petsData={petsData} petIndex={form.petIndex} />
     </div>
   )
 }
 
-function DayCampOptions({ form, onChange, prices, errors, profileHasAddress, serviceOptions, setServiceOptions }) {
+function DayCampOptions({ form, onChange, prices, petsData, errors, profileHasAddress, serviceOptions, setServiceOptions }) {
   const packages = (prices.day_camp || [])
     .filter(p => !p.name.toLowerCase().includes('additional'))
     .sort((a, b) => {
@@ -793,7 +821,7 @@ function DayCampOptions({ form, onChange, prices, errors, profileHasAddress, ser
         radioName={`daycamp-delivery-${form.petIndex}`} />
 
       <BoardingGroomingSection form={form} onChange={onChange} prices={prices} petsData={petsData} petIndex={form.petIndex} />
-      <BoardingTrainingSection form={form} onChange={onChange} prices={prices} />
+      <BoardingTrainingSection form={form} onChange={onChange} prices={prices} petsData={petsData} petIndex={form.petIndex} />
     </div>
   )
 }
