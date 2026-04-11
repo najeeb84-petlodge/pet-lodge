@@ -29,10 +29,11 @@ const TRANSPORT_OPTIONS = [
   { value: 'self',         label: "I'll handle transport",  sublabel: 'No charge' },
 ]
 
-const GROOMING_TRANSPORT_OPTIONS = [
-  { value: 'round_trip', label: 'Round trip (pick up + drop off)', sublabel: 'JD 30' },
-  { value: 'one_way',    label: 'One-way',                         sublabel: 'JD 15' },
-  { value: 'self',       label: "I'll handle transport",           sublabel: 'No charge' },
+const COMPLIMENTARY_TRANSPORT_OPTIONS = [
+  { value: 'round_trip',   label: 'Round trip (pick up + drop off)', sublabel: 'Complimentary' },
+  { value: 'pickup_only',  label: 'Pick up only',                    sublabel: 'Complimentary' },
+  { value: 'dropoff_only', label: 'Drop off only',                   sublabel: 'Complimentary' },
+  { value: 'self',         label: "I'll handle transport",           sublabel: 'No charge' },
 ]
 
 // ── Default per-pet form shapes ────────────────────────────────────────────────
@@ -53,6 +54,7 @@ function defaultDayCampPet(pet, idx) {
   return {
     petIndex: idx, petName: pet.name || `Pet ${idx + 1}`,
     packageId: '', packagePrice: 0, preferredDays: [], fleaTick: '', transportConfirmed: true,
+    transport: '',
     address_flat: '', address_street: '', address_neighbourhood: '',
     address_whatsapp_location: '', pickupTime: '', dropoffTime: '', saveAddressToProfile: false,
   }
@@ -170,22 +172,21 @@ function computeLineItems(serviceType, perPetForms, serviceOptions, prices, pets
 
     case 'grooming': {
       const items = []
-      const transportCost = { round_trip: 30, one_way: 15, self: 0 }
-      let transportAdded = false
       perPetForms.forEach(pf => {
         if (pf.selectionMode === 'package' && pf.packageId) {
           const pkg = find('grooming', pf.packageId)
           if (pkg) items.push({ label: `${pkg.name} for ${pf.petName}`, amount: parseFloat(pkg.price || 0) })
-          items.push({ label: 'Pick up & drop off', amount: 0, note: 'Included' })
+          if (pf.transport && pf.transport !== 'self') {
+            const label = pf.transport === 'round_trip' ? 'Pick up & drop off'
+              : pf.transport === 'pickup_only' ? 'Pick up'
+              : 'Drop off'
+            items.push({ label, amount: 0, note: 'Included' })
+          }
         } else if (pf.selectionMode === 'standalone') {
           const petType = petsData[pf.petIndex]?.type
           if (pf.standaloneAddOns?.includes('hair_trim')) items.push({ label: `Hair trim for ${pf.petName}`, amount: 20 })
           if (pf.standaloneAddOns?.includes('nail_clip')) items.push({ label: `Nail clip for ${pf.petName}`, amount: 10 })
           if (pf.standaloneAddOns?.includes('bathing'))   items.push({ label: `Bathing for ${pf.petName}`, amount: petType === 'cat' ? 15 : 10 })
-          if (!transportAdded && pf.transport && pf.transport !== 'self') {
-            items.push({ label: `Transport (${GROOMING_TRANSPORT_OPTIONS.find(o => o.value === pf.transport)?.label})`, amount: transportCost[pf.transport] || 0 })
-            transportAdded = true
-          }
         }
       })
       return items
@@ -379,23 +380,29 @@ function AddressGrid({ form, onChange, showWhatsApp = true }) {
   )
 }
 
-// Address shown when transport !== 'self' (Boarding, Grooming standalone)
-function AddressFields({ form, onChange, show, profileHasAddress, showDriverComments = false, showTimePickers = false }) {
+// Address shown when transport !== 'self' (Boarding)
+function AddressFields({ form, onChange, show, profileHasAddress, showDriverComments = false, transport = '' }) {
   if (!show) return null
+  const showPickup  = transport === 'round_trip' || transport === 'pickup_only'
+  const showDropoff = transport === 'round_trip' || transport === 'dropoff_only'
   return (
     <div className="mt-4 space-y-3">
       <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>Pick-up / Drop-off Address</p>
       <AddressGrid form={form} onChange={onChange} />
-      {showTimePickers && (
+      {(showPickup || showDropoff) && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--muted)' }}>Preferred pick-up time</label>
-            <TimeSelect value={form.pickupTime || ''} onChange={v => onChange({ pickupTime: v })} />
-          </div>
-          <div>
-            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--muted)' }}>Preferred drop-off time</label>
-            <TimeSelect value={form.dropoffTime || ''} onChange={v => onChange({ dropoffTime: v })} />
-          </div>
+          {showPickup && (
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: 'var(--muted)' }}>Preferred pick-up time</label>
+              <TimeSelect value={form.pickupTime || ''} onChange={v => onChange({ pickupTime: v })} />
+            </div>
+          )}
+          {showDropoff && (
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: 'var(--muted)' }}>Preferred drop-off time</label>
+              <TimeSelect value={form.dropoffTime || ''} onChange={v => onChange({ dropoffTime: v })} />
+            </div>
+          )}
         </div>
       )}
       {showDriverComments && (
@@ -505,44 +512,54 @@ function TimeSelect({ value, onChange }) {
   )
 }
 
-// ── Shared collapsible delivery section (Dog Walking, Grooming package, Training) ──
+// ── Shared collapsible delivery section (Grooming, Training, Day Camp) ──
 
-function CollapsibleDelivery({ form, onChange, profileHasAddress, infoNote, transportOptions, radioName = 'delivery', label = 'Add pick-up / drop-off' }) {
+function DeliverySection({ form, onChange, profileHasAddress, infoNote, radioName = 'delivery' }) {
   const [open, setOpen] = useState(false)
+  const needsAddress = form.transport && form.transport !== 'self'
+  const showPickup   = form.transport === 'round_trip' || form.transport === 'pickup_only'
+  const showDropoff  = form.transport === 'round_trip' || form.transport === 'dropoff_only'
+
   return (
     <div className="mt-4 space-y-3">
-      <InfoNote>{infoNote}</InfoNote>
+      {infoNote && <InfoNote>{infoNote}</InfoNote>}
       <div>
         <button type="button" onClick={() => setOpen(v => !v)}
           className="flex items-center gap-1.5 text-sm font-medium"
           style={{ color: 'var(--primary)' }}>
-          {label} {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          Add pick-up / drop-off {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </button>
         {open && (
           <div className="mt-3 space-y-3">
-            {transportOptions && (
-              <RadioGroup name={radioName} options={transportOptions}
-                value={form.transport || ''} onChange={v => onChange({ transport: v })} />
+            <RadioGroup name={radioName} options={COMPLIMENTARY_TRANSPORT_OPTIONS}
+              value={form.transport || ''} onChange={v => onChange({ transport: v })} />
+            {needsAddress && (
+              <>
+                <AddressGrid form={form} onChange={onChange} />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {showPickup && (
+                    <div>
+                      <label className="block text-xs font-medium mb-1" style={{ color: 'var(--muted)' }}>Preferred pick-up time</label>
+                      <TimeSelect value={form.pickupTime || ''} onChange={v => onChange({ pickupTime: v })} />
+                    </div>
+                  )}
+                  {showDropoff && (
+                    <div>
+                      <label className="block text-xs font-medium mb-1" style={{ color: 'var(--muted)' }}>Preferred drop-off time</label>
+                      <TimeSelect value={form.dropoffTime || ''} onChange={v => onChange({ dropoffTime: v })} />
+                    </div>
+                  )}
+                </div>
+                <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                  <input type="checkbox" className="w-4 h-4 accent-[#7aa63c]"
+                    checked={!!form.saveAddressToProfile}
+                    onChange={e => onChange({ saveAddressToProfile: e.target.checked })} />
+                  <span className="text-sm" style={{ color: 'var(--text)' }}>
+                    {profileHasAddress ? 'Update saved address' : 'Save this address to my profile'}
+                  </span>
+                </label>
+              </>
             )}
-            <AddressGrid form={form} onChange={onChange} />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--muted)' }}>Preferred pick-up time</label>
-                <TimeSelect value={form.pickupTime || ''} onChange={v => onChange({ pickupTime: v })} />
-              </div>
-              <div>
-                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--muted)' }}>Preferred drop-off time</label>
-                <TimeSelect value={form.dropoffTime || ''} onChange={v => onChange({ dropoffTime: v })} />
-              </div>
-            </div>
-            <label className="inline-flex items-center gap-2 cursor-pointer select-none">
-              <input type="checkbox" className="w-4 h-4 accent-[#7aa63c]"
-                checked={!!form.saveAddressToProfile}
-                onChange={e => onChange({ saveAddressToProfile: e.target.checked })} />
-              <span className="text-sm" style={{ color: 'var(--text)' }}>
-                {profileHasAddress ? 'Update saved address' : 'Save this address to my profile'}
-              </span>
-            </label>
           </div>
         )}
       </div>
@@ -626,7 +643,7 @@ function BoardingOptions({ form, onChange, petsData, prices, errors, profileHasA
         show={form.transport && form.transport !== 'self'}
         profileHasAddress={profileHasAddress}
         showDriverComments={true}
-        showTimePickers={true} />
+        transport={form.transport || ''} />
     </div>
   )
 }
@@ -668,11 +685,9 @@ function DayCampOptions({ form, onChange, prices, errors, profileHasAddress, ser
 
       <FleaTickSection value={form.fleaTick} onChange={v => onChange({ fleaTick: v })} error={errors?.fleaTick} />
 
-      <div className="mt-4">
-        <InfoNote>Pick up and drop off is complimentary for Day Camp.</InfoNote>
-      </div>
-
-      <CollapsibleAddress form={form} onChange={onChange} profileHasAddress={profileHasAddress} showTimePickers={true} />
+      <DeliverySection form={form} onChange={onChange} profileHasAddress={profileHasAddress}
+        infoNote="Pick-up & drop-off is complimentary for Day Camp"
+        radioName={`daycamp-delivery-${form.petIndex}`} />
     </div>
   )
 }
@@ -728,7 +743,6 @@ function DogWalkingOptions({ form, onChange, prices, errors, profileHasAddress }
 
 function GroomingOptions({ form, onChange, prices, petsData, errors, profileHasAddress, groomingDogSize }) {
   const petType = (petsData[form.petIndex]?.type || '').toLowerCase()
-  const [transportOpen, setTransportOpen] = useState(false)
 
   // Filter packages by pet type + dog size from Step 3
   const allPkgs = (prices.grooming || []).filter(p => p.name?.toLowerCase().includes('package'))
@@ -756,25 +770,17 @@ function GroomingOptions({ form, onChange, prices, petsData, errors, profileHasA
 
   return (
     <div>
-      {/* Packages — complimentary note always visible at top */}
+      {/* Packages */}
       <SectionHeading>Grooming Package</SectionHeading>
-      <div className="mb-3">
-        <InfoNote>This package includes complimentary pick-up &amp; drop-off</InfoNote>
-      </div>
       <div data-error={errors?.selectionMode ? 'true' : undefined}>
         <RadioGroup name={`groom-pkg-${form.petIndex}`} options={packages}
           value={form.selectionMode === 'package' ? form.packageId : ''}
           onChange={v => onChange({ selectionMode: 'package', packageId: v, standaloneAddOns: [], transport: null })} />
       </div>
       {form.selectionMode === 'package' && (
-        <div className="mt-2">
-          <CollapsibleDelivery
-            form={form} onChange={onChange} profileHasAddress={profileHasAddress}
-            infoNote="Pick-up & drop-off is included with this package"
-            transportOptions={GROOMING_TRANSPORT_OPTIONS}
-            radioName={`groom-pkg-delivery-${form.petIndex}`}
-          />
-        </div>
+        <DeliverySection form={form} onChange={onChange} profileHasAddress={profileHasAddress}
+          infoNote="Pick-up & drop-off is complimentary with this package"
+          radioName={`groom-pkg-delivery-${form.petIndex}`} />
       )}
 
       {/* OR divider */}
@@ -794,26 +800,9 @@ function GroomingOptions({ form, onChange, prices, petsData, errors, profileHasA
 
       {/* Standalone transport — collapsible */}
       {form.selectionMode === 'standalone' && (
-        <div className="mt-4 space-y-3">
-          <InfoNote>Pick-up &amp; drop-off available for standalone services (Round trip JD 30 / One way JD 15)</InfoNote>
-          <div>
-            <button type="button" onClick={() => setTransportOpen(v => !v)}
-              className="flex items-center gap-1.5 text-sm font-medium"
-              style={{ color: 'var(--primary)' }}>
-              Add pick-up / drop-off {transportOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            </button>
-            {transportOpen && (
-              <div className="mt-3 space-y-3">
-                <RadioGroup name={`groom-transport-${form.petIndex}`} options={GROOMING_TRANSPORT_OPTIONS}
-                  value={form.transport || ''} onChange={v => onChange({ transport: v })} />
-                <AddressFields form={form} onChange={onChange}
-                  show={form.transport && form.transport !== 'self'}
-                  profileHasAddress={profileHasAddress}
-                  showTimePickers={true} />
-              </div>
-            )}
-          </div>
-        </div>
+        <DeliverySection form={form} onChange={onChange} profileHasAddress={profileHasAddress}
+          infoNote="Pick-up & drop-off available for standalone services"
+          radioName={`groom-standalone-delivery-${form.petIndex}`} />
       )}
 
       {errors?.selectionMode && (
@@ -978,12 +967,9 @@ function TrainingOptions({ form, onChange, errors, profileHasAddress }) {
         )}
       </div>
 
-      <CollapsibleDelivery
-        form={form} onChange={onChange} profileHasAddress={profileHasAddress}
+      <DeliverySection form={form} onChange={onChange} profileHasAddress={profileHasAddress}
         infoNote="We can pick up and drop off your dog for training sessions"
-        transportOptions={GROOMING_TRANSPORT_OPTIONS}
-        radioName="training-delivery"
-      />
+        radioName="training-delivery" />
     </div>
   )
 }
