@@ -24,7 +24,7 @@ export default function ProtectedRoute({ children, requireStaff = false, allowGu
 
   if (!session && !isGuest) return <Navigate to="/login" replace />
 
-  const role = session.user?.user_metadata?.role ?? 'customer'
+  const role = session?.user?.user_metadata?.role ?? 'customer'
   if (requireStaff && !['admin', 'super_admin', 'employee'].includes(role)) {
     return <Navigate to="/dashboard" replace />
   }
