@@ -75,10 +75,10 @@ export default function Login() {
     setError('')
     setLoading(true)
     try {
-      const res = await fetch(`${SUPABASE_URL}/auth/v1/otp`, {
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/otp?redirect_to=${encodeURIComponent(CALLBACK_URL)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY },
-        body: JSON.stringify({ email, redirect_to: CALLBACK_URL }),
+        body: JSON.stringify({ email }),
       })
       if (!res.ok) {
         const data = await res.json()
