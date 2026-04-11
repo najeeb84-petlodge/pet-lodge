@@ -96,7 +96,7 @@ function defaultTransport() {
 }
 function defaultTraining() {
   return {
-    sessionCount: 1, preferredSchedule: '',
+    sessionCount: 1, preferredSchedule: '', trainingGoals: '',
     transport: '',
     address_flat: '', address_street: '', address_neighbourhood: '',
     address_whatsapp_location: '', pickupTime: '', dropoffTime: '', saveAddressToProfile: false,
@@ -1097,6 +1097,16 @@ function TrainingOptions({ form, onChange, errors, profileHasAddress }) {
               value={form.preferredSchedule} onChange={e => onChange({ preferredSchedule: e.target.value })} />
           </div>
         )}
+      </div>
+
+      <div className="mt-5">
+        <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--muted)' }}>
+          Training goals <span className="font-normal">(optional)</span>
+        </label>
+        <textarea className="input text-sm" rows={2} style={{ resize: 'vertical' }}
+          placeholder="e.g. stop jumping, basic commands, leash manners…"
+          value={form.trainingGoals || ''}
+          onChange={e => onChange({ trainingGoals: e.target.value })} />
       </div>
 
       <DeliverySection form={form} onChange={onChange} profileHasAddress={profileHasAddress}
