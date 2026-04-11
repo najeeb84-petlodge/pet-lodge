@@ -712,12 +712,16 @@ function DogWalkingOptions({ form, onChange, prices, errors, profileHasAddress }
           value={form.walkerNotes} onChange={e => onChange({ walkerNotes: e.target.value })} />
       </div>
 
-      <CollapsibleDelivery
-        form={form} onChange={onChange} profileHasAddress={profileHasAddress}
-        infoNote="Pick-up & drop-off is available for Dog Walking"
-        transportOptions={GROOMING_TRANSPORT_OPTIONS}
-        radioName={`walking-delivery-${form.petIndex}`}
-      />
+      <div className="mt-5">
+        <InfoNote>Our walker will come to your location. Please share your address below.</InfoNote>
+        <CollapsibleAddress
+          form={form}
+          onChange={onChange}
+          profileHasAddress={profileHasAddress}
+          label="Add your address"
+          showTimePickers={false}
+        />
+      </div>
     </div>
   )
 }
