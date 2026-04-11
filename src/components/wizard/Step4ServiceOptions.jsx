@@ -634,10 +634,8 @@ function BoardingGroomingSection({ form, onChange, prices, petsData, petIndex })
 
   return (
     <div className="mt-5">
-      <p className="text-xs font-semibold mb-2" style={{ color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-        Grooming Add-ons <span className="font-normal normal-case">(optional)</span>
-      </p>
-      <div className="rounded-lg p-3 space-y-2" style={{ background: '#fafaf8', border: '1px solid var(--border)' }}>
+      <SectionHeading>Grooming Add-ons <span className="font-normal text-xs">(optional)</span></SectionHeading>
+      <div className="space-y-2">
         {filteredPkgs.map(p => {
           const checked = form.groomingPackageId === p.id
           return (
@@ -684,13 +682,13 @@ function BoardingTrainingSection({ form, onChange, prices, petsData, petIndex })
   return (
     <div className="mt-4">
       <button type="button" onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-1.5 text-xs font-semibold w-full text-left"
-        style={{ color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-        Training Sessions <span className="font-normal normal-case ml-1">(optional)</span>
-        {open ? <ChevronUp size={13} className="ml-auto" /> : <ChevronDown size={13} className="ml-auto" />}
+        className="flex items-center gap-2 text-sm font-bold w-full text-left"
+        style={{ color: 'var(--primary)' }}>
+        Training Sessions <span className="font-normal text-xs" style={{ color: 'var(--muted)' }}>(optional)</span>
+        {open ? <ChevronUp size={14} className="ml-auto" /> : <ChevronDown size={14} className="ml-auto" />}
       </button>
       {open && (
-        <div className="mt-3 rounded-lg p-3 space-y-3" style={{ background: '#fafaf8', border: '1px solid var(--border)' }}>
+        <div className="mt-3 space-y-3">
           <InfoNote>
             The number of sessions varies by dog and behaviour — a free assessment will determine the exact amount. Our team will contact you to arrange.
           </InfoNote>
