@@ -43,6 +43,8 @@ function defaultBoardingPet(pet, idx) {
     petIndex: idx, petName: pet.name || `Pet ${idx + 1}`,
     foodChoice: 'owner_provided', foodNotes: '',
     fleaTick: '', groomingAddOns: [],
+    groomingPackageId: null,
+    trainingSessions: 0,
     transport: '',
     address_flat: '', address_street: '', address_neighbourhood: '',
     address_whatsapp_location: '', address_driver_comments: '',
@@ -55,6 +57,9 @@ function defaultDayCampPet(pet, idx) {
     petIndex: idx, petName: pet.name || `Pet ${idx + 1}`,
     packageId: '', packagePrice: 0, preferredDays: [], fleaTick: '', transportConfirmed: true,
     transport: '',
+    groomingPackageId: null,
+    groomingAddOns: [],
+    trainingSessions: 0,
     address_flat: '', address_street: '', address_neighbourhood: '',
     address_whatsapp_location: '', pickupTime: '', dropoffTime: '', saveAddressToProfile: false,
   }
@@ -131,13 +136,23 @@ function computeLineItems(serviceType, perPetForms, serviceOptions, prices, pets
           const petType = petsData[pf.petIndex]?.type
           items.push({ label: `Flea & tick for ${pf.petName}`, amount: petType === 'cat' ? 25 : 35 })
         }
-        if (pf.groomingAddOns?.includes('hair_trim')) items.push({ label: `Hair trim for ${pf.petName}`, amount: 20 })
-        if (pf.groomingAddOns?.includes('nail_clip')) items.push({ label: `Nail clip for ${pf.petName}`, amount: 10 })
-        if (pf.groomingAddOns?.includes('bathing'))   items.push({ label: `Bathing for ${pf.petName}`, amount: 15 })
         if (!transportAdded && pf.transport) {
           const tc = transportCost[pf.transport]
           if (tc > 0) items.push({ label: `Transport (${TRANSPORT_OPTIONS.find(o => o.value === pf.transport)?.label})`, amount: tc })
           transportAdded = true
+        }
+        if (pf.groomingPackageId) {
+          const pkg = (prices.grooming_addon || []).find(p => p.id === pf.groomingPackageId)
+          if (pkg) items.push({ label: `${pkg.name} (grooming) for ${pf.petName}`, amount: parseFloat(pkg.price || 0) })
+        }
+        ;(pf.groomingAddOns || []).forEach(addonId => {
+          const addon = (prices.grooming_addon || []).find(p => p.id === addonId)
+          if (addon) items.push({ label: `${addon.name} for ${pf.petName}`, amount: parseFloat(addon.price || 0) })
+        })
+        if (pf.trainingSessions > 0) {
+          const sessionPkg = (prices.training_addon || [])[0]
+          const price = parseFloat(sessionPkg?.price || 35)
+          items.push({ label: `Training (${pf.trainingSessions} session${pf.trainingSessions > 1 ? 's' : ''}) for ${pf.petName}`, amount: price * pf.trainingSessions })
         }
       })
       return items
@@ -153,6 +168,19 @@ function computeLineItems(serviceType, perPetForms, serviceOptions, prices, pets
         if (pf.fleaTick === 'lodge_applies') {
           const petType = petsData[pf.petIndex]?.type
           items.push({ label: `Flea & tick for ${pf.petName}`, amount: petType === 'cat' ? 25 : 35 })
+        }
+        if (pf.groomingPackageId) {
+          const pkg = (prices.grooming_addon || []).find(p => p.id === pf.groomingPackageId)
+          if (pkg) items.push({ label: `${pkg.name} (grooming) for ${pf.petName}`, amount: parseFloat(pkg.price || 0) })
+        }
+        ;(pf.groomingAddOns || []).forEach(addonId => {
+          const addon = (prices.grooming_addon || []).find(p => p.id === addonId)
+          if (addon) items.push({ label: `${addon.name} for ${pf.petName}`, amount: parseFloat(addon.price || 0) })
+        })
+        if (pf.trainingSessions > 0) {
+          const sessionPkg = (prices.training_addon || [])[0]
+          const price = parseFloat(sessionPkg?.price || 35)
+          items.push({ label: `Training (${pf.trainingSessions} session${pf.trainingSessions > 1 ? 's' : ''}) for ${pf.petName}`, amount: price * pf.trainingSessions })
         }
       })
       items.push({ label: 'Pick up & drop off', amount: 0, note: 'Complimentary' })
@@ -585,6 +613,78 @@ function FleaTickSection({ value, onChange, error }) {
 
 // ── Per-service panels ────────────────────────────────────────────────────────
 
+function BoardingGroomingSection({ form, onChange, prices, petsData, petIndex }) {
+  const petType = (petsData[petIndex]?.type || '').toLowerCase()
+
+  const allPkgs = (prices.grooming_addon || []).filter(p =>
+    p.name.toLowerCase().includes('package')
+  )
+  const filteredPkgs = petType === 'cat'
+    ? allPkgs.filter(p => p.name.toLowerCase().includes('large'))
+    : allPkgs
+
+  const packageOptions = [
+    { value: '', label: 'No grooming package', sublabel: 'No charge' },
+    ...filteredPkgs.map(p => ({
+      value: p.id,
+      label: p.name,
+      sublabel: `JD ${parseFloat(p.price || 0).toFixed(0)}`,
+    })),
+  ]
+
+  const individualItems = (prices.grooming_addon || [])
+    .filter(p => !p.name.toLowerCase().includes('package'))
+    .map(p => ({ value: p.id, label: `${p.name} — JD ${parseFloat(p.price || 0).toFixed(0)}` }))
+
+  return (
+    <div className="mt-5">
+      <SectionHeading>Grooming Add-ons <span className="font-normal text-xs">(optional — discounted for staying guests)</span></SectionHeading>
+      <RadioGroup
+        name={`boarding-groom-pkg-${petIndex}`}
+        options={packageOptions}
+        value={form.groomingPackageId || ''}
+        onChange={v => onChange({ groomingPackageId: v || null })}
+      />
+      <div className="mt-3">
+        <p className="text-xs font-semibold mb-2" style={{ color: 'var(--muted)' }}>Individual services</p>
+        <CheckboxGroup
+          options={individualItems}
+          selected={form.groomingAddOns || []}
+          onChange={v => onChange({ groomingAddOns: v })}
+        />
+      </div>
+    </div>
+  )
+}
+
+function BoardingTrainingSection({ form, onChange, prices }) {
+  const sessionPkg = (prices.training_addon || [])[0]
+  const sessionPrice = sessionPkg ? parseFloat(sessionPkg.price || 35).toFixed(0) : '35'
+  const count = form.trainingSessions || 0
+
+  return (
+    <div className="mt-5">
+      <SectionHeading>Training Sessions <span className="font-normal text-xs">(optional — JD {sessionPrice}/session)</span></SectionHeading>
+      <div className="flex items-center gap-3">
+        <button type="button"
+          onClick={() => onChange({ trainingSessions: Math.max(0, count - 1) })}
+          className="w-9 h-9 rounded-lg border flex items-center justify-center text-lg font-bold"
+          style={{ borderColor: 'var(--border)', color: 'var(--primary)' }}>−</button>
+        <span className="text-2xl font-bold w-8 text-center" style={{ color: 'var(--text)' }}>{count}</span>
+        <button type="button"
+          onClick={() => onChange({ trainingSessions: Math.min(10, count + 1) })}
+          className="w-9 h-9 rounded-lg border flex items-center justify-center text-lg font-bold"
+          style={{ borderColor: 'var(--border)', color: 'var(--primary)' }}>+</button>
+        {count > 0 && (
+          <span className="text-sm" style={{ color: 'var(--muted)' }}>
+            × JD {sessionPrice} = <strong>JD {(count * parseFloat(sessionPrice)).toFixed(2)}</strong>
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function BoardingOptions({ form, onChange, petsData, prices, errors, profileHasAddress }) {
   const petType = (petsData[form.petIndex]?.type || '').toLowerCase()
 
@@ -644,6 +744,9 @@ function BoardingOptions({ form, onChange, petsData, prices, errors, profileHasA
         profileHasAddress={profileHasAddress}
         showDriverComments={true}
         transport={form.transport || ''} />
+
+      <BoardingGroomingSection form={form} onChange={onChange} prices={prices} petsData={petsData} petIndex={form.petIndex} />
+      <BoardingTrainingSection form={form} onChange={onChange} prices={prices} />
     </div>
   )
 }
@@ -688,6 +791,9 @@ function DayCampOptions({ form, onChange, prices, errors, profileHasAddress, ser
       <DeliverySection form={form} onChange={onChange} profileHasAddress={profileHasAddress}
         infoNote="Pick-up & drop-off is complimentary for Day Camp"
         radioName={`daycamp-delivery-${form.petIndex}`} />
+
+      <BoardingGroomingSection form={form} onChange={onChange} prices={prices} petsData={petsData} petIndex={form.petIndex} />
+      <BoardingTrainingSection form={form} onChange={onChange} prices={prices} />
     </div>
   )
 }
@@ -1126,7 +1232,7 @@ export default function Step4ServiceOptions() {
       .then(r => r.ok ? r.json() : [])
       .then(data => {
         if (!Array.isArray(data)) return
-        const ALIASES = { daycamp: 'day_camp', walking: 'dog_walking' }
+        const ALIASES = { daycamp: 'day_camp', walking: 'dog_walking', grooming_addon: 'grooming_addon', training_addon: 'training_addon' }
         const grouped = {}
         data.forEach(row => {
           let cat = (row.category || 'other').toLowerCase().replace(/[\s-]+/g, '_')
