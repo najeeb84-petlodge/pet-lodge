@@ -211,7 +211,7 @@ export default function Step1CustomerInfo() {
         <div>
           <Label required>First Name</Label>
           <input className={ic('first_name')} value={form.first_name}
-            onChange={e => set('first_name', e.target.value)} placeholder="Najeeb" />
+            onChange={e => set('first_name', e.target.value)} placeholder="e.g. Amr" />
           {errors.first_name && <p className="text-xs text-red-500 mt-1">Required</p>}
         </div>
 
@@ -219,7 +219,7 @@ export default function Step1CustomerInfo() {
         <div>
           <Label required>Last Name</Label>
           <input className={ic('last_name')} value={form.last_name}
-            onChange={e => set('last_name', e.target.value)} placeholder="Abdelhadi" />
+            onChange={e => set('last_name', e.target.value)} placeholder="e.g. Diab" />
           {errors.last_name && <p className="text-xs text-red-500 mt-1">Required</p>}
         </div>
 
