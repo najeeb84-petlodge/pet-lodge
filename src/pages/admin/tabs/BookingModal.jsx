@@ -102,7 +102,7 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
   async function fetchFull() {
     setLoading(true)
     const [rows, pays] = await Promise.all([
-      dbQuery('bookings', `?id=eq.${booking.id}&select=*,pets(*),profiles(*),services(*)`),
+      dbQuery('bookings', `?id=eq.${booking.id}&select=*`),
       dbQuery('payments', `?booking_id=eq.${booking.id}&select=*&order=created_at.desc`),
     ])
     setFull(Array.isArray(rows) && rows[0] ? rows[0] : booking)
@@ -198,9 +198,6 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
       vet_clinic:          edit.vet_clinic,
       how_heard:           edit.how_heard,
     }
-    const firstSvc = lineItems[0]?.id
-    if (firstSvc) body.service_id = firstSvc
-
     const ok = await dbUpdate('bookings', full.id, body)
     if (ok) { await fetchFull(); onUpdated?.(); setMode('view') }
     setSaving(false)
@@ -230,8 +227,26 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
   }
 
   // ── derived ─────────────────────────────────────────────────────────────────
-  const b          = full || booking
-  const ownerName  = `${b.profiles?.first_name || ''} ${b.profiles?.last_name || ''}`.trim() || '—'
+  const b = full || booking
+
+  const ownerName = [
+    b.customer_first_name || b.profiles?.first_name,
+    b.customer_last_name  || b.profiles?.last_name,
+  ].filter(Boolean).join(' ') || '—'
+
+  const firstPet    = Array.isArray(b.pets_data) && b.pets_data.length ? b.pets_data[0] : null
+  const allPetNames = Array.isArray(b.pets_data)
+    ? b.pets_data.map(p => p?.name).filter(Boolean).join(', ')
+    : (b.pet_names || []).join(', ') || '—'
+
+  const SERVICE_LABELS_MAP = {
+    boarding: 'Boarding', day_camp: 'Doggy Day Camp', dog_walking: 'Dog Walking',
+    grooming: 'Grooming', transport: 'Vet Visits & Transport',
+    training: 'Training', international: 'International Travel',
+  }
+  const serviceLabel = SERVICE_LABELS_MAP[b.service_type] || b.service_type || '—'
+  const howHeardStr  = Array.isArray(b.how_heard) ? b.how_heard.join(', ') : (b.how_heard || '—')
+
   const totalPaid  = payments.filter(p => p.status === 'paid').reduce((s, p) => s + (p.amount || 0), 0)
   const gross      = parseFloat(b.total_amount ?? b.total_price ?? 0)
   const discount   = parseFloat(b.discount || 0)
@@ -242,13 +257,13 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
   const fmtTs   = d => { try { return d ? format(new Date(d), 'MMM d, yyyy · h:mm a') : null } catch { return null } }
 
   // ── email / WA templates ─────────────────────────────────────────────────────
-  const confirmBody = `Dear ${b.profiles?.first_name || 'Customer'},
+  const confirmBody = `Dear ${b.customer_first_name || b.profiles?.first_name || 'Customer'},
 
 We are delighted to confirm your booking at Pet Lodge!
 
 Booking Reference: ${b.booking_ref || b.id?.slice(0, 8)}
-Pet: ${b.pets?.name || '—'}
-Service: ${b.services?.name || '—'}
+Pet: ${allPetNames}
+Service: ${serviceLabel}
 Check-in:  ${b.start_date ? format(new Date(b.start_date), 'EEEE, MMMM d, yyyy') : '—'}
 Check-out: ${b.end_date   ? format(new Date(b.end_date),   'EEEE, MMMM d, yyyy') : '—'}
 Duration:  ${b.total_days || '—'} days
@@ -266,8 +281,8 @@ Booking Ref : ${b.booking_ref || b.id?.slice(0, 8)}
 Date        : ${format(new Date(), 'dd/MM/yyyy')}
 
 Customer    : ${ownerName}
-Pet         : ${b.pets?.name || '—'}
-Service     : ${b.services?.name || '—'}
+Pet         : ${allPetNames}
+Service     : ${serviceLabel}
 
 Check-in    : ${b.start_date ? format(new Date(b.start_date), 'dd/MM/yyyy') : '—'}
 Check-out   : ${b.end_date   ? format(new Date(b.end_date),   'dd/MM/yyyy') : '—'}
@@ -281,20 +296,20 @@ Paid        : JD ${totalPaid.toFixed(2)}
 Amount Due  : JD ${amountDue.toFixed(2)}
 =============================`
 
-  const waMessage = `Hello ${b.profiles?.first_name || ''}! 🐾
+  const waMessage = `Hello ${b.customer_first_name || b.profiles?.first_name || ''}! 🐾
 
 Your booking at *Pet Lodge* is confirmed.
 
 📋 *Ref:*      ${b.booking_ref || b.id?.slice(0, 8)}
-🐕 *Pet:*      ${b.pets?.name || '—'}
-🏠 *Service:*  ${b.services?.name || '—'}
+🐕 *Pet:*      ${allPetNames}
+🏠 *Service:*  ${serviceLabel}
 📅 *Check-in:* ${b.start_date ? format(new Date(b.start_date), 'EEE, MMM d') : '—'}
 📅 *Check-out:*${b.end_date   ? format(new Date(b.end_date),   'EEE, MMM d') : '—'}
 💰 *Total:*    JD ${gross.toFixed(2)}${amountDue > 0 ? `\n💳 *Due:*      JD ${amountDue.toFixed(2)}` : ''}
 
-We look forward to welcoming ${b.pets?.name || 'your pet'}! 🐾`
+We look forward to welcoming ${allPetNames}! 🐾`
 
-  const waPhone = (b.profiles?.whatsapp || b.profiles?.phone || '').replace(/\D/g, '')
+  const waPhone = (b.customer_whatsapp || b.customer_phone || '').replace(/\D/g, '')
   const waLink  = `https://wa.me/${waPhone}?text=${encodeURIComponent(waMessage)}`
 
   // ── loading splash ───────────────────────────────────────────────────────────
@@ -329,7 +344,7 @@ We look forward to welcoming ${b.pets?.name || 'your pet'}! 🐾`
                 <span className={`badge-${b.status || 'pending'}`}>{b.status || 'pending'}</span>
               </div>
               <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.78rem', margin: '0.2rem 0 0' }}>
-                {ownerName} · {b.pets?.name || '—'}
+                {ownerName} · {allPetNames}
               </p>
             </div>
 
@@ -374,32 +389,35 @@ We look forward to welcoming ${b.pets?.name || 'your pet'}! 🐾`
         {/* Customer */}
         <Section title="Customer">
           <Row label="Name"      value={ownerName} />
-          <Row label="Email"     value={b.profiles?.email} />
-          <Row label="Phone"     value={b.profiles?.phone} />
-          {b.profiles?.whatsapp && <Row label="WhatsApp" value={b.profiles.whatsapp} />}
+          <Row label="Email"     value={b.customer_email    || b.profiles?.email} />
+          <Row label="Phone"     value={b.customer_phone    || b.profiles?.phone} />
+          <Row label="WhatsApp"  value={b.customer_whatsapp || b.profiles?.whatsapp} />
         </Section>
 
         {/* Pet */}
         <Section title="Pet Information">
-          <Row label="Name"   value={b.pets?.name} />
-          <Row label="Type"   value={b.pets?.type || b.pets?.species} />
-          {b.pets?.breed  && <Row label="Breed"  value={b.pets.breed} />}
-          {b.pets?.gender && <Row label="Gender" value={b.pets.gender} />}
-          {b.pets?.age    && <Row label="Age"    value={b.pets.age} />}
+          <Row label="Name"   value={allPetNames} />
+          <Row label="Type"   value={firstPet?.type} />
+          {firstPet?.breed  && <Row label="Breed"  value={firstPet.breed} />}
+          {firstPet?.gender && <Row label="Gender" value={firstPet.gender} />}
+          {firstPet?.age    && <Row label="Age"    value={`${firstPet.age} years`} />}
+          {firstPet?.colour && <Row label="Colour" value={firstPet.colour} />}
+          {b.pets_data?.length > 1 && (
+            <Row label="All Pets" value={allPetNames} />
+          )}
         </Section>
 
         {/* Vet */}
-        {(b.vet_name || b.vet_phone || b.vet_clinic) && (
+        {(firstPet?.vet_name || firstPet?.vet_phone || b.vet_name) && (
           <Section title="Vet Information">
-            {b.vet_name   && <Row label="Vet Name" value={b.vet_name} />}
-            {b.vet_clinic && <Row label="Clinic"   value={b.vet_clinic} />}
-            {b.vet_phone  && <Row label="Phone"    value={b.vet_phone} />}
+            <Row label="Vet Name"  value={firstPet?.vet_name  || b.vet_name} />
+            <Row label="Vet Phone" value={firstPet?.vet_phone || b.vet_phone} />
           </Section>
         )}
 
         {/* Booking Details + financials */}
         <Section title="Booking Details">
-          <Row label="Service"  value={b.services?.name} />
+          <Row label="Service"  value={serviceLabel} />
           <Row label="Check-in"  value={fmtDate(b.start_date)} />
           <Row label="Check-out" value={fmtDate(b.end_date)} />
           <Row label="Duration"  value={b.total_days ? `${b.total_days} days` : null} />
@@ -453,17 +471,11 @@ We look forward to welcoming ${b.pets?.name || 'your pet'}! 🐾`
 
         {/* Services */}
         <Section title="Services">
-          {b.services ? (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.3rem 0' }}>
-              <span style={{ fontSize: '0.875rem', fontWeight: '500' }}>{b.services.name}</span>
-              {b.services.price > 0 && (
-                <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
-                  JD {parseFloat(b.services.price).toFixed(2)} / {b.services.unit || 'day'}
-                </span>
-              )}
-            </div>
-          ) : (
-            <p style={{ fontSize: '0.875rem', color: 'var(--muted)', margin: 0 }}>—</p>
+          <p style={{ fontSize: '0.875rem', fontWeight: '500', color: 'var(--text)' }}>{serviceLabel}</p>
+          {b.service_details && (
+            <p style={{ fontSize: '0.78rem', color: 'var(--muted)', marginTop: '0.25rem', whiteSpace: 'pre-wrap' }}>
+              {typeof b.service_details === 'string' ? b.service_details : JSON.stringify(b.service_details, null, 2)}
+            </p>
           )}
         </Section>
 
@@ -521,7 +533,7 @@ We look forward to welcoming ${b.pets?.name || 'your pet'}! 🐾`
         {/* How They Heard (collapsible) */}
         {b.how_heard && (
           <CollapsibleSection title="How They Heard" open={howHeardOpen} onToggle={() => setHowHeardOpen(o => !o)}>
-            <Row label="Source" value={b.how_heard} />
+            <Row label="Source" value={howHeardStr} />
           </CollapsibleSection>
         )}
 
@@ -556,14 +568,14 @@ We look forward to welcoming ${b.pets?.name || 'your pet'}! 🐾`
         {/* Customer read-only */}
         <Section title="Customer (read-only)">
           <Row label="Name"  value={ownerName} />
-          <Row label="Email" value={b.profiles?.email} />
-          <Row label="Phone" value={b.profiles?.phone} />
+          <Row label="Email" value={b.customer_email || b.profiles?.email} />
+          <Row label="Phone" value={b.customer_phone || b.profiles?.phone} />
         </Section>
 
         {/* Pet read-only */}
         <Section title="Pet (read-only)">
-          <Row label="Name" value={b.pets?.name} />
-          <Row label="Type" value={b.pets?.type || b.pets?.species} />
+          <Row label="Name" value={allPetNames} />
+          <Row label="Type" value={firstPet?.type} />
         </Section>
 
         {/* Vet */}
