@@ -4,6 +4,7 @@ import { CheckCircle, Loader2 } from 'lucide-react'
 import { useWizard } from '../../contexts/WizardContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { SUPABASE_URL, SUPABASE_KEY, getAccessToken } from '../../lib/supabase'
+import { computeLineItems } from '../../lib/bookingUtils'
 
 // ── T&C text ──────────────────────────────────────────────────────────────────
 
@@ -111,9 +112,8 @@ export default function Step5Confirmation() {
   const [submitError, setSubmitError]               = useState('')
   const [successData, setSuccessData]               = useState(null)
 
-  const total     = confirmationData?.total ?? 0
-  const lineItems = confirmationData?.lineItems ?? []
-  const safePets  = Array.isArray(petsData) && petsData.length ? petsData : []
+  const total    = confirmationData?.total ?? 0
+  const safePets = Array.isArray(petsData) && petsData.length ? petsData : []
 
   // Show pregnancy checkbox only if there is at least one intact female
   const showPregnancy = hasIntactFemale
@@ -156,6 +156,35 @@ export default function Step5Confirmation() {
         totalDays = Math.max(1, Math.round(diff))
       }
 
+      // Fetch prices and recompute line items fresh at submission time
+      let freshLineItems = confirmationData?.lineItems ?? []
+      try {
+        const pricesRes = await fetch(
+          `${SUPABASE_URL}/rest/v1/services?active=eq.true&select=id,name,price,category,unit&order=name`,
+          { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token || SUPABASE_KEY}` } }
+        )
+        const pricesData = await pricesRes.json()
+        if (Array.isArray(pricesData)) {
+          const ALIASES = { daycamp: 'day_camp', walking: 'dog_walking', grooming_addon: 'grooming_addon', training_addon: 'training_addon' }
+          const grouped = {}
+          pricesData.forEach(row => {
+            let cat = (row.category || 'other').toLowerCase().replace(/[\s-]+/g, '_')
+            cat = ALIASES[cat] || cat
+            if (!grouped[cat]) grouped[cat] = []
+            grouped[cat].push(row)
+          })
+          const details = serviceOptionDetails[serviceType] || {}
+          const perPetForms = details.perPet || []
+          const safePetsForCalc = Array.isArray(petsData) && petsData.length ? petsData : [{}]
+          if (perPetForms.length > 0 || ['transport', 'training', 'international'].includes(serviceType)) {
+            freshLineItems = computeLineItems(serviceType, perPetForms, serviceOptions, grouped, safePetsForCalc)
+          }
+        }
+      } catch (e) {
+        console.warn('[Step5] could not recompute line items:', e)
+      }
+      const freshTotal = freshLineItems.reduce((s, i) => s + (i.amount || 0), 0) || total
+
       const body = {
         customer_id:         profile?.id || null,
         created_by:          profile?.id || null,
@@ -172,16 +201,16 @@ export default function Step5Confirmation() {
         service_details:     {
           serviceOptions,
           ...(serviceOptionDetails[serviceType] || {}),
-          line_items: lineItems,
-          total_amount: total,
+          line_items: freshLineItems,
+          total_amount: freshTotal,
         },
         start_date:          startDate,
         end_date:            endDate,
         total_days:          totalDays,
         status:              'pending',
         payment_status:      'unpaid',
-        subtotal:            total,
-        total_amount:        total,
+        subtotal:            freshTotal,
+        total_amount:        freshTotal,
         is_guest:            !profile?.id,
         is_staff_booking:    false,
         additional_comments: additionalComments || null,
