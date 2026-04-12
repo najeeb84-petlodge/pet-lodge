@@ -36,20 +36,33 @@ function ServiceTags({ b }) {
   )
 }
 
+function NoteField({ label, text }) {
+  const [expanded, setExpanded] = useState(false)
+  if (!text) return null
+  const isLong = text.length > 40
+  return (
+    <p style={{ fontSize: '0.7rem', color: '#92400e', marginTop: '2px', cursor: isLong ? 'pointer' : 'default' }}
+      onClick={() => isLong && setExpanded(v => !v)}
+      title={text}>
+      <strong>{label}:</strong>{' '}
+      {expanded || !isLong ? text : text.slice(0, 40) + '… '}
+      {isLong && <span style={{ color: '#5a7a2e', fontWeight: '600' }}>{expanded ? ' less' : 'more'}</span>}
+    </p>
+  )
+}
+
 function Comments({ b }) {
   const fields = [
-    { key:'special_food_req',     label:'Food'       },
-    { key:'additional_comments',  label:'Notes'      },
-    { key:'driver_comments',      label:'Driver'     },
-    { key:'medication_notes',     label:'Medication' },
+    { key: 'special_food_req',    label: 'Food'       },
+    { key: 'additional_comments', label: 'Notes'      },
+    { key: 'driver_comments',     label: 'Driver'     },
+    { key: 'medication_notes',    label: 'Medication' },
   ]
   const lines = fields.filter(f => b[f.key])
   if (!lines.length) return null
   return (
     <div>
-      {lines.map(f => (
-        <p key={f.key} style={noteStyle}><strong>{f.label}:</strong> {b[f.key]}</p>
-      ))}
+      {lines.map(f => <NoteField key={f.key} label={f.label} text={b[f.key]} />)}
     </div>
   )
 }
@@ -217,7 +230,7 @@ export default function AllBookings({ isSuperAdmin }) {
             </div>
 
             {/* Comments */}
-            <div style={{ minWidth:'140px', maxWidth:'200px' }}>
+            <div style={{ minWidth:'160px', maxWidth:'280px' }}>
               <Comments b={b}/>
             </div>
 

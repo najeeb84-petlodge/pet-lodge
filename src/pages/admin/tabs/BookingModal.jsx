@@ -130,7 +130,18 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
       vet_clinic:           b.vet_clinic || '',
       how_heard:            b.how_heard || '',
     })
-    setLineItems(b.services ? [{ id: b.services.id, name: b.services.name, price: b.services.price || 0, unit: b.services.unit || 'day' }] : [])
+    const storedLines = b.service_details?.line_items
+    if (Array.isArray(storedLines) && storedLines.length > 0) {
+      setLineItems(storedLines.map(li => {
+        const qty = li.quantity ?? 1
+        const unitP = li.unit_price != null ? li.unit_price : (qty > 1 ? ((li.amount || 0) / qty) : (li.amount || 0))
+        return { id: null, name: li.label || '', price: unitP, quantity: qty, unit: li.unit || 'service' }
+      }))
+    } else if (b.services) {
+      setLineItems([{ id: b.services.id, name: b.services.name, price: b.services.price || 0, quantity: b.total_days || 1, unit: b.services.unit || 'day' }])
+    } else {
+      setLineItems([{ id: null, name: '', price: 0, quantity: 1, unit: 'service' }])
+    }
     dbQuery('services', '?active=eq.true&select=id,name,price,category,unit&order=category,name').then(d => setAvailSvcs(Array.isArray(d) ? d : []))
     setMode('edit')
   }
@@ -650,7 +661,7 @@ We look forward to welcoming ${allPetNames}! 🐾`
               </div>
               <div style={{ width: '65px' }}>
                 <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--muted)', marginBottom: '0.2rem', fontWeight: '600' }}>Qty</label>
-                <input className="input" type="number" min="1" step="1" value={li.quantity ?? edit.total_days ?? 1} style={{ fontSize: '0.8rem' }}
+                <input className="input" type="number" min="1" step="1" value={li.quantity ?? 1} style={{ fontSize: '0.8rem' }}
                   onChange={e => onLineChange(idx, 'quantity', e.target.value)} />
               </div>
               {lineItems.length > 1 && (
@@ -785,6 +796,12 @@ We look forward to welcoming ${allPetNames}! 🐾`
     const [waNumber,  setWaNumber]  = useState(b.customer_whatsapp || b.customer_phone || '')
     const [waMsg,     setWaMsg]     = useState(defaultMsg)
 
+    function fmtAmt(val) {
+      const n = parseFloat(val)
+      if (isNaN(n)) return String(val ?? '—')
+      return n % 1 === 0 ? String(Math.round(n)) : n.toFixed(2)
+    }
+
     function isPerDay(name = '') {
       const n = name.toLowerCase()
       return n.includes('boarding') || n.includes('daycare') || n.includes('food')
@@ -796,16 +813,20 @@ We look forward to welcoming ${allPetNames}! 🐾`
     let serviceRows = []
     if (Array.isArray(lineItemsRaw) && lineItemsRaw.length > 0) {
       serviceRows = lineItemsRaw.map(item => {
-        const qty       = item.quantity ?? (() => { const m = item.label?.match(/×\s*(\d+)/); return m ? parseInt(m[1]) : 1 })()
-        const unitPrice = item.unit_price ?? (qty > 0 ? (item.amount / qty) : item.amount)
+        const qty = item.quantity != null
+          ? item.quantity
+          : (() => { const m = (item.label || '').match(/×\s*(\d+)/); return m ? parseInt(m[1]) : 1 })()
+        const unitPrice = item.unit_price != null
+          ? item.unit_price
+          : (qty > 1 ? (item.amount / qty) : item.amount)
         const isComp    = !!item.note
         return {
           name:      item.label?.replace(/\s*×\s*\d+\s*(nights?|days?)?/i, '').trim() || item.label,
           unit:      item.unit === 'night' ? 'Night' : item.unit === 'day' ? 'Day' : 'Service',
-          unitPrice: isComp ? item.note : `JD ${parseFloat(unitPrice || 0).toFixed(2)}`,
+          unitPrice: isComp ? item.note : `JD ${fmtAmt(unitPrice)}`,
           numPets:   item.num_pets ?? numPets,
           quantity:  isComp ? '' : qty,
-          total:     isComp ? item.note : parseFloat(item.amount || 0).toFixed(2),
+          total:     isComp ? item.note : fmtAmt(item.amount || 0),
           isComp,
         }
       })
@@ -813,7 +834,7 @@ We look forward to welcoming ${allPetNames}! 🐾`
       serviceRows = [{
         name: serviceLabel, unit: 'Service', unitPrice: '—',
         numPets: numPets, quantity: b.total_days || 1,
-        total: total.toFixed(2), isComp: false,
+        total: fmtAmt(total), isComp: false,
       }]
     }
     while (serviceRows.length < MIN_ROWS) serviceRows.push(null)
@@ -843,7 +864,8 @@ We look forward to welcoming ${allPetNames}! 🐾`
       setTimeout(() => setToast(''), 3000)
     }
 
-    const thStyle  = { padding: '6px 8px', textAlign: 'left', fontWeight: '700', fontSize: '0.72rem', color: 'white', borderRight: '1px solid rgba(255,255,255,0.25)' }
+    const thStyle  = { padding: '5px 6px', textAlign: 'left', fontWeight: '700', fontSize: '0.7rem', color: 'white', borderRight: '1px solid rgba(255,255,255,0.25)', whiteSpace: 'nowrap' }
+    const thWidths = ['35%', '8%', '13%', '14%', '9%', '14%']
     const tdStyle  = { padding: '5px 8px', fontSize: '0.78rem', borderRight: '1px solid #e5e7eb', borderBottom: '1px solid #e5e7eb' }
     const tdDash   = { ...tdStyle, color: '#9ca3af', textAlign: 'center' }
     const linkStyle = { display: 'block', color: '#2563eb', textDecoration: 'underline' }
@@ -900,8 +922,8 @@ We look forward to welcoming ${allPetNames}! 🐾`
           <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px', border: '1px solid #e5e7eb' }}>
             <thead>
               <tr style={{ background: GREEN }}>
-                {['Services provided','Unit','Unit Price','Number of Pets','Quantity','Total price'].map(h => (
-                  <th key={h} style={thStyle}>{h}</th>
+                {['Services provided','Unit','Unit Price','Number of Pets','Quantity','Total price'].map((h, i) => (
+                  <th key={h} style={{ ...thStyle, width: thWidths[i] }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -923,9 +945,9 @@ We look forward to welcoming ${allPetNames}! 🐾`
             </tbody>
             <tfoot>
               {[
-                ['Total in JD', total.toFixed(2)],
+                ['Total in JD', fmtAmt(total)],
                 [null,          null],
-                ['Amount due',  total.toFixed(2)],
+                ['Amount due',  fmtAmt(total)],
               ].map(([label, val], i) => (
                 <tr key={i} style={{ background: '#f3f4f6', borderTop: i === 0 ? '2px solid #d1d5db' : 'none' }}>
                   <td colSpan={5} style={{ ...tdStyle, fontWeight: label ? '700' : '400', color: label ? '#111' : '#9ca3af', textAlign: 'right', paddingRight: '12px', borderRight: 'none' }}>
