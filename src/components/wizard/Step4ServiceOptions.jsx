@@ -821,7 +821,14 @@ function DayCampOptions({ form, onChange, prices, petsData, errors, profileHasAd
       const rank = name => ORDER.findIndex(k => name.toLowerCase().includes(k))
       return rank(a.name) - rank(b.name)
     })
-    .map(p => ({ value: p.id, label: p.name, sublabel: `JD ${parseFloat(p.price || 0).toFixed(0)}` }))
+    .map(p => {
+      const isRecurring = /monthly|quarterly|annually/i.test(p.name)
+      return {
+        value: p.id,
+        label: isRecurring ? `${p.name} — 2x per week` : p.name,
+        sublabel: `JD ${parseFloat(p.price || 0).toFixed(0)}`,
+      }
+    })
 
   function handlePackageChange(id) {
     const pkg = (prices.day_camp || []).find(p => p.id === id)
