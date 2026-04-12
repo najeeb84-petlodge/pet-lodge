@@ -137,7 +137,10 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
 
   function calcTotal(e, items) {
     const days = parseInt(e.total_days) || 0
-    const svcTotal = items.reduce((s, li) => s + (parseFloat(li.price) || 0) * (li.unit === 'day' || !li.unit ? days : 1), 0)
+    const svcTotal = items.reduce((s, li) => {
+      const qty = li.quantity ?? (li.unit === 'day' || !li.unit ? days : 1)
+      return s + (parseFloat(li.price) || 0) * qty
+    }, 0)
     return Math.max(0, svcTotal + (parseFloat(e.transport_fee) || 0) - (parseFloat(e.discount) || 0))
   }
 
@@ -629,8 +632,8 @@ We look forward to welcoming ${allPetNames}! 🐾`
         {/* Services list */}
         <Section title="Services">
           {lineItems.map((li, idx) => (
-            <div key={idx} style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end', marginBottom: '0.5rem' }}>
-              <div style={{ flex: 2 }}>
+            <div key={idx} style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+              <div style={{ flex: 2, minWidth: '160px' }}>
                 <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--muted)', marginBottom: '0.2rem', fontWeight: '600' }}>Service</label>
                 <select className="input" style={{ fontSize: '0.8rem' }} value={li.id || ''}
                   onChange={e => onSvcSelect(idx, e.target.value)}>
@@ -640,10 +643,15 @@ We look forward to welcoming ${allPetNames}! 🐾`
                   ))}
                 </select>
               </div>
-              <div style={{ width: '95px' }}>
-                <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--muted)', marginBottom: '0.2rem', fontWeight: '600' }}>Price/unit</label>
+              <div style={{ width: '75px' }}>
+                <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--muted)', marginBottom: '0.2rem', fontWeight: '600' }}>Unit Price</label>
                 <input className="input" type="number" step="0.5" value={li.price} style={{ fontSize: '0.8rem' }}
                   onChange={e => onLineChange(idx, 'price', e.target.value)} />
+              </div>
+              <div style={{ width: '65px' }}>
+                <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--muted)', marginBottom: '0.2rem', fontWeight: '600' }}>Qty</label>
+                <input className="input" type="number" min="1" step="1" value={li.quantity ?? edit.total_days ?? 1} style={{ fontSize: '0.8rem' }}
+                  onChange={e => onLineChange(idx, 'quantity', e.target.value)} />
               </div>
               {lineItems.length > 1 && (
                 <button onClick={() => removeLine(idx)}
@@ -782,49 +790,32 @@ We look forward to welcoming ${allPetNames}! 🐾`
       return n.includes('boarding') || n.includes('daycare') || n.includes('food')
     }
 
-    const lineItems = b.service_details?.line_items
+    const lineItemsRaw = b.service_details?.line_items
     const MIN_ROWS = 8
 
     let serviceRows = []
-    if (Array.isArray(lineItems) && lineItems.length > 0) {
-      serviceRows = lineItems
-        .filter(item => !item.note) // exclude "Included" / complimentary rows
-        .map(item => ({
-          name:      item.label,
-          unit:      item.label?.toLowerCase().includes('night') || item.label?.toLowerCase().includes('day') ? 'Day' : 'Service',
-          unitPrice: '—',
-          numPets:   numPets,
-          quantity:  (() => {
-            const match = item.label?.match(/×\s*(\d+)/)
-            return match ? parseInt(match[1]) : 1
-          })(),
-          total:     (item.amount || 0).toFixed(2),
-        }))
+    if (Array.isArray(lineItemsRaw) && lineItemsRaw.length > 0) {
+      serviceRows = lineItemsRaw.map(item => {
+        const qty       = item.quantity ?? (() => { const m = item.label?.match(/×\s*(\d+)/); return m ? parseInt(m[1]) : 1 })()
+        const unitPrice = item.unit_price ?? (qty > 0 ? (item.amount / qty) : item.amount)
+        const isComp    = !!item.note
+        return {
+          name:      item.label?.replace(/\s*×\s*\d+\s*(nights?|days?)?/i, '').trim() || item.label,
+          unit:      item.unit === 'night' ? 'Night' : item.unit === 'day' ? 'Day' : 'Service',
+          unitPrice: isComp ? item.note : `JD ${parseFloat(unitPrice || 0).toFixed(2)}`,
+          numPets:   item.num_pets ?? numPets,
+          quantity:  isComp ? '' : qty,
+          total:     isComp ? item.note : parseFloat(item.amount || 0).toFixed(2),
+          isComp,
+        }
+      })
     } else {
       serviceRows = [{
-        name:      serviceLabel,
-        unit:      'Service',
-        unitPrice: '—',
-        numPets:   numPets,
-        quantity:  b.total_days || 1,
-        total:     total.toFixed(2),
+        name: serviceLabel, unit: 'Service', unitPrice: '—',
+        numPets: numPets, quantity: b.total_days || 1,
+        total: total.toFixed(2), isComp: false,
       }]
     }
-
-    // Also add complimentary items as zero-cost rows
-    if (Array.isArray(lineItems)) {
-      lineItems.filter(item => item.note).forEach(item => {
-        serviceRows.push({
-          name:      item.label,
-          unit:      'Service',
-          unitPrice: item.note,
-          numPets:   '',
-          quantity:  '',
-          total:     item.note,
-        })
-      })
-    }
-
     while (serviceRows.length < MIN_ROWS) serviceRows.push(null)
 
     async function downloadPDF() {
@@ -919,14 +910,10 @@ We look forward to welcoming ${allPetNames}! 🐾`
                 <tr key={i} style={{ background: i % 2 === 0 ? 'white' : '#f9fafb' }}>
                   <td style={tdStyle}>{row.name}</td>
                   <td style={tdStyle}>{row.unit}</td>
-                  <td style={tdStyle}>{row.unitPrice}</td>
+                  <td style={row.isComp ? { ...tdStyle, color: '#6b7280', fontStyle: 'italic' } : tdStyle}>{row.unitPrice}</td>
                   <td style={{ ...tdStyle, textAlign: 'center' }}>{row.numPets}</td>
                   <td style={{ ...tdStyle, textAlign: 'center' }}>{row.quantity}</td>
-                  <td style={{ ...tdStyle, fontWeight: '600' }}>
-                    {isNaN(parseFloat(row.total)) ? (
-                      <span style={{ fontWeight: '400', color: '#6b7280' }}>{row.total}</span>
-                    ) : row.total}
-                  </td>
+                  <td style={{ ...tdStyle, fontWeight: '600', color: row.isComp ? '#6b7280' : 'inherit', fontStyle: row.isComp ? 'italic' : 'normal' }}>{row.total}</td>
                 </tr>
               ) : (
                 <tr key={i} style={{ background: i % 2 === 0 ? 'white' : '#f9fafb' }}>

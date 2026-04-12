@@ -129,34 +129,55 @@ function computeLineItems(serviceType, perPetForms, serviceOptions, prices, pets
     case 'boarding': {
       const base = find('boarding', serviceOptions?.option)
       const items = []
-      if (base) items.push({ label: `${base.name} × ${nights} nights`, amount: parseFloat(base.price || 0) * nights })
+      if (base) items.push({
+        label: `${base.name} × ${nights} nights`,
+        amount: parseFloat(base.price || 0) * nights,
+        unit: 'night',
+        unit_price: parseFloat(base.price || 0),
+        quantity: nights,
+        num_pets: petsData.length || 1,
+      })
       const transportCost = { round_trip: 30, pickup_only: 15, dropoff_only: 15, self: 0 }
       let transportAdded = false
       perPetForms.forEach(pf => {
-        if (pf.foodChoice === 'lodge_small') items.push({ label: `Food (small/cat) for ${pf.petName} × ${nights} nights`, amount: 2 * nights })
-        if (pf.foodChoice === 'lodge_large') items.push({ label: `Food (medium/large) for ${pf.petName} × ${nights} nights`, amount: 4 * nights })
+        if (pf.foodChoice === 'lodge_small') {
+          const a = 2 * nights
+          items.push({ label: `Food (small/cat) for ${pf.petName} × ${nights} nights`, amount: a, unit: 'service', unit_price: a, quantity: 1 })
+        }
+        if (pf.foodChoice === 'lodge_large') {
+          const a = 4 * nights
+          items.push({ label: `Food (medium/large) for ${pf.petName} × ${nights} nights`, amount: a, unit: 'service', unit_price: a, quantity: 1 })
+        }
         if (pf.fleaTick === 'lodge_applies') {
           const petType = petsData[pf.petIndex]?.type
-          items.push({ label: `Flea & tick for ${pf.petName}`, amount: petType === 'cat' ? 25 : 35 })
+          const a = petType === 'cat' ? 25 : 35
+          items.push({ label: `Flea & tick for ${pf.petName}`, amount: a, unit: 'service', unit_price: a, quantity: 1 })
         }
         if (!transportAdded && pf.transport) {
           const tc = transportCost[pf.transport]
-          if (tc > 0) items.push({ label: `Transport (${TRANSPORT_OPTIONS.find(o => o.value === pf.transport)?.label})`, amount: tc })
+          if (tc > 0) items.push({ label: `Transport (${TRANSPORT_OPTIONS.find(o => o.value === pf.transport)?.label})`, amount: tc, unit: 'service', unit_price: tc, quantity: 1 })
           transportAdded = true
         }
         if (pf.groomingPackageId) {
           const pkg = (prices.grooming_addon || []).find(p => p.id === pf.groomingPackageId)
-          if (pkg) items.push({ label: `${pkg.name} (grooming) for ${pf.petName}`, amount: parseFloat(pkg.price || 0) })
+          if (pkg) {
+            const a = parseFloat(pkg.price || 0)
+            items.push({ label: `${pkg.name} (grooming) for ${pf.petName}`, amount: a, unit: 'service', unit_price: a, quantity: 1 })
+          }
         }
         ;(pf.groomingAddOns || []).forEach(addonId => {
           const addon = (prices.grooming_addon || []).find(p => p.id === addonId)
-          if (addon) items.push({ label: `${addon.name} for ${pf.petName}`, amount: parseFloat(addon.price || 0) })
+          if (addon) {
+            const a = parseFloat(addon.price || 0)
+            items.push({ label: `${addon.name} for ${pf.petName}`, amount: a, unit: 'service', unit_price: a, quantity: 1 })
+          }
         })
         if (pf.trainingSessions > 0) {
           const sessionPkg = (prices.training_addon || [])[0]
           const price = parseFloat(sessionPkg?.price || 35)
           const goalsNote = pf.trainingGoals ? ` — "${pf.trainingGoals.slice(0, 40)}"` : ''
-          items.push({ label: `Training (${pf.trainingSessions} session${pf.trainingSessions > 1 ? 's' : ''}) for ${pf.petName}${goalsNote}`, amount: price * pf.trainingSessions })
+          const a = price * pf.trainingSessions
+          items.push({ label: `Training (${pf.trainingSessions} session${pf.trainingSessions > 1 ? 's' : ''}) for ${pf.petName}${goalsNote}`, amount: a, unit: 'service', unit_price: price, quantity: pf.trainingSessions })
         }
       })
       return items
@@ -167,25 +188,33 @@ function computeLineItems(serviceType, perPetForms, serviceOptions, prices, pets
       perPetForms.forEach(pf => {
         if (pf.packageId && pf.packagePrice > 0) {
           const pkg = find('day_camp', pf.packageId)
-          items.push({ label: `${pkg?.name || 'Day Camp package'} for ${pf.petName}`, amount: pf.packagePrice })
+          items.push({ label: `${pkg?.name || 'Day Camp package'} for ${pf.petName}`, amount: pf.packagePrice, unit: 'service', unit_price: pf.packagePrice, quantity: 1 })
         }
         if (pf.fleaTick === 'lodge_applies') {
           const petType = petsData[pf.petIndex]?.type
-          items.push({ label: `Flea & tick for ${pf.petName}`, amount: petType === 'cat' ? 25 : 35 })
+          const a = petType === 'cat' ? 25 : 35
+          items.push({ label: `Flea & tick for ${pf.petName}`, amount: a, unit: 'service', unit_price: a, quantity: 1 })
         }
         if (pf.groomingPackageId) {
           const pkg = (prices.grooming_addon || []).find(p => p.id === pf.groomingPackageId)
-          if (pkg) items.push({ label: `${pkg.name} (grooming) for ${pf.petName}`, amount: parseFloat(pkg.price || 0) })
+          if (pkg) {
+            const a = parseFloat(pkg.price || 0)
+            items.push({ label: `${pkg.name} (grooming) for ${pf.petName}`, amount: a, unit: 'service', unit_price: a, quantity: 1 })
+          }
         }
         ;(pf.groomingAddOns || []).forEach(addonId => {
           const addon = (prices.grooming_addon || []).find(p => p.id === addonId)
-          if (addon) items.push({ label: `${addon.name} for ${pf.petName}`, amount: parseFloat(addon.price || 0) })
+          if (addon) {
+            const a = parseFloat(addon.price || 0)
+            items.push({ label: `${addon.name} for ${pf.petName}`, amount: a, unit: 'service', unit_price: a, quantity: 1 })
+          }
         })
         if (pf.trainingSessions > 0) {
           const sessionPkg = (prices.training_addon || [])[0]
           const price = parseFloat(sessionPkg?.price || 35)
           const goalsNote = pf.trainingGoals ? ` — "${pf.trainingGoals.slice(0, 40)}"` : ''
-          items.push({ label: `Training (${pf.trainingSessions} session${pf.trainingSessions > 1 ? 's' : ''}) for ${pf.petName}${goalsNote}`, amount: price * pf.trainingSessions })
+          const a = price * pf.trainingSessions
+          items.push({ label: `Training (${pf.trainingSessions} session${pf.trainingSessions > 1 ? 's' : ''}) for ${pf.petName}${goalsNote}`, amount: a, unit: 'service', unit_price: price, quantity: pf.trainingSessions })
         }
       })
       items.push({ label: 'Pick up & drop off', amount: 0, note: 'Complimentary' })
@@ -197,7 +226,7 @@ function computeLineItems(serviceType, perPetForms, serviceOptions, prices, pets
       perPetForms.forEach(pf => {
         if (pf.packageId && pf.packagePrice > 0) {
           const pkg = find('dog_walking', pf.packageId)
-          items.push({ label: `${pkg?.name || 'Dog Walking package'} for ${pf.petName}`, amount: pf.packagePrice })
+          items.push({ label: `${pkg?.name || 'Dog Walking package'} for ${pf.petName}`, amount: pf.packagePrice, unit: 'service', unit_price: pf.packagePrice, quantity: 1 })
         }
       })
       return items
@@ -208,18 +237,24 @@ function computeLineItems(serviceType, perPetForms, serviceOptions, prices, pets
       perPetForms.forEach(pf => {
         if (pf.selectionMode === 'package' && pf.packageId) {
           const pkg = find('grooming', pf.packageId)
-          if (pkg) items.push({ label: `${pkg.name} for ${pf.petName}`, amount: parseFloat(pkg.price || 0) })
+          if (pkg) {
+            const a = parseFloat(pkg.price || 0)
+            items.push({ label: `${pkg.name} for ${pf.petName}`, amount: a, unit: 'service', unit_price: a, quantity: 1 })
+          }
           if (pf.transport && pf.transport !== 'self') {
             const label = pf.transport === 'round_trip' ? 'Pick up & drop off'
               : pf.transport === 'pickup_only' ? 'Pick up'
               : 'Drop off'
-            items.push({ label, amount: 0, note: 'Included' })
+            items.push({ label, amount: 0, note: 'Included', unit: 'service', unit_price: 0, quantity: 1 })
           }
         } else if (pf.selectionMode === 'standalone') {
           const petType = petsData[pf.petIndex]?.type
-          if (pf.standaloneAddOns?.includes('hair_trim')) items.push({ label: `Hair trim for ${pf.petName}`, amount: 20 })
-          if (pf.standaloneAddOns?.includes('nail_clip')) items.push({ label: `Nail clip for ${pf.petName}`, amount: 10 })
-          if (pf.standaloneAddOns?.includes('bathing'))   items.push({ label: `Bathing for ${pf.petName}`, amount: petType === 'cat' ? 15 : 10 })
+          if (pf.standaloneAddOns?.includes('hair_trim')) items.push({ label: `Hair trim for ${pf.petName}`, amount: 20, unit: 'service', unit_price: 20, quantity: 1 })
+          if (pf.standaloneAddOns?.includes('nail_clip')) items.push({ label: `Nail clip for ${pf.petName}`, amount: 10, unit: 'service', unit_price: 10, quantity: 1 })
+          if (pf.standaloneAddOns?.includes('bathing')) {
+            const a = petType === 'cat' ? 15 : 10
+            items.push({ label: `Bathing for ${pf.petName}`, amount: a, unit: 'service', unit_price: a, quantity: 1 })
+          }
         }
       })
       return items
@@ -228,7 +263,8 @@ function computeLineItems(serviceType, perPetForms, serviceOptions, prices, pets
     case 'transport': {
       const base = find('transport', serviceOptions?.option)
       if (!base) return []
-      return [{ label: base.name, amount: parseFloat(base.price || 0) }]
+      const a = parseFloat(base.price || 0)
+      return [{ label: base.name, amount: a, unit: 'service', unit_price: a, quantity: 1 }]
     }
 
     case 'training': {
