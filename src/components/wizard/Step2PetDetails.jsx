@@ -207,7 +207,7 @@ export default function Step2PetDetails() {
   async function handleNext() {
     if (!validate()) return
     setPetsData(pets)
-    const intact = pets.some(p => p.gender === 'female' && p.desexed === 'no')
+    const intact = pets.some(p => p.type === 'dog' && p.gender === 'female' && p.desexed === 'no')
     setHasIntactFemale(intact)
 
     // ── DEBUG: log auth session from localStorage ──────────────────

@@ -41,6 +41,12 @@ export default function App() {
           <Route path="/my-bookings" element={
             <ProtectedRoute><MyBookings /></ProtectedRoute>
           } />
+          <Route path="/customer/bookings" element={
+            <ProtectedRoute><MyBookings /></ProtectedRoute>
+          } />
+          <Route path="/customer/pets" element={
+            <ProtectedRoute><MyPets /></ProtectedRoute>
+          } />
           <Route path="/booking" element={
             <ProtectedRoute allowGuest>
               <WizardProvider><BookingWizard /></WizardProvider>
