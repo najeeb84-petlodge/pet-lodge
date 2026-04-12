@@ -825,7 +825,9 @@ function DayCampOptions({ form, onChange, prices, petsData, errors, profileHasAd
       const isRecurring = /monthly|quarterly|annually/i.test(p.name)
       return {
         value: p.id,
-        label: isRecurring ? `${p.name} — 2x per week` : p.name,
+        label: isRecurring
+          ? p.name.replace(/\(2x per week\)/i, '').trim() + ' — 2 visits per week'
+          : p.name,
         sublabel: `JD ${parseFloat(p.price || 0).toFixed(0)}`,
       }
     })
