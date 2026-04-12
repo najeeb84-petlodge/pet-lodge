@@ -169,7 +169,12 @@ export default function Step5Confirmation() {
         num_pets:            safePets.length || 1,
         pets_data:           safePets,
         service_type:        serviceType,
-        service_details:     { serviceOptions, ...(serviceOptionDetails[serviceType] || {}) },
+        service_details:     {
+          serviceOptions,
+          ...(serviceOptionDetails[serviceType] || {}),
+          line_items: lineItems,
+          total_amount: total,
+        },
         start_date:          startDate,
         end_date:            endDate,
         total_days:          totalDays,

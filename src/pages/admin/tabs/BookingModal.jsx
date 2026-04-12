@@ -471,12 +471,25 @@ We look forward to welcoming ${allPetNames}! 🐾`
 
         {/* Services */}
         <Section title="Services">
-          <p style={{ fontSize: '0.875rem', fontWeight: '500', color: 'var(--text)' }}>{serviceLabel}</p>
-          {b.service_details && (
-            <p style={{ fontSize: '0.78rem', color: 'var(--muted)', marginTop: '0.25rem', whiteSpace: 'pre-wrap' }}>
-              {typeof b.service_details === 'string' ? b.service_details : JSON.stringify(b.service_details, null, 2)}
-            </p>
-          )}
+          <p style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--text)', marginBottom: '0.5rem' }}>{serviceLabel}</p>
+          {(() => {
+            const lineItems = b.service_details?.line_items
+            if (Array.isArray(lineItems) && lineItems.length > 0) {
+              return (
+                <div className="space-y-1">
+                  {lineItems.map((item, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.825rem', padding: '0.2rem 0', borderBottom: '1px solid var(--border)' }}>
+                      <span style={{ color: 'var(--text)' }}>{item.label}</span>
+                      <span style={{ fontWeight: '600', color: 'var(--primary)', flexShrink: 0, marginLeft: '1rem' }}>
+                        {item.note ? <span style={{ fontWeight: '400', color: 'var(--muted)' }}>{item.note}</span> : `JD ${(item.amount || 0).toFixed(2)}`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )
+            }
+            return <p style={{ fontSize: '0.875rem', color: 'var(--muted)', margin: 0 }}>No breakdown available.</p>
+          })()}
         </Section>
 
         {/* Payments */}
@@ -769,28 +782,49 @@ We look forward to welcoming ${allPetNames}! 🐾`
       return n.includes('boarding') || n.includes('daycare') || n.includes('food')
     }
 
-    const rawServices  = b.service_details || b.serviceDetails || null
-    const baseServices = (rawServices && rawServices.length > 0) ? rawServices : [{
-      name:        b.service_type ? b.service_type.charAt(0).toUpperCase() + b.service_type.slice(1) : 'Boarding',
-      unit_price:  b.unit_price ?? '',
-      num_pets:    b.num_pets || 1,
-      quantity:    b.total_days || 1,
-      total_price: b.total_amount || 0,
-    }]
-    const sorted = [...baseServices].sort((a, bb) => {
-      const aFirst = /boarding|daycare/.test((a?.name || '').toLowerCase())
-      const bFirst = /boarding|daycare/.test((bb?.name || '').toLowerCase())
-      return (bFirst ? 1 : 0) - (aFirst ? 1 : 0)
-    })
+    const lineItems = b.service_details?.line_items
     const MIN_ROWS = 8
-    const serviceRows = sorted.map(svc => ({
-      name:      svc?.name || '—',
-      unit:      isPerDay(svc?.name) ? 'Day' : 'Service',
-      unitPrice: svc?.unit_price != null && svc.unit_price !== '' ? `JD ${svc.unit_price}` : '—',
-      numPets:   svc?.num_pets ?? numPets,
-      quantity:  isPerDay(svc?.name) ? (svc?.quantity ?? days) : (svc?.quantity || 1),
-      total:     svc?.total_price != null ? parseFloat(svc.total_price).toFixed(2) : '—',
-    }))
+
+    let serviceRows = []
+    if (Array.isArray(lineItems) && lineItems.length > 0) {
+      serviceRows = lineItems
+        .filter(item => !item.note) // exclude "Included" / complimentary rows
+        .map(item => ({
+          name:      item.label,
+          unit:      item.label?.toLowerCase().includes('night') || item.label?.toLowerCase().includes('day') ? 'Day' : 'Service',
+          unitPrice: '—',
+          numPets:   numPets,
+          quantity:  (() => {
+            const match = item.label?.match(/×\s*(\d+)/)
+            return match ? parseInt(match[1]) : 1
+          })(),
+          total:     (item.amount || 0).toFixed(2),
+        }))
+    } else {
+      serviceRows = [{
+        name:      serviceLabel,
+        unit:      'Service',
+        unitPrice: '—',
+        numPets:   numPets,
+        quantity:  b.total_days || 1,
+        total:     total.toFixed(2),
+      }]
+    }
+
+    // Also add complimentary items as zero-cost rows
+    if (Array.isArray(lineItems)) {
+      lineItems.filter(item => item.note).forEach(item => {
+        serviceRows.push({
+          name:      item.label,
+          unit:      'Service',
+          unitPrice: item.note,
+          numPets:   '',
+          quantity:  '',
+          total:     item.note,
+        })
+      })
+    }
+
     while (serviceRows.length < MIN_ROWS) serviceRows.push(null)
 
     async function downloadPDF() {
@@ -888,7 +922,11 @@ We look forward to welcoming ${allPetNames}! 🐾`
                   <td style={tdStyle}>{row.unitPrice}</td>
                   <td style={{ ...tdStyle, textAlign: 'center' }}>{row.numPets}</td>
                   <td style={{ ...tdStyle, textAlign: 'center' }}>{row.quantity}</td>
-                  <td style={{ ...tdStyle, fontWeight: '600' }}>{row.total}</td>
+                  <td style={{ ...tdStyle, fontWeight: '600' }}>
+                    {isNaN(parseFloat(row.total)) ? (
+                      <span style={{ fontWeight: '400', color: '#6b7280' }}>{row.total}</span>
+                    ) : row.total}
+                  </td>
                 </tr>
               ) : (
                 <tr key={i} style={{ background: i % 2 === 0 ? 'white' : '#f9fafb' }}>
