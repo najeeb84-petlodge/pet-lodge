@@ -212,6 +212,26 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
       vet_clinic:          edit.vet_clinic,
       how_heard:           edit.how_heard,
     }
+    const updatedLineItems = lineItems.map(li => {
+      const qty       = parseFloat(li.quantity) || 1
+      const unitPrice = parseFloat(li.price)    || 0
+      return {
+        label:      li.name || '',
+        amount:     unitPrice * qty,
+        unit_price: unitPrice,
+        quantity:   qty,
+        unit:       li.unit || 'service',
+      }
+    })
+    const updatedTotal = updatedLineItems.reduce((s, i) => s + i.amount, 0)
+    body.service_details = {
+      ...(full.service_details || {}),
+      line_items:   updatedLineItems,
+      total_amount: updatedTotal,
+    }
+    body.total_amount = parseFloat(edit.total_amount) || updatedTotal
+    body.subtotal     = body.total_amount
+
     const ok = await dbUpdate('bookings', full.id, body)
     if (ok) { await fetchFull(); onUpdated?.(); setMode('view') }
     setSaving(false)
@@ -646,13 +666,24 @@ We look forward to welcoming ${allPetNames}! 🐾`
             <div key={idx} style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
               <div style={{ flex: 2, minWidth: '160px' }}>
                 <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--muted)', marginBottom: '0.2rem', fontWeight: '600' }}>Service</label>
-                <select className="input" style={{ fontSize: '0.8rem' }} value={li.id || ''}
-                  onChange={e => onSvcSelect(idx, e.target.value)}>
-                  <option value="">— Select service —</option>
-                  {availSvcs.map(s => (
-                    <option key={s.id} value={s.id}>{s.name} — JD {parseFloat(s.price || 0).toFixed(2)}/{s.unit || 'day'}</option>
-                  ))}
-                </select>
+                {li.id ? (
+                  <select className="input" style={{ fontSize: '0.8rem' }} value={li.id}
+                    onChange={e => onSvcSelect(idx, e.target.value)}>
+                    <option value="">— Select service —</option>
+                    {availSvcs.map(s => (
+                      <option key={s.id} value={s.id}>{s.name} — JD {parseFloat(s.price || 0).toFixed(2)}/{s.unit || 'day'}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <div style={{ display: 'flex', gap: '0.375rem' }}>
+                    <input className="input" style={{ fontSize: '0.8rem', flex: 1 }}
+                      value={li.name}
+                      onChange={e => {
+                        const updated = lineItems.map((l, i) => i === idx ? { ...l, name: e.target.value } : l)
+                        setLineItems(updated)
+                      }} />
+                  </div>
+                )}
               </div>
               <div style={{ width: '75px' }}>
                 <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--muted)', marginBottom: '0.2rem', fontWeight: '600' }}>Unit Price</label>
