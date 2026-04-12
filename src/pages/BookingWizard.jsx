@@ -8,15 +8,8 @@ import Step1CustomerInfo from '../components/wizard/Step1CustomerInfo'
 import Step2PetDetails from '../components/wizard/Step2PetDetails'
 import Step3Services from '../components/wizard/Step3Services'
 import Step4ServiceOptions from '../components/wizard/Step4ServiceOptions'
+import Step5Confirmation from '../components/wizard/Step5Confirmation'
 
-function StepPlaceholder({ title }) {
-  return (
-    <div className="text-center py-16">
-      <p className="text-lg font-semibold mb-1" style={{ color: 'var(--text)' }}>{title}</p>
-      <p className="text-sm" style={{ color: 'var(--muted)' }}>Coming soon.</p>
-    </div>
-  )
-}
 
 export default function BookingWizard() {
   const { step } = useWizard()
@@ -43,7 +36,7 @@ export default function BookingWizard() {
           {step === 2 && <Step2PetDetails />}
           {step === 3 && <Step3Services />}
           {step === 4 && <Step4ServiceOptions />}
-          {step === 5 && <StepPlaceholder title="Confirmation" />}
+          {step === 5 && <Step5Confirmation />}
         </div>
       </div>
     </div>

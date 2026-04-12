@@ -1231,6 +1231,7 @@ export default function Step4ServiceOptions() {
   const {
     petsData, serviceType, serviceOptions, setServiceOptions,
     serviceOptionDetails, setServiceOptionDetails,
+    setConfirmationData,
     nextStep, prevStep,
   } = useWizard()
   const { profile } = useAuth()
@@ -1382,6 +1383,7 @@ export default function Step4ServiceOptions() {
       ? { applyToAllPets: applyToAll, perPet: perPetForms }
       : flatForm
     setServiceOptionDetails({ [serviceType]: details })
+    setConfirmationData({ lineItems, total: lineItems.reduce((s, i) => s + (i.amount || 0), 0) })
 
     if (isPerPetService) {
       perPetForms.forEach(pf => saveAddressToProfile(pf))
