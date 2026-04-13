@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import { jsPDF } from 'jspdf'
 import html2canvas from 'html2canvas'
-import { supabase, dbQuery, dbUpdate } from '../../../lib/supabase'
+import { supabase, dbQuery, dbUpdate, SUPABASE_URL, SUPABASE_KEY, getAccessToken } from '../../../lib/supabase'
 
 const PAYMENT_METHODS = ['cash', 'card', 'bank_transfer', 'online']
 const METHOD_LABEL = { cash: 'Cash', card: 'Card', bank_transfer: 'Bank Transfer', online: 'Online' }
@@ -240,8 +240,21 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
     body.total_amount = parseFloat(edit.total_amount) || updatedTotal
     body.subtotal     = body.total_amount
 
-    const ok = await dbUpdate('bookings', full.id, body)
-    if (ok) { await fetchFull(); onUpdated?.(); setMode('view') }
+    const token = getAccessToken()
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/bookings?id=eq.${full.id}`, {
+      method: 'PATCH',
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${token || SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=representation',
+      },
+      body: JSON.stringify(body),
+    })
+    const result = await res.json().catch(() => null)
+    console.log('[saveEdit] status:', res.status, 'body:', JSON.stringify(result))
+    if (res.ok) { await fetchFull(); onUpdated?.(); setMode('view') }
+    else { setSaving(false); alert(`Save failed: ${JSON.stringify(result)}`) }
     setSaving(false)
   }
 
