@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import { jsPDF } from 'jspdf'
 import html2canvas from 'html2canvas'
-import { supabase, dbQuery, dbUpdate, SUPABASE_URL, SUPABASE_KEY, getAccessToken } from '../../../lib/supabase'
+import { supabase, dbQuery, dbUpdate } from '../../../lib/supabase'
 
 const PAYMENT_METHODS = ['cash', 'card', 'bank_transfer', 'online']
 const METHOD_LABEL = { cash: 'Cash', card: 'Card', bank_transfer: 'Bank Transfer', online: 'Online' }
@@ -113,22 +113,14 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
   function enterEdit() {
     const b = full
     setEdit({
-      status:               b.status || 'pending',
-      start_date:           b.start_date || '',
-      end_date:             b.end_date || '',
-      total_days:           b.total_days || 0,
-      total_amount:         b.total_amount ?? b.total_price ?? 0,
-      discount:             b.discount || 0,
-      prepaid_amount:       b.prepaid_amount || 0,
-      transport_fee:        b.transport_fee || 0,
-      additional_comments:  b.additional_comments || '',
-      pickup_required:      b.pickup_required || false,
-      dropoff_required:     b.dropoff_required || false,
-      transport_notes:      b.transport_notes || '',
-      vet_name:             b.vet_name || '',
-      vet_phone:            b.vet_phone || '',
-      vet_clinic:           b.vet_clinic || '',
-      how_heard:            b.how_heard || '',
+      status:              b.status || 'pending',
+      start_date:          b.start_date || '',
+      end_date:            b.end_date || '',
+      total_days:          b.total_days || 0,
+      total_amount:        b.total_amount ?? b.total_price ?? 0,
+      discount:            b.discount || 0,
+      additional_comments: b.additional_comments || '',
+      how_heard:           Array.isArray(b.how_heard) ? b.how_heard[0] || '' : b.how_heard || '',
     })
     const storedLines = b.service_details?.line_items
     if (Array.isArray(storedLines) && storedLines.length > 0) {
@@ -160,7 +152,7 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
       const qty = li.quantity ?? (li.unit === 'day' || !li.unit ? days : 1)
       return s + (parseFloat(li.price) || 0) * qty
     }, 0)
-    return Math.max(0, svcTotal + (parseFloat(e.transport_fee) || 0) - (parseFloat(e.discount) || 0))
+    return Math.max(0, svcTotal - (parseFloat(e.discount) || 0))
   }
 
   function onDateChange(field, value) {
@@ -206,30 +198,18 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
       status:              edit.status,
       start_date:          edit.start_date || null,
       end_date:            edit.end_date   || null,
-      total_days:          parseInt(edit.total_days)        || 0,
-      total_amount:        parseFloat(edit.total_amount)    || 0,
-      discount:            parseFloat(edit.discount)        || 0,
-      prepaid_amount:      parseFloat(edit.prepaid_amount)  || 0,
-      transport_fee:       parseFloat(edit.transport_fee)   || 0,
-      additional_comments: edit.additional_comments,
-      pickup_required:     edit.pickup_required,
-      dropoff_required:    edit.dropoff_required,
-      transport_notes:     edit.transport_notes,
-      vet_name:            edit.vet_name,
-      vet_phone:           edit.vet_phone,
-      vet_clinic:          edit.vet_clinic,
-      how_heard:           edit.how_heard,
+      total_days:          parseInt(edit.total_days)     || 0,
+      total_amount:        parseFloat(edit.total_amount) || 0,
+      subtotal:            parseFloat(edit.total_amount) || 0,
+      discount:            parseFloat(edit.discount)     || 0,
+      additional_comments: edit.additional_comments || null,
+      how_heard:           edit.how_heard ? [edit.how_heard] : null,
     }
+
     const updatedLineItems = lineItems.map(li => {
-      const qty       = parseFloat(li.quantity) || 1
-      const unitPrice = parseFloat(li.price)    || 0
-      return {
-        label:      li.name || '',
-        amount:     unitPrice * qty,
-        unit_price: unitPrice,
-        quantity:   qty,
-        unit:       li.unit || 'service',
-      }
+      const qty   = parseFloat(li.quantity) || 1
+      const unitP = parseFloat(li.price)    || 0
+      return { label: li.name || '', amount: unitP * qty, unit_price: unitP, quantity: qty, unit: li.unit || 'service' }
     })
     const updatedTotal = updatedLineItems.reduce((s, i) => s + i.amount, 0)
     body.service_details = {
@@ -240,21 +220,9 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
     body.total_amount = parseFloat(edit.total_amount) || updatedTotal
     body.subtotal     = body.total_amount
 
-    const token = getAccessToken()
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/bookings?id=eq.${full.id}`, {
-      method: 'PATCH',
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${token || SUPABASE_KEY}`,
-        'Content-Type': 'application/json',
-        Prefer: 'return=representation',
-      },
-      body: JSON.stringify(body),
-    })
-    const result = await res.json().catch(() => null)
-    console.log('[saveEdit] status:', res.status, 'body:', JSON.stringify(result))
-    if (res.ok) { await fetchFull(); onUpdated?.(); setMode('view') }
-    else { setSaving(false); alert(`Save failed: ${JSON.stringify(result)}`) }
+    const ok = await dbUpdate('bookings', full.id, body)
+    if (ok) { await fetchFull(); onUpdated?.(); setMode('view') }
+    else { setSaving(false); return }
     setSaving(false)
   }
 
@@ -650,10 +618,9 @@ We look forward to welcoming ${allPetNames}! 🐾`
 
   // ── EDIT MODE ────────────────────────────────────────────────────────────────
   function EditMode() {
-    const total   = parseFloat(edit.total_amount)   || 0
-    const disc    = parseFloat(edit.discount)        || 0
-    const pre     = parseFloat(edit.prepaid_amount)  || 0
-    const due     = Math.max(0, total - disc - pre).toFixed(2)
+    const total = parseFloat(edit.total_amount) || 0
+    const disc  = parseFloat(edit.discount)     || 0
+    const due   = Math.max(0, total - disc).toFixed(2)
 
     return (
       <div>
@@ -677,24 +644,6 @@ We look forward to welcoming ${allPetNames}! 🐾`
         <Section title="Pet (read-only)">
           <Row label="Name" value={allPetNames} />
           <Row label="Type" value={firstPet?.type} />
-        </Section>
-
-        {/* Vet */}
-        <Section title="Vet Information">
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem' }}>
-            <ERow label="Vet Name">
-              <input className="input" value={edit.vet_name} placeholder="Vet name"
-                onChange={e => setEdit(p => ({ ...p, vet_name: e.target.value }))} />
-            </ERow>
-            <ERow label="Vet Phone">
-              <input className="input" value={edit.vet_phone} placeholder="Vet phone"
-                onChange={e => setEdit(p => ({ ...p, vet_phone: e.target.value }))} />
-            </ERow>
-          </div>
-          <ERow label="Clinic">
-            <input className="input" value={edit.vet_clinic} placeholder="Clinic name"
-              onChange={e => setEdit(p => ({ ...p, vet_clinic: e.target.value }))} />
-          </ERow>
         </Section>
 
         {/* Dates */}
@@ -754,28 +703,15 @@ We look forward to welcoming ${allPetNames}! 🐾`
 
         {/* Financial */}
         <Section title="Financial Details">
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.625rem' }}>
-            <ERow label="Discount (JD)">
-              <input className="input" type="number" step="0.5" value={edit.discount}
-                onChange={e => {
-                  const v = e.target.value
-                  setEdit(p => ({ ...p, discount: v, total_amount: calcTotal({ ...p, discount: v }, lineItems) }))
-                }} />
-            </ERow>
-            <ERow label="Prepaid (JD)">
-              <input className="input" type="number" step="0.5" value={edit.prepaid_amount}
-                onChange={e => setEdit(p => ({ ...p, prepaid_amount: e.target.value }))} />
-            </ERow>
-            <ERow label="Transport Fee (JD)">
-              <input className="input" type="number" step="0.5" value={edit.transport_fee}
-                onChange={e => {
-                  const v = e.target.value
-                  setEdit(p => ({ ...p, transport_fee: v, total_amount: calcTotal({ ...p, transport_fee: v }, lineItems) }))
-                }} />
-            </ERow>
-          </div>
+          <ERow label="Discount (JD)">
+            <input className="input" type="number" step="0.5" value={edit.discount}
+              onChange={e => {
+                const v = e.target.value
+                setEdit(p => ({ ...p, discount: v, total_amount: calcTotal({ ...p, discount: v }, lineItems) }))
+              }} />
+          </ERow>
 
-          <div style={{ padding: '0.75rem', background: 'var(--light)', borderRadius: '0.5rem', marginTop: '0.25rem' }}>
+          <div style={{ padding: '0.75rem', background: 'var(--light)', borderRadius: '0.5rem', marginTop: '0.5rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', marginBottom: '0.3rem' }}>
               <span style={{ color: 'var(--muted)' }}>Calculated Total</span>
               <span style={{ fontWeight: '600' }}>JD {total.toFixed(2)}</span>
@@ -783,11 +719,6 @@ We look forward to welcoming ${allPetNames}! 🐾`
             {disc > 0 && (
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', marginBottom: '0.3rem', color: '#dc2626' }}>
                 <span>− Discount</span><span>JD {disc.toFixed(2)}</span>
-              </div>
-            )}
-            {pre > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', marginBottom: '0.3rem' }}>
-                <span style={{ color: 'var(--muted)' }}>− Prepaid</span><span>JD {pre.toFixed(2)}</span>
               </div>
             )}
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1rem', fontWeight: '700', borderTop: '1px solid var(--border)', paddingTop: '0.375rem', marginTop: '0.25rem' }}>
@@ -803,26 +734,6 @@ We look forward to welcoming ${allPetNames}! 🐾`
             placeholder="Special instructions, dietary needs, medical notes…"
             onChange={e => setEdit(p => ({ ...p, additional_comments: e.target.value }))}
             style={{ resize: 'vertical' }} />
-        </Section>
-
-        {/* Transport */}
-        <Section title="Transport">
-          <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '0.75rem' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', cursor: 'pointer' }}>
-              <input type="checkbox" checked={!!edit.pickup_required}
-                onChange={e => setEdit(p => ({ ...p, pickup_required: e.target.checked }))} />
-              Pickup Required
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', cursor: 'pointer' }}>
-              <input type="checkbox" checked={!!edit.dropoff_required}
-                onChange={e => setEdit(p => ({ ...p, dropoff_required: e.target.checked }))} />
-              Drop-off Required
-            </label>
-          </div>
-          <ERow label="Transport Notes">
-            <input className="input" value={edit.transport_notes} placeholder="Address, timing, special instructions…"
-              onChange={e => setEdit(p => ({ ...p, transport_notes: e.target.value }))} />
-          </ERow>
         </Section>
 
         {/* How heard */}
