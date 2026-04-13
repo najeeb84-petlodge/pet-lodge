@@ -140,22 +140,16 @@ function computeLineItems(serviceType, perPetForms, serviceOptions, prices, pets
       const transportCost = { round_trip: 30, pickup_only: 15, dropoff_only: 15, self: 0 }
       let transportAdded = false
       perPetForms.forEach(pf => {
-        if (pf.foodChoice === 'lodge_small') {
-          const a = 2 * nights
-          items.push({ label: `Food (small/cat) for ${pf.petName} × ${nights} nights`, amount: a, unit: 'service', unit_price: a, quantity: 1 })
-        }
-        if (pf.foodChoice === 'lodge_large') {
-          const a = 4 * nights
-          items.push({ label: `Food (medium/large) for ${pf.petName} × ${nights} nights`, amount: a, unit: 'service', unit_price: a, quantity: 1 })
-        }
+        if (pf.foodChoice === 'lodge_small') items.push({ label: `Food (small/cat) for ${pf.petName}`, amount: 2 * nights, unit: 'night', unit_price: 2, quantity: nights, num_pets: 1 })
+        if (pf.foodChoice === 'lodge_large') items.push({ label: `Food (medium/large) for ${pf.petName}`, amount: 4 * nights, unit: 'night', unit_price: 4, quantity: nights, num_pets: 1 })
         if (pf.fleaTick === 'lodge_applies') {
           const petType = petsData[pf.petIndex]?.type
           const a = petType === 'cat' ? 25 : 35
-          items.push({ label: `Flea & tick for ${pf.petName}`, amount: a, unit: 'service', unit_price: a, quantity: 1 })
+          items.push({ label: `Flea & tick for ${pf.petName}`, amount: a, unit: 'service', unit_price: a, quantity: 1, num_pets: 1 })
         }
         if (!transportAdded && pf.transport) {
           const tc = transportCost[pf.transport]
-          if (tc > 0) items.push({ label: `Transport (${TRANSPORT_OPTIONS.find(o => o.value === pf.transport)?.label})`, amount: tc, unit: 'service', unit_price: tc, quantity: 1 })
+          if (tc > 0) items.push({ label: `Transport (${TRANSPORT_OPTIONS.find(o => o.value === pf.transport)?.label})`, amount: tc, unit: 'service', unit_price: tc, quantity: 1, num_pets: 1 })
           transportAdded = true
         }
         if (pf.groomingPackageId) {
@@ -249,11 +243,11 @@ function computeLineItems(serviceType, perPetForms, serviceOptions, prices, pets
           }
         } else if (pf.selectionMode === 'standalone') {
           const petType = petsData[pf.petIndex]?.type
-          if (pf.standaloneAddOns?.includes('hair_trim')) items.push({ label: `Hair trim for ${pf.petName}`, amount: 20, unit: 'service', unit_price: 20, quantity: 1 })
-          if (pf.standaloneAddOns?.includes('nail_clip')) items.push({ label: `Nail clip for ${pf.petName}`, amount: 10, unit: 'service', unit_price: 10, quantity: 1 })
+          if (pf.standaloneAddOns?.includes('hair_trim')) items.push({ label: `Hair trim for ${pf.petName}`, amount: 20, unit: 'service', unit_price: 20, quantity: 1, num_pets: 1 })
+          if (pf.standaloneAddOns?.includes('nail_clip')) items.push({ label: `Nail clip for ${pf.petName}`, amount: 10, unit: 'service', unit_price: 10, quantity: 1, num_pets: 1 })
           if (pf.standaloneAddOns?.includes('bathing')) {
             const a = petType === 'cat' ? 15 : 10
-            items.push({ label: `Bathing for ${pf.petName}`, amount: a, unit: 'service', unit_price: a, quantity: 1 })
+            items.push({ label: `Bathing for ${pf.petName}`, amount: a, unit: 'service', unit_price: a, quantity: 1, num_pets: 1 })
           }
         }
       })
