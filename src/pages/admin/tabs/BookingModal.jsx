@@ -142,7 +142,15 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
     } else {
       setLineItems([{ id: null, name: '', price: 0, quantity: 1, unit: 'service' }])
     }
-    dbQuery('services', '?active=eq.true&select=id,name,price,category,unit&order=category,name').then(d => setAvailSvcs(Array.isArray(d) ? d : []))
+    dbQuery('services', '?active=eq.true&select=id,name,price,category,unit&order=category,name').then(d => {
+      const svcs = Array.isArray(d) ? d : []
+      setAvailSvcs(svcs)
+      setLineItems(prev => prev.map(li => {
+        if (li.id) return li
+        const match = svcs.find(s => li.name && li.name.toLowerCase().includes(s.name.toLowerCase()))
+        return match ? { ...li, id: match.id } : li
+      }))
+    })
     setMode('edit')
   }
 
@@ -487,11 +495,44 @@ We look forward to welcoming ${allPetNames}! 🐾`
         </Section>
 
         {/* Special Requests */}
-        {b.additional_comments && (
-          <Section title="⚠ Special Requests / Notes" amber>
-            <p style={{ fontSize: '0.875rem', color: '#92400e', lineHeight: '1.55', margin: 0 }}>{b.additional_comments}</p>
-          </Section>
-        )}
+        {(() => {
+          const allNotes = []
+          if (b.additional_comments) allNotes.push({ label: 'Notes', text: b.additional_comments })
+          if (b.special_food_req)    allNotes.push({ label: 'Food', text: b.special_food_req })
+          if (b.driver_comments)     allNotes.push({ label: 'Driver', text: b.driver_comments })
+          if (b.medication_notes)    allNotes.push({ label: 'Medication', text: b.medication_notes })
+          if (Array.isArray(b.pets_data)) {
+            b.pets_data.forEach(pet => {
+              if (pet?.medication_notes || pet?.medication) {
+                allNotes.push({ label: `Medication (${pet.name || 'pet'})`, text: pet.medication_notes || pet.medication })
+              }
+            })
+          }
+          const perPet = b.service_details?.perPet
+          if (Array.isArray(perPet)) {
+            perPet.forEach(pf => {
+              const n = pf.petName || 'pet'
+              if (pf.foodNotes)               allNotes.push({ label: `Food notes (${n})`, text: pf.foodNotes })
+              if (pf.walkerNotes)             allNotes.push({ label: `Walker notes (${n})`, text: pf.walkerNotes })
+              if (pf.trainingGoals)           allNotes.push({ label: `Training goals (${n})`, text: pf.trainingGoals })
+              if (pf.address_driver_comments) allNotes.push({ label: `Driver notes (${n})`, text: pf.address_driver_comments })
+            })
+          }
+          const sd = b.service_details
+          if (sd?.preferredSchedule) allNotes.push({ label: 'Preferred schedule', text: sd.preferredSchedule })
+          if (sd?.trainingGoals)     allNotes.push({ label: 'Training goals', text: sd.trainingGoals })
+          if (!allNotes.length) return null
+          return (
+            <Section title="⚠ Special Requests / Notes" amber>
+              {allNotes.map((n, i) => (
+                <div key={i} style={{ marginBottom: '0.4rem' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#92400e' }}>{n.label}: </span>
+                  <span style={{ fontSize: '0.875rem', color: '#92400e' }}>{n.text}</span>
+                </div>
+              ))}
+            </Section>
+          )
+        })()}
 
         {/* Transport (collapsible) */}
         {(b.pickup_required || b.dropoff_required || b.transport_notes || b.transport_fee > 0) && (
@@ -666,24 +707,13 @@ We look forward to welcoming ${allPetNames}! 🐾`
             <div key={idx} style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
               <div style={{ flex: 2, minWidth: '160px' }}>
                 <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--muted)', marginBottom: '0.2rem', fontWeight: '600' }}>Service</label>
-                {li.id ? (
-                  <select className="input" style={{ fontSize: '0.8rem' }} value={li.id}
-                    onChange={e => onSvcSelect(idx, e.target.value)}>
-                    <option value="">— Select service —</option>
-                    {availSvcs.map(s => (
-                      <option key={s.id} value={s.id}>{s.name} — JD {parseFloat(s.price || 0).toFixed(2)}/{s.unit || 'day'}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <div style={{ display: 'flex', gap: '0.375rem' }}>
-                    <input className="input" style={{ fontSize: '0.8rem', flex: 1 }}
-                      value={li.name}
-                      onChange={e => {
-                        const updated = lineItems.map((l, i) => i === idx ? { ...l, name: e.target.value } : l)
-                        setLineItems(updated)
-                      }} />
-                  </div>
-                )}
+                <select className="input" style={{ fontSize: '0.8rem' }} value={li.id || ''}
+                  onChange={e => onSvcSelect(idx, e.target.value)}>
+                  <option value="">{li.name || '— Select service —'}</option>
+                  {availSvcs.map(s => (
+                    <option key={s.id} value={s.id}>{s.name} — JD {parseFloat(s.price || 0).toFixed(2)}/{s.unit || 'day'}</option>
+                  ))}
+                </select>
               </div>
               <div style={{ width: '75px' }}>
                 <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--muted)', marginBottom: '0.2rem', fontWeight: '600' }}>Unit Price</label>

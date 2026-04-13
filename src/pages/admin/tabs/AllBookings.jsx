@@ -51,18 +51,46 @@ function NoteField({ label, text }) {
   )
 }
 
+function extractAllNotes(b) {
+  const notes = []
+
+  if (b.additional_comments) notes.push({ label: 'Notes',      text: b.additional_comments })
+  if (b.special_food_req)    notes.push({ label: 'Food',       text: b.special_food_req })
+  if (b.driver_comments)     notes.push({ label: 'Driver',     text: b.driver_comments })
+  if (b.medication_notes)    notes.push({ label: 'Medication', text: b.medication_notes })
+
+  if (Array.isArray(b.pets_data)) {
+    b.pets_data.forEach(pet => {
+      if (pet?.medication_notes || pet?.medication) {
+        notes.push({ label: `Medication (${pet.name || 'pet'})`, text: pet.medication_notes || pet.medication })
+      }
+    })
+  }
+
+  const perPet = b.service_details?.perPet
+  if (Array.isArray(perPet)) {
+    perPet.forEach(pf => {
+      const petName = pf.petName || 'pet'
+      if (pf.foodNotes)               notes.push({ label: `Food notes (${petName})`,    text: pf.foodNotes })
+      if (pf.walkerNotes)             notes.push({ label: `Walker notes (${petName})`,  text: pf.walkerNotes })
+      if (pf.trainingGoals)           notes.push({ label: `Training goals (${petName})`, text: pf.trainingGoals })
+      if (pf.address_driver_comments) notes.push({ label: `Driver notes (${petName})`,  text: pf.address_driver_comments })
+    })
+  }
+
+  const sd = b.service_details
+  if (sd?.preferredSchedule) notes.push({ label: 'Preferred schedule', text: sd.preferredSchedule })
+  if (sd?.trainingGoals)     notes.push({ label: 'Training goals',     text: sd.trainingGoals })
+
+  return notes
+}
+
 function Comments({ b }) {
-  const fields = [
-    { key: 'special_food_req',    label: 'Food'       },
-    { key: 'additional_comments', label: 'Notes'      },
-    { key: 'driver_comments',     label: 'Driver'     },
-    { key: 'medication_notes',    label: 'Medication' },
-  ]
-  const lines = fields.filter(f => b[f.key])
-  if (!lines.length) return null
+  const notes = extractAllNotes(b)
+  if (!notes.length) return null
   return (
     <div>
-      {lines.map(f => <NoteField key={f.key} label={f.label} text={b[f.key]} />)}
+      {notes.map((n, i) => <NoteField key={i} label={n.label} text={n.text} />)}
     </div>
   )
 }
