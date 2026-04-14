@@ -59,9 +59,10 @@ function BookingCard({ b, onClick }) {
       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
     </svg>
   )
-  const WhistleSVG = () => (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ea580c" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 12h18M12 3v18"/>
+  const GradCapSVG = () => (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#0d9488" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+      <path d="M6 12v5c3 3 9 3 12 0v-5"/>
     </svg>
   )
 
@@ -75,10 +76,10 @@ function BookingCard({ b, onClick }) {
       <p className="truncate" style={{ color: cfg.color, fontWeight: 500 }}>{ownerFirst}</p>
       <div className="flex items-center gap-1 mt-0.5 flex-wrap">
         {hasDog && (
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="#b45309"><path d="M4.5 11c0-1.5.8-2.8 2-3.5V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v1.5c1.2.7 2 2 2 3.5v4a2 2 0 0 1-2 2H6.5a2 2 0 0 1-2-2v-4zm3 2a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm5 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="#b45309"><path d="M4.5 11c0-1.5.8-2.8 2-3.5V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v1.5c1.2.7 2 2 2 3.5v4a2 2 0 0 1-2 2H6.5a2 2 0 0 1-2-2v-4zm3 2a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm5 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/></svg>
         )}
         {hasCat && (
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="#475569"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-1 14.5H9v-2h2v2zm4 0h-2v-2h2v2zm1.5-5c0 .8-.7 1.5-1.5 1.5h-5c-.8 0-1.5-.7-1.5-1.5V9c0-.8.7-1.5 1.5-1.5h5c.8 0 1.5.7 1.5 1.5v2.5z"/></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="#475569"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-1 14.5H9v-2h2v2zm4 0h-2v-2h2v2zm1.5-5c0 .8-.7 1.5-1.5 1.5h-5c-.8 0-1.5-.7-1.5-1.5V9c0-.8.7-1.5 1.5-1.5h5c.8 0 1.5.7 1.5 1.5v2.5z"/></svg>
         )}
         {numPets > 1 && <span style={{ color: 'var(--muted)', fontSize: '0.6rem', fontWeight: 600 }}>×{numPets}</span>}
         {transport === 'round_trip'   && <IconBadge title="Round trip"  color="#2563eb" bg="#eff6ff" border="#bfdbfe"><CarSVG color="#2563eb"/> RT</IconBadge>}
@@ -86,7 +87,7 @@ function BookingCard({ b, onClick }) {
         {transport === 'dropoff_only' && <IconBadge title="Drop off"    color="#dc2626" bg="#fef2f2" border="#fecaca"><CarSVG color="#dc2626"/> DO</IconBadge>}
         {hasGrooming  && <IconBadge title="Grooming/bathing" color="#7c3aed" bg="#faf5ff" border="#e9d5ff"><ScissorsSVG/></IconBadge>}
         {hasFleaTick  && <IconBadge title="Flea & tick"      color="#db2777" bg="#fdf2f8" border="#fbcfe8"><ShieldSVG/></IconBadge>}
-        {hasTraining  && <IconBadge title="Training"         color="#ea580c" bg="#fff7ed" border="#fed7aa"><WhistleSVG/></IconBadge>}
+        {hasTraining  && <IconBadge title="Training"         color="#0d9488" bg="#f0fdfa" border="#99f6e4"><GradCapSVG/></IconBadge>}
       </div>
     </div>
   )
@@ -227,22 +228,73 @@ export default function WeeklyCalendar() {
 
         {/* Row 2: Service icons */}
         <div className="flex flex-wrap gap-2">
-          {[
-            { label: 'Round trip',       color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe' },
-            { label: 'Pick up only',     color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
-            { label: 'Drop off only',    color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
-            { label: 'Grooming / bathing', color: '#7c3aed', bg: '#faf5ff', border: '#e9d5ff' },
-            { label: 'Flea & tick',      color: '#db2777', bg: '#fdf2f8', border: '#fbcfe8' },
-            { label: 'Training',         color: '#ea580c', bg: '#fff7ed', border: '#fed7aa' },
-            { label: 'Dog',              color: '#b45309', bg: '#fffbeb', border: '#fde68a' },
-            { label: 'Cat',              color: '#475569', bg: '#f8fafc', border: '#cbd5e1' },
-          ].map(item => (
-            <div key={item.label} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
-              style={{ background: item.bg, border: `1px solid ${item.border}`, color: item.color }}>
-              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: item.color }}/>
-              {item.label}
-            </div>
-          ))}
+          {/* Round trip — blue car */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
+            style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#2563eb' }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 17H3a2 2 0 0 1-2-2V9l3-5h12l3 5v6a2 2 0 0 1-2 2h-2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/>
+            </svg>
+            Round trip
+          </div>
+          {/* Pick up — green car */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
+            style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#16a34a' }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 17H3a2 2 0 0 1-2-2V9l3-5h12l3 5v6a2 2 0 0 1-2 2h-2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/>
+            </svg>
+            Pick up only
+          </div>
+          {/* Drop off — red car */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
+            style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626' }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 17H3a2 2 0 0 1-2-2V9l3-5h12l3 5v6a2 2 0 0 1-2 2h-2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/>
+            </svg>
+            Drop off only
+          </div>
+          {/* Grooming — purple scissors */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
+            style={{ background: '#faf5ff', border: '1px solid #e9d5ff', color: '#7c3aed' }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/>
+              <line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/>
+              <line x1="8.12" y1="8.12" x2="12" y2="12"/>
+            </svg>
+            Grooming / bathing
+          </div>
+          {/* Flea & tick — pink shield */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
+            style={{ background: '#fdf2f8', border: '1px solid #fbcfe8', color: '#db2777' }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#db2777" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+            Flea &amp; tick
+          </div>
+          {/* Training — teal grad cap */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
+            style={{ background: '#f0fdfa', border: '1px solid #99f6e4', color: '#0d9488' }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0d9488" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+              <path d="M6 12v5c3 3 9 3 12 0v-5"/>
+            </svg>
+            Training
+          </div>
+          {/* Dog */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
+            style={{ background: '#fffbeb', border: '1px solid #fde68a', color: '#b45309' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="#b45309">
+              <path d="M4.5 11c0-1.5.8-2.8 2-3.5V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v1.5c1.2.7 2 2 2 3.5v4a2 2 0 0 1-2 2H6.5a2 2 0 0 1-2-2v-4zm3 2a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm5 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/>
+            </svg>
+            Dog
+          </div>
+          {/* Cat */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
+            style={{ background: '#f8fafc', border: '1px solid #cbd5e1', color: '#475569' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="#475569">
+              <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-1 14.5H9v-2h2v2zm4 0h-2v-2h2v2zm1.5-5c0 .8-.7 1.5-1.5 1.5h-5c-.8 0-1.5-.7-1.5-1.5V9c0-.8.7-1.5 1.5-1.5h5c.8 0 1.5.7 1.5 1.5v2.5z"/>
+            </svg>
+            Cat
+          </div>
         </div>
       </div>
 
