@@ -42,7 +42,7 @@ function defaultBoardingPet(pet, idx) {
   return {
     petIndex: idx, petName: pet.name || `Pet ${idx + 1}`,
     foodChoice: 'owner_provided', foodNotes: '',
-    fleaTick: '', groomingAddOns: [],
+    fleaTick: 'lodge_applies', groomingAddOns: [],
     groomingPackageId: null,
     groomingAddOns: [],
     trainingSessions: 0,
@@ -57,7 +57,7 @@ function defaultBoardingPet(pet, idx) {
 function defaultDayCampPet(pet, idx) {
   return {
     petIndex: idx, petName: pet.name || `Pet ${idx + 1}`,
-    packageId: '', packagePrice: 0, preferredDays: [], fleaTick: '', transportConfirmed: true,
+    packageId: '', packagePrice: 0, preferredDays: [], fleaTick: 'lodge_applies', transportConfirmed: true,
     transport: '',
     groomingPackageId: null,
     groomingAddOns: [],
@@ -640,7 +640,10 @@ const FLEA_TICK_OPTIONS = [
 function FleaTickSection({ value, onChange, error }) {
   return (
     <div className="mt-5">
-      <SectionHeading>Flea &amp; Tick Protection (required)</SectionHeading>
+      <SectionHeading>Flea &amp; Tick Protection <span className="text-red-500">*</span></SectionHeading>
+      <p className="text-xs mb-2" style={{ color: 'var(--muted)' }}>
+        Mandatory for the safety and health of all pets in our care.
+      </p>
       <RadioGroup name="flea_tick" options={FLEA_TICK_OPTIONS} value={value} onChange={onChange} error={error} />
     </div>
   )
@@ -695,6 +698,9 @@ function BoardingGroomingSection({ form, onChange, prices, petsData, petIndex })
             <span className="text-sm" style={{ color: 'var(--text)' }}>{item.label}</span>
           </label>
         ))}
+        <p className="text-xs mt-1.5 italic" style={{ color: '#5a7a2e' }}>
+          Freshly bathed dogs get more cuddles. Fact. 🛁
+        </p>
       </div>
     </div>
   )
@@ -1321,6 +1327,22 @@ export default function Step4ServiceOptions() {
       .catch(() => {})
       .finally(() => setLoadingPrices(false))
   }, [])
+
+  // Auto-select bathing for stays > 3 nights
+  useEffect(() => {
+    if (serviceType !== 'boarding') return
+    if (!prices.grooming_addon?.length) return
+    const nights = (serviceOptions?.startDate && serviceOptions?.endDate)
+      ? Math.max(1, differenceInDays(parseISO(serviceOptions.endDate), parseISO(serviceOptions.startDate)))
+      : 0
+    if (nights <= 3) return
+    const bathingItem = prices.grooming_addon.find(p => p.name.toLowerCase().includes('bath'))
+    if (!bathingItem) return
+    setPerPetForms(prev => prev.map(pf => {
+      if ((pf.groomingAddOns || []).includes(bathingItem.id)) return pf
+      return { ...pf, groomingAddOns: [...(pf.groomingAddOns || []), bathingItem.id] }
+    }))
+  }, [prices.grooming_addon])
 
   // Pre-fill address from profile (per-pet services)
   useEffect(() => {
