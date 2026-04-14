@@ -17,25 +17,53 @@ function getTransportIcon(b) {
   return transport // 'round_trip' | 'pickup_only' | 'dropoff_only'
 }
 
-function hasGrooming(b) {
-  const li = b.service_details?.line_items
-  if (!Array.isArray(li)) return false
-  return li.some(i => i.label?.toLowerCase().includes('bath') || i.label?.toLowerCase().includes('groom'))
+function IconBadge({ title, color, bg, border, children }) {
+  return (
+    <span title={title} style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', background: bg, border: `1px solid ${border}`, borderRadius: '4px', padding: '1px 4px', color, fontSize: '0.6rem', fontWeight: 700 }}>
+      {children}
+    </span>
+  )
 }
 
 function BookingCard({ b, onClick }) {
   const petNames = Array.isArray(b.pets_data)
     ? b.pets_data.map(p => p?.name).filter(Boolean).join(', ')
     : (b.pet_names || []).join(', ') || '—'
-
   const ownerFirst = b.customer_first_name || '—'
   const numPets    = b.num_pets || (Array.isArray(b.pets_data) ? b.pets_data.length : 1)
   const types      = Array.isArray(b.pets_data) ? b.pets_data.map(p => p?.type?.toLowerCase()) : []
   const hasDog     = types.includes('dog')
   const hasCat     = types.includes('cat')
   const transport  = getTransportIcon(b)
-  const grooming   = hasGrooming(b)
-  const cfg        = DAY_TYPE[b.dayType]
+  const li         = b.service_details?.line_items || []
+  const hasGrooming  = li.some(i => i.label?.toLowerCase().includes('groom') || i.label?.toLowerCase().includes('bath'))
+  const hasFleaTick  = li.some(i => i.label?.toLowerCase().includes('flea'))
+  const hasTraining  = li.some(i => i.label?.toLowerCase().includes('train') || i.label?.toLowerCase().includes('session'))
+  const cfg = DAY_TYPE[b.dayType]
+
+  const CarSVG = ({ color }) => (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 17H3a2 2 0 0 1-2-2V9l3-5h12l3 5v6a2 2 0 0 1-2 2h-2"/>
+      <circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/>
+    </svg>
+  )
+  const ScissorsSVG = () => (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/>
+      <line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/>
+      <line x1="8.12" y1="8.12" x2="12" y2="12"/>
+    </svg>
+  )
+  const ShieldSVG = () => (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#db2777" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+    </svg>
+  )
+  const WhistleSVG = () => (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ea580c" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 12h18M12 3v18"/>
+    </svg>
+  )
 
   return (
     <div
@@ -45,16 +73,20 @@ function BookingCard({ b, onClick }) {
     >
       <p className="font-semibold truncate" style={{ color: 'var(--text)' }}>{petNames}</p>
       <p className="truncate" style={{ color: cfg.color, fontWeight: 500 }}>{ownerFirst}</p>
-      <div className="flex items-center gap-0.5 mt-0.5 flex-wrap">
-        {hasDog && <span title="Dog">🐕</span>}
-        {hasCat && <span title="Cat">🐈</span>}
-        {numPets > 1 && (
-          <span className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>×{numPets}</span>
+      <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+        {hasDog && (
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="#b45309"><path d="M4.5 11c0-1.5.8-2.8 2-3.5V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v1.5c1.2.7 2 2 2 3.5v4a2 2 0 0 1-2 2H6.5a2 2 0 0 1-2-2v-4zm3 2a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm5 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/></svg>
         )}
-        {transport === 'round_trip'   && <span title="Round trip" style={{ color: '#2563eb', fontSize: '0.65rem', fontWeight: 700, background: '#eff6ff', padding: '0 3px', borderRadius: 3 }}>RT</span>}
-        {transport === 'pickup_only'  && <span title="Pick up"   style={{ color: '#16a34a', fontSize: '0.65rem', fontWeight: 700, background: '#f0fdf4', padding: '0 3px', borderRadius: 3 }}>PU</span>}
-        {transport === 'dropoff_only' && <span title="Drop off"  style={{ color: '#dc2626', fontSize: '0.65rem', fontWeight: 700, background: '#fef2f2', padding: '0 3px', borderRadius: 3 }}>DO</span>}
-        {grooming && <span title="Grooming" style={{ color: '#7c3aed', fontSize: '0.65rem', fontWeight: 700, background: '#faf5ff', padding: '0 3px', borderRadius: 3 }}>GR</span>}
+        {hasCat && (
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="#475569"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-1 14.5H9v-2h2v2zm4 0h-2v-2h2v2zm1.5-5c0 .8-.7 1.5-1.5 1.5h-5c-.8 0-1.5-.7-1.5-1.5V9c0-.8.7-1.5 1.5-1.5h5c.8 0 1.5.7 1.5 1.5v2.5z"/></svg>
+        )}
+        {numPets > 1 && <span style={{ color: 'var(--muted)', fontSize: '0.6rem', fontWeight: 600 }}>×{numPets}</span>}
+        {transport === 'round_trip'   && <IconBadge title="Round trip"  color="#2563eb" bg="#eff6ff" border="#bfdbfe"><CarSVG color="#2563eb"/> RT</IconBadge>}
+        {transport === 'pickup_only'  && <IconBadge title="Pick up"     color="#16a34a" bg="#f0fdf4" border="#bbf7d0"><CarSVG color="#16a34a"/> PU</IconBadge>}
+        {transport === 'dropoff_only' && <IconBadge title="Drop off"    color="#dc2626" bg="#fef2f2" border="#fecaca"><CarSVG color="#dc2626"/> DO</IconBadge>}
+        {hasGrooming  && <IconBadge title="Grooming/bathing" color="#7c3aed" bg="#faf5ff" border="#e9d5ff"><ScissorsSVG/></IconBadge>}
+        {hasFleaTick  && <IconBadge title="Flea & tick"      color="#db2777" bg="#fdf2f8" border="#fbcfe8"><ShieldSVG/></IconBadge>}
+        {hasTraining  && <IconBadge title="Training"         color="#ea580c" bg="#fff7ed" border="#fed7aa"><WhistleSVG/></IconBadge>}
       </div>
     </div>
   )
@@ -195,62 +227,22 @@ export default function WeeklyCalendar() {
 
         {/* Row 2: Service icons */}
         <div className="flex flex-wrap gap-2">
-          {/* Round trip — blue */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
-            style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#2563eb' }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v5"/><circle cx="16" cy="17" r="2"/><circle cx="7" cy="17" r="2"/>
-              <path d="M14 17H9"/>
-            </svg>
-            Round trip
-          </div>
-
-          {/* Pick up — green */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
-            style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#16a34a' }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v5"/><circle cx="16" cy="17" r="2"/><circle cx="7" cy="17" r="2"/>
-              <path d="M14 17H9"/>
-            </svg>
-            Pick up only
-          </div>
-
-          {/* Drop off — red */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
-            style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626' }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v5"/><circle cx="16" cy="17" r="2"/><circle cx="7" cy="17" r="2"/>
-              <path d="M14 17H9"/>
-            </svg>
-            Drop off only
-          </div>
-
-          {/* Grooming — purple */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
-            style={{ background: '#faf5ff', border: '1px solid #e9d5ff', color: '#7c3aed' }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 6 6.5 3.5a1.5 1.5 0 0 0-1-.5C4 3 2 5 2 5s2 2 3 1.5c.5-.25.75-.75 1-1L9 8m4.5 4.5L21 21m-7-3 3.75-3.75a2.5 2.5 0 0 0-3.54-3.54L10.5 14"/><path d="m14.5 11.5 2-2"/>
-            </svg>
-            Grooming / bathing
-          </div>
-
-          {/* Dog — amber */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
-            style={{ background: '#fffbeb', border: '1px solid #fde68a', color: '#b45309' }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M4.5 11c0-1.5.8-2.8 2-3.5V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v1.5c1.2.7 2 2 2 3.5v4a2 2 0 0 1-2 2H6.5a2 2 0 0 1-2-2v-4zm3 2a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm5 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/>
-            </svg>
-            Dog
-          </div>
-
-          {/* Cat — slate */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
-            style={{ background: '#f8fafc', border: '1px solid #cbd5e1', color: '#475569' }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-1 14.5H9v-2h2v2zm4 0h-2v-2h2v2zm1.5-5c0 .8-.7 1.5-1.5 1.5h-5c-.8 0-1.5-.7-1.5-1.5V9c0-.8.7-1.5 1.5-1.5h5c.8 0 1.5.7 1.5 1.5v2.5z"/>
-            </svg>
-            Cat
-          </div>
+          {[
+            { label: 'Round trip',       color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe' },
+            { label: 'Pick up only',     color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
+            { label: 'Drop off only',    color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
+            { label: 'Grooming / bathing', color: '#7c3aed', bg: '#faf5ff', border: '#e9d5ff' },
+            { label: 'Flea & tick',      color: '#db2777', bg: '#fdf2f8', border: '#fbcfe8' },
+            { label: 'Training',         color: '#ea580c', bg: '#fff7ed', border: '#fed7aa' },
+            { label: 'Dog',              color: '#b45309', bg: '#fffbeb', border: '#fde68a' },
+            { label: 'Cat',              color: '#475569', bg: '#f8fafc', border: '#cbd5e1' },
+          ].map(item => (
+            <div key={item.label} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
+              style={{ background: item.bg, border: `1px solid ${item.border}`, color: item.color }}>
+              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: item.color }}/>
+              {item.label}
+            </div>
+          ))}
         </div>
       </div>
 
