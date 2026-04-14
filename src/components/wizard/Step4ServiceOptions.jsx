@@ -651,7 +651,7 @@ function FleaTickSection({ value, onChange, error }) {
 
 // ── Per-service panels ────────────────────────────────────────────────────────
 
-function BoardingGroomingSection({ form, onChange, prices, petsData, petIndex }) {
+function BoardingGroomingSection({ form, onChange, prices, petsData, petIndex, nights = 0 }) {
   const petType = (petsData[petIndex]?.type || '').toLowerCase()
 
   const allPkgs = (prices.grooming_addon || []).filter(p => p.name.toLowerCase().includes('package'))
@@ -701,6 +701,11 @@ function BoardingGroomingSection({ form, onChange, prices, petsData, petIndex })
         <p className="text-xs mt-1.5 italic" style={{ color: '#5a7a2e' }}>
           Freshly bathed dogs get more cuddles. Fact. 🛁
         </p>
+        {nights > 3 && (
+          <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
+            Bathing is recommended for stays over 3 nights and has been pre-selected for you.
+          </p>
+        )}
       </div>
     </div>
   )
@@ -726,7 +731,7 @@ function BoardingTrainingSection({ form, onChange, prices, petsData, petIndex })
       {open && (
         <div className="mt-3 space-y-3">
           <InfoNote>
-            The number of sessions varies by dog and behaviour — a free assessment will determine the exact amount. Our team will contact you to arrange.
+            Free assessment included. Your dog's ego is not. Our team will contact you to arrange the right number of sessions.
           </InfoNote>
           <div className="flex items-center gap-3">
             <button type="button"
@@ -760,7 +765,7 @@ function BoardingTrainingSection({ form, onChange, prices, petsData, petIndex })
   )
 }
 
-function BoardingOptions({ form, onChange, petsData, prices, errors, profileHasAddress }) {
+function BoardingOptions({ form, onChange, petsData, prices, errors, profileHasAddress, nights = 0 }) {
   const petType = (petsData[form.petIndex]?.type || '').toLowerCase()
 
   // For cats, hide the large-dog food option
@@ -807,7 +812,7 @@ function BoardingOptions({ form, onChange, petsData, prices, errors, profileHasA
         showDriverComments={true}
         transport={form.transport || ''} />
 
-      <BoardingGroomingSection form={form} onChange={onChange} prices={prices} petsData={petsData} petIndex={form.petIndex} />
+      <BoardingGroomingSection form={form} onChange={onChange} prices={prices} petsData={petsData} petIndex={form.petIndex} nights={nights} />
       <BoardingTrainingSection form={form} onChange={onChange} prices={prices} petsData={petsData} petIndex={form.petIndex} />
     </div>
   )
@@ -863,7 +868,7 @@ function DayCampOptions({ form, onChange, prices, petsData, errors, profileHasAd
         infoNote="Pick-up & drop-off is complimentary for Day Camp"
         radioName={`daycamp-delivery-${form.petIndex}`} />
 
-      <BoardingGroomingSection form={form} onChange={onChange} prices={prices} petsData={petsData} petIndex={form.petIndex} />
+      <BoardingGroomingSection form={form} onChange={onChange} prices={prices} petsData={petsData} petIndex={form.petIndex} nights={nights} />
       <BoardingTrainingSection form={form} onChange={onChange} prices={prices} petsData={petsData} petIndex={form.petIndex} />
     </div>
   )
@@ -1103,8 +1108,7 @@ function TrainingOptions({ form, onChange, errors, profileHasAddress }) {
   return (
     <div>
       <InfoNote>
-        The number of sessions varies by dog and behaviour — a free assessment will determine the exact amount.
-        Our team will contact you to arrange.
+        Free assessment included. Your dog's ego is not. Our team will contact you to arrange the right number of sessions.
       </InfoNote>
 
       <div className="mt-5" data-error={errors?.sessionCount ? 'true' : undefined}>
@@ -1477,8 +1481,11 @@ export default function Step4ServiceOptions() {
   const renderPerPetPanel = (pf, idx) => {
     const petErr = errors?.perPet?.[idx] || {}
     const props  = { form: pf, onChange: patch => updatePetForm(idx, patch), prices, petsData: safePets, errors: petErr, profileHasAddress }
+    const nights = (serviceOptions?.startDate && serviceOptions?.endDate)
+      ? Math.max(1, differenceInDays(parseISO(serviceOptions.endDate), parseISO(serviceOptions.startDate)))
+      : 0
     switch (serviceType) {
-      case 'boarding':    return <BoardingOptions {...props} />
+      case 'boarding':    return <BoardingOptions {...props} nights={nights} />
       case 'day_camp':    return <DayCampOptions {...props} serviceOptions={serviceOptions} setServiceOptions={setServiceOptions} />
       case 'dog_walking': return <DogWalkingOptions {...props} />
       case 'grooming':    return <GroomingOptions {...props} groomingDogSize={groomingDogSize} />
