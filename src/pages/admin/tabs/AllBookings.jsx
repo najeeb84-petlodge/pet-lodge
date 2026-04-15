@@ -105,24 +105,43 @@ export default function AllBookings({ isSuperAdmin }) {
   const [dateFrom, setDateFrom]       = useState('')
   const [dateTo, setDateTo]           = useState('')
   const [selected, setSelected]       = useState(null)
-  const [stats, setStats]             = useState({ total:0, pending:0, revenue:0, modRequests:0 })
+  const [stats, setStats]             = useState({ total: 0, pending: 0, cashReceived: 0, expectedThisMonth: 0, modRequests: 0 })
 
   async function fetchAll() {
     setLoading(true)
     try {
+      const now = new Date()
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
+      const monthEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10)
+
       const [allBookings, pendingBookings, payments, mods] = await Promise.all([
         dbQuery('bookings', '?select=*&order=created_at.desc'),
         dbQuery('bookings', '?status=eq.pending&select=id'),
-        dbQuery('payments', '?status=eq.paid&select=amount'),
+        dbQuery('payments', `?status=eq.paid&created_at=gte.${monthStart}&created_at=lte.${monthEnd}T23:59:59&select=amount`),
         dbQuery('modification_requests', '?status=eq.pending&select=id'),
       ])
-      setBookings(Array.isArray(allBookings) ? allBookings : [])
-      const revenue = Array.isArray(payments) ? payments.reduce((s,p) => s+(p.amount||0), 0) : 0
+
+      const allB = Array.isArray(allBookings) ? allBookings : []
+      setBookings(allB)
+
+      const cashReceived = Array.isArray(payments)
+        ? payments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0)
+        : 0
+
+      const expectedThisMonth = allB
+        .filter(b => {
+          if (b.status === 'cancelled') return false
+          const serviceEnd = b.service_type === 'day_camp' ? b.start_date : b.end_date
+          return serviceEnd >= monthStart && serviceEnd <= monthEnd
+        })
+        .reduce((s, b) => s + (parseFloat(b.total_amount) || 0), 0)
+
       setStats({
-        total: Array.isArray(allBookings) ? allBookings.length : 0,
-        pending: Array.isArray(pendingBookings) ? pendingBookings.length : 0,
-        revenue,
-        modRequests: Array.isArray(mods) ? mods.length : 0,
+        total:             allB.length,
+        pending:           Array.isArray(pendingBookings) ? pendingBookings.length : 0,
+        cashReceived,
+        expectedThisMonth,
+        modRequests:       Array.isArray(mods) ? mods.length : 0,
       })
     } catch(e) { console.error(e) }
     setLoading(false)
@@ -175,15 +194,22 @@ export default function AllBookings({ isSuperAdmin }) {
       {/* Stats */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))', gap:'0.75rem', marginBottom:'1.5rem' }}>
         {[
-          { label:'Total Bookings',       value:stats.total,   icon:'📅' },
-          { label:'Pending Bookings',     value:stats.pending, icon:'🐾' },
-          ...(isSuperAdmin ? [{ label:'Monthly Revenue', value:`JD ${stats.revenue.toFixed(2)}`, icon:'$' }] : []),
+          { label:'Total Bookings',   value:stats.total,   icon:'📅' },
+          { label:'Pending Bookings', value:stats.pending, icon:'🐾' },
+          ...(isSuperAdmin ? [
+            { label:'Cash Received This Month', value:`JD ${stats.cashReceived.toFixed(2)}`,     icon:'💵', green:true },
+            { label:'Expected This Month',      value:`JD ${stats.expectedThisMonth.toFixed(2)}`, icon:'📈', blue:true },
+          ] : []),
           { label:'Modification Requests', value:stats.modRequests, icon:'🔔', orange:true },
         ].map(s => (
-          <div key={s.label} className="card" style={{ display:'flex', alignItems:'center', justifyContent:'space-between', border: s.orange ? '1px solid #fed7aa' : '1px solid var(--border)', background: s.orange ? '#fff7ed' : 'white' }}>
+          <div key={s.label} className="card" style={{
+            display:'flex', alignItems:'center', justifyContent:'space-between',
+            border: s.orange ? '1px solid #fed7aa' : s.green ? '1px solid #bbf7d0' : s.blue ? '1px solid #bfdbfe' : '1px solid var(--border)',
+            background: s.orange ? '#fff7ed' : s.green ? '#f0fdf4' : s.blue ? '#eff6ff' : 'white',
+          }}>
             <div>
               <p style={{ fontSize:'0.75rem', color:'var(--muted)', marginBottom:'0.25rem' }}>{s.label}</p>
-              <p style={{ fontSize:'1.5rem', fontWeight:'700', color: s.orange ? '#ea580c' : 'var(--text)' }}>{s.value}</p>
+              <p style={{ fontSize:'1.5rem', fontWeight:'700', color: s.orange ? '#ea580c' : s.green ? '#16a34a' : s.blue ? '#2563eb' : 'var(--text)' }}>{s.value}</p>
             </div>
             <span style={{ fontSize:'1.5rem', opacity:0.5 }}>{s.icon}</span>
           </div>
