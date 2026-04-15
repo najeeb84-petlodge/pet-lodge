@@ -114,18 +114,30 @@ export default function AllBookings({ isSuperAdmin }) {
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
       const monthEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10)
 
-      const [allBookings, pendingBookings, payments, mods] = await Promise.all([
+      const [allBookings, pendingBookings, monthPayments, mods, allPayments] = await Promise.all([
         dbQuery('bookings', '?select=*&order=created_at.desc'),
         dbQuery('bookings', '?status=eq.pending&select=id'),
-        dbQuery('payments', `?status=eq.paid&created_at=gte.${monthStart}&created_at=lte.${monthEnd}T23:59:59&select=amount`),
+        dbQuery('payments', `?created_at=gte.${monthStart}&created_at=lte.${monthEnd}T23:59:59&select=amount`),
         dbQuery('modification_requests', '?status=eq.pending&select=id'),
+        dbQuery('payments', '?select=booking_id,amount'),
       ])
 
-      const allB = Array.isArray(allBookings) ? allBookings : []
+      // build per-booking paid totals
+      const paidMap = {}
+      if (Array.isArray(allPayments)) {
+        allPayments.forEach(p => {
+          paidMap[p.booking_id] = (paidMap[p.booking_id] || 0) + (parseFloat(p.amount) || 0)
+        })
+      }
+
+      const allB = (Array.isArray(allBookings) ? allBookings : []).map(b => ({
+        ...b,
+        total_paid: paidMap[b.id] || 0,
+      }))
       setBookings(allB)
 
-      const cashReceived = Array.isArray(payments)
-        ? payments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0)
+      const cashReceived = Array.isArray(monthPayments)
+        ? monthPayments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0)
         : 0
 
       const expectedThisMonth = allB
@@ -261,47 +273,65 @@ export default function AllBookings({ isSuperAdmin }) {
         ) : filtered.length === 0 ? (
           <div style={{ textAlign:'center', padding:'4rem', color:'var(--muted)' }}>No bookings found</div>
         ) : filtered.map((b, i) => (
-          <div key={b.id} style={{ padding:'1rem', display:'flex', flexWrap:'wrap', gap:'1rem', alignItems:'flex-start', borderBottom: i < filtered.length-1 ? '1px solid var(--border)' : 'none' }}>
+          <div key={b.id} style={{
+            padding: '0.875rem 1rem',
+            display: 'grid',
+            gridTemplateColumns: '2fr 1.3fr 1fr 1.8fr 1fr auto',
+            gap: '0.75rem',
+            alignItems: 'start',
+            borderBottom: i < filtered.length - 1 ? '1px solid var(--border)' : 'none',
+          }}>
 
-            {/* Customer */}
-            <div style={{ flex:'1', minWidth:'160px' }}>
-              <p style={{ fontWeight:'600', fontSize:'0.9rem' }}>{ownerName(b)} <span style={{ fontWeight:'400', color:'var(--muted)' }}>— {b.pets_data?.[0]?.name||'—'}</span></p>
-              <p style={{ fontSize:'0.75rem', color:'var(--muted)' }}>{b.customer_email}</p>
-              <p style={{ fontSize:'0.75rem', color:'var(--muted)' }}>{b.customer_phone}</p>
-              <p style={{ fontSize:'0.75rem', color:'var(--muted)' }}>ID: {b.booking_ref || b.id?.slice(0,8)}</p>
+            {/* Col 1: Customer */}
+            <div style={{ minWidth: 0 }}>
+              <p style={{ fontWeight: '600', fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {ownerName(b)} <span style={{ fontWeight: '400', color: 'var(--muted)' }}>— {b.pets_data?.[0]?.name || '—'}</span>
+              </p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.customer_email}</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{b.customer_phone}</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>ID: {b.booking_ref || b.id?.slice(0, 8)}</p>
             </div>
 
-            {/* Dates */}
-            <div style={{ fontSize:'0.875rem', color:'var(--text)', minWidth:'130px' }}>
-              {b.start_date && <p>{format(new Date(b.start_date),'EEE, MMM d, yyyy')}</p>}
-              {b.end_date   && <p>{format(new Date(b.end_date),  'EEE, MMM d, yyyy')}</p>}
-              {b.total_days && <p style={{ fontSize:'0.75rem', color:'var(--muted)' }}>{b.total_days} days</p>}
+            {/* Col 2: Dates */}
+            <div style={{ fontSize: '0.875rem', color: 'var(--text)', minWidth: 0 }}>
+              {b.start_date && <p style={{ whiteSpace: 'nowrap' }}>{format(new Date(b.start_date), 'EEE, MMM d, yyyy')}</p>}
+              {b.end_date   && <p style={{ whiteSpace: 'nowrap' }}>{format(new Date(b.end_date),   'EEE, MMM d, yyyy')}</p>}
+              {b.total_days && <p style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{b.total_days} days</p>}
             </div>
 
-            {/* Services */}
-            <div style={{ minWidth:'120px' }}>
-              <ServiceTags b={b}/>
+            {/* Col 3: Service */}
+            <div style={{ minWidth: 0 }}>
+              <ServiceTags b={b} />
             </div>
 
-            {/* Comments */}
-            <div style={{ minWidth:'160px', maxWidth:'280px' }}>
-              <Comments b={b}/>
+            {/* Col 4: Notes */}
+            <div style={{ minWidth: 0, wordBreak: 'break-word' }}>
+              <Comments b={b} />
             </div>
 
-            {/* Amount */}
-            <div style={{ textAlign:'right', minWidth:'90px' }}>
-              <p style={{ fontWeight:'700', fontSize:'1.1rem' }}>JD {b.total_amount ?? b.total_price ?? 0}</p>
-              <span className={STATUS_CLASS[b.status]||'badge-pending'}>{b.status}</span>
-            </div>
-
-            {/* Actions */}
-            <div style={{ display:'flex', flexDirection:'column', gap:'0.5rem' }}>
-              <select value={b.status} onChange={e => updateStatus(b.id, e.target.value)} className="input" style={{ fontSize:'0.75rem', padding:'4px 8px', width:'120px' }}>
-                {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}
-              </select>
-              <div style={{ display:'flex', gap:'4px' }}>
-                <button onClick={() => setSelected(b)} style={{ padding:'6px', borderRadius:'6px', border:'none', background:'transparent', cursor:'pointer' }} title="Open"><Eye size={15} style={{ color:'#3b82f6' }}/></button>
+            {/* Col 5: Amount + status */}
+            <div style={{ textAlign: 'right', minWidth: 0 }}>
+              <p style={{ fontWeight: '700', fontSize: '1.05rem', whiteSpace: 'nowrap' }}>
+                JD {parseFloat(b.total_amount ?? b.total_price ?? 0).toFixed(2)}
+              </p>
+              {b.total_paid > 0 && (
+                <p style={{ fontSize: '0.72rem', color: '#16a34a', fontWeight: '600', marginTop: '2px', whiteSpace: 'nowrap' }}>
+                  ✓ JD {b.total_paid.toFixed(2)} received
+                </p>
+              )}
+              <div style={{ marginTop: '4px' }}>
+                <span className={STATUS_CLASS[b.status] || 'badge-pending'}>{b.status}</span>
               </div>
+            </div>
+
+            {/* Col 6: Actions */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-end' }}>
+              <select value={b.status} onChange={e => updateStatus(b.id, e.target.value)} className="input" style={{ fontSize: '0.75rem', padding: '4px 8px', width: '120px' }}>
+                {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+              </select>
+              <button onClick={() => setSelected(b)} style={{ padding: '6px', borderRadius: '6px', border: 'none', background: 'transparent', cursor: 'pointer' }} title="Open">
+                <Eye size={15} style={{ color: '#3b82f6' }} />
+              </button>
             </div>
           </div>
         ))}

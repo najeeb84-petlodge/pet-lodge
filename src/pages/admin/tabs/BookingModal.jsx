@@ -110,6 +110,11 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
     setLoading(false)
   }
 
+  async function fetchPayments() {
+    const pays = await dbQuery('payments', `?booking_id=eq.${booking.id}&select=*&order=created_at.desc`)
+    setPayments(Array.isArray(pays) ? pays : [])
+  }
+
   function enterEdit() {
     const b = full
     setEdit({
@@ -251,7 +256,6 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
           amount:      parseFloat(payForm.amount),
           method:      payForm.method,
           notes:       payForm.notes || null,
-          status:      'paid',
           recorded_by: userId,
         }),
       })
@@ -261,11 +265,8 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
         console.error('recordPayment failed', body)
         return
       }
-      const newPay = Array.isArray(body) ? body[0] : body
-      if (newPay) {
-        setPayments(prev => [newPay, ...prev])
-        setPayForm({ amount: '', method: 'cash', notes: '' })
-      }
+      setPayForm({ amount: '', method: 'cash', notes: '' })
+      await fetchPayments()
     } catch (err) {
       console.error('recordPayment exception', err)
     } finally {
