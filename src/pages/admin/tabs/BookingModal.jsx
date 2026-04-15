@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import { jsPDF } from 'jspdf'
 import html2canvas from 'html2canvas'
-import { supabase, dbQuery, dbUpdate } from '../../../lib/supabase'
+import { supabase, dbQuery, dbUpdate, SUPABASE_URL, SUPABASE_KEY, getAccessToken } from '../../../lib/supabase'
 
 const PAYMENT_METHODS = ['cash', 'card', 'bank_transfer', 'online']
 const METHOD_LABEL = { cash: 'Cash', card: 'Card', bank_transfer: 'Bank Transfer', online: 'Online' }
@@ -229,18 +229,48 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
   async function recordPayment() {
     if (!payForm.amount) return
     setSavingPay(true)
-    const { data } = await supabase.from('payments').insert({
-      booking_id: full.id,
-      amount:     parseFloat(payForm.amount),
-      method:     payForm.method,
-      notes:      payForm.notes || null,
-      status:     'paid',
-    }).select()
-    if (data?.[0]) {
-      setPayments(prev => [data[0], ...prev])
-      setPayForm({ amount: '', method: 'cash', notes: '' })
+    try {
+      // get access token + user id
+      const token = getAccessToken()
+      let userId = null
+      try {
+        const raw = localStorage.getItem('sb-qcwbkpcwtxpokgseethp-auth-token')
+        if (raw) userId = JSON.parse(raw)?.user?.id || null
+      } catch {}
+
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/payments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${token || SUPABASE_KEY}`,
+          Prefer: 'return=representation',
+        },
+        body: JSON.stringify({
+          booking_id:  full.id,
+          amount:      parseFloat(payForm.amount),
+          method:      payForm.method,
+          notes:       payForm.notes || null,
+          status:      'paid',
+          recorded_by: userId,
+        }),
+      })
+      const body = await res.json()
+      console.log('recordPayment response', res.status, body)
+      if (!res.ok) {
+        console.error('recordPayment failed', body)
+        return
+      }
+      const newPay = Array.isArray(body) ? body[0] : body
+      if (newPay) {
+        setPayments(prev => [newPay, ...prev])
+        setPayForm({ amount: '', method: 'cash', notes: '' })
+      }
+    } catch (err) {
+      console.error('recordPayment exception', err)
+    } finally {
+      setSavingPay(false)
     }
-    setSavingPay(false)
   }
 
   function copyText(text) {
@@ -394,12 +424,12 @@ We look forward to welcoming ${allPetNames}! 🐾`
 
           {/* ── Body ── */}
           <div style={{ padding: '1.25rem', maxHeight: '78vh', overflowY: 'auto' }}>
-            {mode === 'view' ? <ViewMode /> : mode === 'receipt' ? <ReceiptMode /> : <EditMode />}
+            {mode === 'view' ? ViewMode() : mode === 'receipt' ? ReceiptMode() : EditMode()}
           </div>
         </div>
       </div>
 
-      {sendOpen && <SendModal />}
+      {sendOpen && SendModal()}
 
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </>
