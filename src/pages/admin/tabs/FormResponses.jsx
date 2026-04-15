@@ -1,4 +1,20 @@
 import { useEffect, useState } from 'react'
+
+function ExpandableCell({ value }) {
+  const [expanded, setExpanded] = useState(false)
+  if (!value || value === '—') return <span>—</span>
+  if (value.length <= 60) return <span title={value}>{value}</span>
+  return (
+    <span>
+      {expanded ? value : value.slice(0, 60) + '…'}
+      <button
+        onClick={() => setExpanded(e => !e)}
+        style={{ marginLeft: '4px', color: '#5a7a2e', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px' }}>
+        {expanded ? 'less' : 'more'}
+      </button>
+    </span>
+  )
+}
 import { format } from 'date-fns'
 import { Download, Loader2, Eye } from 'lucide-react'
 import { SUPABASE_URL, SUPABASE_KEY, getAccessToken } from '../../../lib/supabase'
@@ -35,6 +51,7 @@ function petField(b, field) {
 function petFieldAll(b, field) {
   const pets = b.pets_data
   if (!Array.isArray(pets) || !pets.length) return '—'
+  if (pets.length === 1) return pets[0][field] || '—'
   return pets.map((p, i) => `${p.name || `Pet ${i+1}`}: ${p[field] || '—'}`).join(' | ') || '—'
 }
 
@@ -68,15 +85,15 @@ function transportSummary(b) {
 function foodSummary(b) {
   const perPet = b.service_details?.perPet
   if (!Array.isArray(perPet) || !perPet.length) return '—'
-  return perPet.map(p => {
-    const f = { lodge_small: 'Lodge food (small/cat)', lodge_large: 'Lodge food (medium/large)', owner_provided: 'Owner provided' }
-    return `${p.petName}: ${f[p.foodChoice] || p.foodChoice || '—'}`
-  }).join(' | ')
+  const f = { lodge_small: 'Lodge food (small/cat)', lodge_large: 'Lodge food (medium/large)', owner_provided: 'Owner provided' }
+  if (perPet.length === 1) return f[perPet[0].foodChoice] || perPet[0].foodChoice || '—'
+  return perPet.map(p => `${p.petName}: ${f[p.foodChoice] || p.foodChoice || '—'}`).join(' | ')
 }
 
 function fleaTickSummary(b) {
   const perPet = b.service_details?.perPet
   if (!Array.isArray(perPet) || !perPet.length) return '—'
+  if (perPet.length === 1) return perPet[0].fleaTick === 'lodge_applies' ? 'Lodge applies' : 'Owner covered'
   return perPet.map(p => `${p.petName}: ${p.fleaTick === 'lodge_applies' ? 'Lodge applies' : 'Owner covered'}`).join(' | ')
 }
 
@@ -91,30 +108,16 @@ function trainingSummary(b) {
   const perPet = b.service_details?.perPet
   if (Array.isArray(perPet)) {
     const sessions = perPet.filter(p => p.trainingSessions > 0)
-    if (sessions.length) return sessions.map(p => `${p.petName}: ${p.trainingSessions} session(s)${p.trainingGoals ? ` — ${p.trainingGoals}` : ''}`).join(' | ')
+    if (sessions.length) {
+      if (sessions.length === 1) return `${sessions[0].trainingSessions} session(s)${sessions[0].trainingGoals ? ` — ${sessions[0].trainingGoals}` : ''}`
+      return sessions.map(p => `${p.petName}: ${p.trainingSessions} session(s)${p.trainingGoals ? ` — ${p.trainingGoals}` : ''}`).join(' | ')
+    }
   }
   const sd = b.service_details
   if (sd?.trainingSessions > 0) return `${sd.trainingSessions} session(s)${sd.trainingGoals ? ` — ${sd.trainingGoals}` : ''}`
   return '—'
 }
 
-function allNotesSummary(b) {
-  const notes = []
-  if (b.additional_comments) notes.push(`Notes: ${b.additional_comments}`)
-  if (b.special_food_req)    notes.push(`Food req: ${b.special_food_req}`)
-  if (b.driver_comments)     notes.push(`Driver: ${b.driver_comments}`)
-  if (b.medication_notes)    notes.push(`Medication: ${b.medication_notes}`)
-  const perPet = b.service_details?.perPet
-  if (Array.isArray(perPet)) {
-    perPet.forEach(p => {
-      if (p.foodNotes)               notes.push(`Food notes (${p.petName}): ${p.foodNotes}`)
-      if (p.walkerNotes)             notes.push(`Walker (${p.petName}): ${p.walkerNotes}`)
-      if (p.trainingGoals)           notes.push(`Training goals (${p.petName}): ${p.trainingGoals}`)
-      if (p.address_driver_comments) notes.push(`Driver (${p.petName}): ${p.address_driver_comments}`)
-    })
-  }
-  return notes.join(' | ') || '—'
-}
 
 const COLUMNS = [
   { key: 'action',              label: '' },
@@ -149,7 +152,13 @@ const COLUMNS = [
   { key: 'flea_tick',           label: 'Flea & Tick' },
   { key: 'grooming_addons',     label: 'Grooming Add-ons' },
   { key: 'training',            label: 'Training' },
-  { key: 'notes',               label: 'All Notes & Comments' },
+  { key: 'note_general',        label: 'General Notes' },
+  { key: 'note_food',           label: 'Food Notes' },
+  { key: 'note_medication',     label: 'Medication Notes' },
+  { key: 'note_walker',         label: 'Walker Notes' },
+  { key: 'note_training',       label: 'Training Goals' },
+  { key: 'note_driver',         label: 'Driver Notes' },
+  { key: 'note_schedule',       label: 'Preferred Schedule' },
   { key: 'vaccination_consent', label: 'Vaccination Consent' },
   { key: 'condition_consent',   label: 'Condition Consent' },
   { key: 'pregnancy_consent',   label: 'Pregnancy Consent' },
@@ -169,7 +178,7 @@ function cellValue(b, key) {
     case 'customer_phone':      return b.customer_phone    || '—'
     case 'customer_whatsapp':   return b.customer_whatsapp || '—'
     case 'how_heard':           return Array.isArray(b.how_heard) ? b.how_heard.join(', ') : (b.how_heard || '—')
-    case 'newsletter':          return Array.isArray(b.newsletter_preferences) ? b.newsletter_preferences.join(', ') : '—'
+    case 'newsletter':          return Array.isArray(b.newsletter_preferences) ? b.newsletter_preferences.join(', ') : (b.newsletter_preferences || '—')
     case 'num_pets':            return b.num_pets || '—'
     case 'pet_names':           return petField(b, 'name')
     case 'pet_types':           return petField(b, 'type')
@@ -179,7 +188,11 @@ function cellValue(b, key) {
     case 'pet_desexed':         return petFieldAll(b, 'desexed')
     case 'pet_colours':         return petFieldAll(b, 'colour')
     case 'pet_medication':      return petFieldAll(b, 'medication_notes')
-    case 'pet_vet':             return Array.isArray(b.pets_data) ? b.pets_data.map(p => `${p.name}: ${p.vet_name || '—'} (${p.vet_phone || '—'})`).join(' | ') : '—'
+    case 'pet_vet': {
+      if (!Array.isArray(b.pets_data) || !b.pets_data.length) return '—'
+      if (b.pets_data.length === 1) { const p = b.pets_data[0]; return `${p.vet_name || '—'} (${p.vet_phone || '—'})` }
+      return b.pets_data.map(p => `${p.name}: ${p.vet_name || '—'} (${p.vet_phone || '—'})`).join(' | ')
+    }
     case 'service':             return serviceLabel(b)
     case 'start_date':          return b.start_date ? format(new Date(b.start_date), 'dd/MM/yyyy') : '—'
     case 'end_date':            return b.end_date   ? format(new Date(b.end_date),   'dd/MM/yyyy') : '—'
@@ -191,7 +204,50 @@ function cellValue(b, key) {
     case 'flea_tick':           return fleaTickSummary(b)
     case 'grooming_addons':     return groomingAddonsSummary(b)
     case 'training':            return trainingSummary(b)
-    case 'notes':               return allNotesSummary(b)
+    case 'note_general': {
+      const parts = []
+      if (b.additional_comments) parts.push(b.additional_comments)
+      if (b.special_food_req)    parts.push(`Food req: ${b.special_food_req}`)
+      return parts.join(' | ') || '—'
+    }
+    case 'note_food': {
+      const perPet = b.service_details?.perPet
+      if (!Array.isArray(perPet) || !perPet.length) return b.special_food_req || '—'
+      const notes = perPet.filter(p => p.foodNotes).map(p => perPet.length > 1 ? `${p.petName}: ${p.foodNotes}` : p.foodNotes)
+      return notes.join(' | ') || b.special_food_req || '—'
+    }
+    case 'note_medication': {
+      const petArr = b.pets_data
+      if (!Array.isArray(petArr) || !petArr.length) return b.medication_notes || '—'
+      const notes = petArr.filter(p => p.medication_notes).map(p => petArr.length > 1 ? `${p.name}: ${p.medication_notes}` : p.medication_notes)
+      return notes.join(' | ') || '—'
+    }
+    case 'note_walker': {
+      const perPet = b.service_details?.perPet
+      if (!Array.isArray(perPet) || !perPet.length) return '—'
+      const notes = perPet.filter(p => p.walkerNotes).map(p => perPet.length > 1 ? `${p.petName}: ${p.walkerNotes}` : p.walkerNotes)
+      return notes.join(' | ') || '—'
+    }
+    case 'note_training': {
+      const perPet = b.service_details?.perPet
+      if (Array.isArray(perPet)) {
+        const notes = perPet.filter(p => p.trainingGoals).map(p => perPet.length > 1 ? `${p.petName}: ${p.trainingGoals}` : p.trainingGoals)
+        if (notes.length) return notes.join(' | ')
+      }
+      return b.service_details?.trainingGoals || '—'
+    }
+    case 'note_driver': {
+      const parts = []
+      if (b.driver_comments) parts.push(b.driver_comments)
+      const perPet = b.service_details?.perPet
+      if (Array.isArray(perPet)) {
+        perPet.filter(p => p.address_driver_comments).forEach(p => {
+          parts.push(perPet.length > 1 ? `${p.petName}: ${p.address_driver_comments}` : p.address_driver_comments)
+        })
+      }
+      return parts.join(' | ') || '—'
+    }
+    case 'note_schedule':       return b.service_details?.preferredSchedule || '—'
     case 'vaccination_consent': return b.vaccination_consent ? 'Yes' : 'No'
     case 'condition_consent':   return b.condition_consent   ? 'Yes' : 'No'
     case 'pregnancy_consent':   return b.pregnancy_consent   != null ? (b.pregnancy_consent ? 'Yes' : 'No') : 'N/A'
@@ -298,6 +354,8 @@ export default function FormResponses({ isSuperAdmin }) {
                         <span className={`badge-${b.status || 'pending'}`}>{b.status || 'pending'}</span>
                       ) : col.key === 'total_amount' ? (
                         <span className="font-semibold">JD {cellValue(b, col.key)}</span>
+                      ) : (col.key.startsWith('note_') || col.key === 'line_items' || col.key === 'transport') ? (
+                        <ExpandableCell value={String(cellValue(b, col.key))} />
                       ) : (
                         <span title={String(cellValue(b, col.key))}>{cellValue(b, col.key)}</span>
                       )}
