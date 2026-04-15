@@ -668,6 +668,14 @@ function BoardingGroomingSection({ form, onChange, prices, petsData, petIndex, n
   return (
     <div className="mt-5">
       <SectionHeading>Grooming Add-ons <span className="font-normal text-xs">(optional)</span></SectionHeading>
+      <p className="text-xs mb-2 italic" style={{ color: '#5a7a2e' }}>
+        Freshly bathed dogs get more cuddles. Fact. 🛁
+      </p>
+      {nights > 3 && (
+        <p className="text-xs mb-2" style={{ color: 'var(--muted)' }}>
+          Bathing is recommended for stays over 3 nights and has been pre-selected for you.
+        </p>
+      )}
       <div className="space-y-2">
         {filteredPkgs.map(p => {
           const checked = form.groomingPackageId === p.id
@@ -698,14 +706,6 @@ function BoardingGroomingSection({ form, onChange, prices, petsData, petIndex, n
             <span className="text-sm" style={{ color: 'var(--text)' }}>{item.label}</span>
           </label>
         ))}
-        <p className="text-xs mt-1.5 italic" style={{ color: '#5a7a2e' }}>
-          Freshly bathed dogs get more cuddles. Fact. 🛁
-        </p>
-        {nights > 3 && (
-          <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
-            Bathing is recommended for stays over 3 nights and has been pre-selected for you.
-          </p>
-        )}
       </div>
     </div>
   )
@@ -728,11 +728,11 @@ function BoardingTrainingSection({ form, onChange, prices, petsData, petIndex })
         Training Sessions <span className="font-normal text-xs" style={{ color: 'var(--muted)' }}>(optional)</span>
         {open ? <ChevronUp size={14} className="ml-auto" /> : <ChevronDown size={14} className="ml-auto" />}
       </button>
+      <InfoNote>
+        Free assessment included. Your dog's ego is not. Our team will contact you to arrange the right number of sessions.
+      </InfoNote>
       {open && (
         <div className="mt-3 space-y-3">
-          <InfoNote>
-            Free assessment included. Your dog's ego is not. Our team will contact you to arrange the right number of sessions.
-          </InfoNote>
           <div className="flex items-center gap-3">
             <button type="button"
               onClick={() => onChange({ trainingSessions: Math.max(0, count - 1) })}
