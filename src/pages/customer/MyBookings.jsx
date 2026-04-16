@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronLeft, ClipboardList, Loader2, CalendarDays, PawPrint } from 'lucide-react'
+import { ChevronLeft, ClipboardList, Loader2, CalendarDays, PawPrint, Edit2, Check, X } from 'lucide-react'
 import TopNav from '../../components/TopNav'
 import { useAuth } from '../../contexts/AuthContext'
 import { SUPABASE_URL, SUPABASE_KEY, getAccessToken } from '../../lib/supabase'
@@ -37,11 +37,90 @@ function formatDate(d) {
   return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+function RequestChangeForm({ booking, customerName, onClose }) {
+  const [text, setText]       = useState('')
+  const [saving, setSaving]   = useState(false)
+  const [success, setSuccess] = useState(false)
+  const [err, setErr]         = useState('')
+
+  async function submit() {
+    if (!text.trim()) { setErr('Please describe what you'd like to change.'); return }
+    setSaving(true); setErr('')
+    try {
+      const token = getAccessToken()
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/modification_requests`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${token || SUPABASE_KEY}`,
+          Prefer: 'return=minimal',
+        },
+        body: JSON.stringify({
+          booking_id:     booking.id,
+          booking_ref:    booking.booking_ref,
+          customer_name:  customerName,
+          request_details: text.trim(),
+          status:         'pending',
+        }),
+      })
+      if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b?.message || `HTTP ${res.status}`) }
+      setSuccess(true)
+    } catch (e) {
+      setErr(e.message || 'Failed to submit. Please try again.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (success) return (
+    <div className="mt-3 rounded-xl p-4 flex items-start gap-3"
+      style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+      <Check size={16} className="mt-0.5 flex-shrink-0" style={{ color: '#16a34a' }} />
+      <div className="flex-1">
+        <p className="text-sm font-semibold" style={{ color: '#16a34a' }}>Request submitted!</p>
+        <p className="text-xs mt-0.5" style={{ color: '#166534' }}>Our team will review your request and get back to you shortly.</p>
+      </div>
+      <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#16a34a' }}>
+        <X size={14} />
+      </button>
+    </div>
+  )
+
+  return (
+    <div className="mt-3 rounded-xl p-4" style={{ background: '#f8f9f6', border: '1px solid var(--border)' }}>
+      <p className="text-sm font-semibold mb-2" style={{ color: 'var(--primary)' }}>Request a Change</p>
+      <p className="text-xs mb-3" style={{ color: 'var(--muted)' }}>
+        Describe what you'd like to change — dates, service details, pets, etc. Our team will review and respond.
+      </p>
+      <textarea
+        className="input text-sm resize-none w-full"
+        rows={4}
+        placeholder="e.g. I'd like to extend the check-out date to 15 May, and add bathing service for Cruise."
+        value={text}
+        onChange={e => { setText(e.target.value); setErr('') }}
+        style={{ marginBottom: '0.5rem' }}
+      />
+      {err && <p className="text-xs text-red-500 mb-2">{err}</p>}
+      <div className="flex gap-2">
+        <button onClick={submit} disabled={saving} className="btn-primary text-sm py-1.5 px-4 flex items-center gap-1.5">
+          {saving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+          Submit Request
+        </button>
+        <button onClick={onClose} className="btn-secondary text-sm py-1.5 px-4">
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function MyBookings() {
   const { profile } = useAuth()
-  const [bookings, setBookings] = useState([])
-  const [loading, setLoading]   = useState(true)
-  const [error, setError]       = useState('')
+  const [bookings, setBookings]         = useState([])
+  const [loading, setLoading]           = useState(true)
+  const [error, setError]               = useState('')
+  const [openChangeId, setOpenChangeId] = useState(null)
 
   useEffect(() => {
     if (!profile?.id) return
@@ -95,6 +174,8 @@ export default function MyBookings() {
           <div className="space-y-4">
             {bookings.map(b => {
               const status = STATUS_STYLES[b.status] || STATUS_STYLES.pending
+              const canRequest = b.status !== 'cancelled' && b.status !== 'completed'
+              const customerName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Customer'
               return (
                 <div key={b.id} className="card p-4 sm:p-5"
                   style={{ borderLeft: `4px solid ${status.color}` }}>
@@ -141,9 +222,27 @@ export default function MyBookings() {
                     )}
                   </div>
 
-                  <p className="text-xs mt-3" style={{ color: 'var(--muted)' }}>
-                    Submitted {formatDate(b.created_at)}
-                  </p>
+                  <div className="flex items-center justify-between mt-3 flex-wrap gap-2">
+                    <p className="text-xs" style={{ color: 'var(--muted)' }}>
+                      Submitted {formatDate(b.created_at)}
+                    </p>
+                    {canRequest && openChangeId !== b.id && (
+                      <button
+                        onClick={() => setOpenChangeId(b.id)}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
+                        style={{ background: 'var(--light)', border: '1px solid var(--border)', color: 'var(--primary)', cursor: 'pointer' }}>
+                        <Edit2 size={12} /> Request Change
+                      </button>
+                    )}
+                  </div>
+
+                  {openChangeId === b.id && (
+                    <RequestChangeForm
+                      booking={b}
+                      customerName={customerName}
+                      onClose={() => setOpenChangeId(null)}
+                    />
+                  )}
                 </div>
               )
             })}
