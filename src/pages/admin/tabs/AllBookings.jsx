@@ -209,8 +209,8 @@ export default function AllBookings({ isSuperAdmin }) {
           { label:'Total Bookings',   value:stats.total,   icon:'📅' },
           { label:'Pending Bookings', value:stats.pending, icon:'🐾' },
           ...(isSuperAdmin ? [
-            { label:'Cash Received This Month', value:`JD ${stats.cashReceived.toFixed(2)}`,     icon:'💵', green:true },
-            { label:'Expected This Month',      value:`JD ${stats.expectedThisMonth.toFixed(2)}`, icon:'📈', blue:true },
+            { label:'Cash Received This Month', value:`JD ${stats.cashReceived.toFixed(2)}`,      icon:'💵', green:true,  hint:'Sum of all payments recorded this calendar month' },
+            { label:'Expected This Month',      value:`JD ${stats.expectedThisMonth.toFixed(2)}`, icon:'📈', blue:true,   hint:'Total booking value for non-cancelled bookings checking out this month' },
           ] : []),
           { label:'Modification Requests', value:stats.modRequests, icon:'🔔', orange:true },
         ].map(s => (
@@ -222,6 +222,7 @@ export default function AllBookings({ isSuperAdmin }) {
             <div>
               <p style={{ fontSize:'0.75rem', color:'var(--muted)', marginBottom:'0.25rem' }}>{s.label}</p>
               <p style={{ fontSize:'1.5rem', fontWeight:'700', color: s.orange ? '#ea580c' : s.green ? '#16a34a' : s.blue ? '#2563eb' : 'var(--text)' }}>{s.value}</p>
+              {s.hint && <p style={{ fontSize:'0.65rem', color:'var(--muted)', marginTop:'0.2rem', lineHeight:'1.3' }}>{s.hint}</p>}
             </div>
             <span style={{ fontSize:'1.5rem', opacity:0.5 }}>{s.icon}</span>
           </div>
