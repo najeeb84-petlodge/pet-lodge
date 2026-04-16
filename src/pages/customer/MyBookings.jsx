@@ -44,7 +44,7 @@ function RequestChangeForm({ booking, customerName, onClose }) {
   const [err, setErr]         = useState('')
 
   async function submit() {
-    if (!text.trim()) { setErr('Please describe what you'd like to change.'); return }
+    if (!text.trim()) { setErr("Please describe what you'd like to change."); return }
     setSaving(true); setErr('')
     try {
       const token = getAccessToken()
