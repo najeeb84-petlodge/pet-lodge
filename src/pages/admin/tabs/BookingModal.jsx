@@ -103,6 +103,10 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
   const [confirmEmailSending, setConfirmEmailSending] = useState(false)
   const [confirmEmailResult,  setConfirmEmailResult]  = useState(null)
 
+  // receipt email send state — lifted to outer scope (ReceiptMode is called as a function, not a component)
+  const [emailStep,       setEmailStep]       = useState(null)   // null | 'sending'
+  const [emailSendResult, setEmailSendResult] = useState(null)   // { ok, msg } | null
+
   useEffect(() => { fetchFull() }, [booking.id])
 
   async function fetchFull() {
@@ -953,7 +957,7 @@ We look forward to welcoming ${allPetNames}! 🐾`
 
     async function sendReceiptViaEmail() {
       if (!emailAddr) { showToast('No email address entered'); return }
-      setSendingReceipt(true)
+      setEmailStep('sending'); setEmailSendResult(null)
       try {
         const token = getAccessToken()
         const fmtD = d => { try { return d ? format(new Date(d), 'EEE, d MMM yyyy') : '' } catch { return '' } }
@@ -986,11 +990,11 @@ We look forward to welcoming ${allPetNames}! 🐾`
         )
         const body = await res.json().catch(() => ({}))
         if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`)
-        showToast('Receipt sent!')
+        setEmailSendResult({ ok: true, msg: `Receipt sent to ${emailAddr} ✓` })
       } catch (err) {
-        showToast(`Failed: ${err.message || 'Unknown error'}`)
+        setEmailSendResult({ ok: false, msg: err.message || 'Failed to send' })
       } finally {
-        setSendingReceipt(false)
+        setEmailStep(null)
       }
     }
 
@@ -1186,10 +1190,15 @@ We look forward to welcoming ${allPetNames}! 🐾`
                   <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.2rem', fontWeight: '600' }}>Email Address</label>
                   <input className="input" value={emailAddr} onChange={e => setEmailAddr(e.target.value)} placeholder="customer@email.com" />
                 </div>
-                <button onClick={sendReceiptViaEmail} disabled={sendingReceipt} className="btn-primary" style={{ fontSize: '0.875rem', marginBottom: '0.875rem' }}>
-                  {sendingReceipt ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Mail size={14} />}
-                  {sendingReceipt ? 'Sending…' : 'Send Receipt via Email'}
+                <button onClick={sendReceiptViaEmail} disabled={!!emailStep} className="btn-primary" style={{ fontSize: '0.875rem', marginBottom: emailSendResult ? '0.4rem' : '0.875rem' }}>
+                  {emailStep === 'sending' ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Mail size={14} />}
+                  {emailStep === 'sending' ? ' Sending…' : ' Send Receipt via Email'}
                 </button>
+                {emailSendResult && (
+                  <p style={{ fontSize: '0.8rem', fontWeight: '600', color: emailSendResult.ok ? '#16a34a' : '#dc2626', marginBottom: '0.875rem' }}>
+                    {emailSendResult.msg}
+                  </p>
+                )}
                 <div style={{ marginBottom: '0.5rem' }}>
                   <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.2rem', fontWeight: '600' }}>Personalized Message</label>
                   <textarea className="input" rows={4} value={emailMsg} onChange={e => setEmailMsg(e.target.value)} style={{ resize: 'vertical', fontSize: '0.82rem', lineHeight: '1.55' }} />
