@@ -791,9 +791,10 @@ We look forward to welcoming ${allPetNames}! 🐾`
 
   // ── RECEIPT MODE ─────────────────────────────────────────────────────────────
   function ReceiptMode() {
-    const [sendSection, setSendSection] = useState(null) // 'email' | 'whatsapp' | null
-    const [toast,       setToast]       = useState('')
-    const [downloading, setDownloading] = useState(false)
+    const [sendSection,    setSendSection]    = useState(null) // 'email' | 'whatsapp' | null
+    const [toast,          setToast]          = useState('')
+    const [downloading,    setDownloading]    = useState(false)
+    const [sendingReceipt, setSendingReceipt] = useState(false)
 
     const receiptId    = (b.booking_ref || b.id || '').slice(-8).toUpperCase()
     const firstName    = b.customer_first_name || b.profiles?.first_name || ''
@@ -878,6 +879,49 @@ We look forward to welcoming ${allPetNames}! 🐾`
     function showToast(msg) {
       setToast(msg)
       setTimeout(() => setToast(''), 3000)
+    }
+
+    async function sendReceiptViaEmail() {
+      if (!emailAddr) { showToast('No email address entered'); return }
+      setSendingReceipt(true)
+      try {
+        const token = getAccessToken()
+        const fmtD = d => { try { return d ? format(new Date(d), 'EEE, d MMM yyyy') : '' } catch { return '' } }
+        const res = await fetch(
+          `${SUPABASE_URL}/functions/v1/send-receipt`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              bookingRef:      b.booking_ref || b.id?.slice(0, 8),
+              customerEmail:   emailAddr,
+              customerName:    receiptOwner,
+              petNames:        Array.isArray(b.pets_data) ? b.pets_data.map(p => p?.name).filter(Boolean) : [],
+              serviceLabel,
+              startDate:       fmtD(b.start_date),
+              endDate:         fmtD(b.end_date),
+              totalDays:       b.total_days || 0,
+              lineItems:       b.service_details?.line_items || [],
+              total,
+              discount,
+              prepaid,
+              totalPaid,
+              amountDue,
+              personalMessage: emailMsg,
+            }),
+          }
+        )
+        const body = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`)
+        showToast('Receipt sent!')
+      } catch (err) {
+        showToast(`Failed: ${err.message || 'Unknown error'}`)
+      } finally {
+        setSendingReceipt(false)
+      }
     }
 
     const thStyle  = { padding: '5px 6px', textAlign: 'left', fontWeight: '700', fontSize: '0.7rem', color: 'white', borderRight: '1px solid rgba(255,255,255,0.25)', whiteSpace: 'nowrap' }
@@ -1072,8 +1116,9 @@ We look forward to welcoming ${allPetNames}! 🐾`
                   <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.2rem', fontWeight: '600' }}>Email Address</label>
                   <input className="input" value={emailAddr} onChange={e => setEmailAddr(e.target.value)} placeholder="customer@email.com" />
                 </div>
-                <button onClick={() => showToast('Receipt sent via email!')} className="btn-primary" style={{ fontSize: '0.875rem', marginBottom: '0.875rem' }}>
-                  <Mail size={14} /> Send Receipt via Email
+                <button onClick={sendReceiptViaEmail} disabled={sendingReceipt} className="btn-primary" style={{ fontSize: '0.875rem', marginBottom: '0.875rem' }}>
+                  {sendingReceipt ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Mail size={14} />}
+                  {sendingReceipt ? 'Sending…' : 'Send Receipt via Email'}
                 </button>
                 <div style={{ marginBottom: '0.5rem' }}>
                   <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.2rem', fontWeight: '600' }}>Personalized Message</label>

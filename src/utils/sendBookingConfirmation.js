@@ -16,7 +16,7 @@
  */
 export async function sendBookingConfirmation(data) {
   try {
-    const res = await fetch('/api/send-confirmation', {
+    const res = await fetch('https://qcwbkpcwtxpokgseethp.supabase.co/functions/v1/send-confirmation', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),

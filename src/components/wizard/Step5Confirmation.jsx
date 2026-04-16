@@ -5,6 +5,7 @@ import { useWizard } from '../../contexts/WizardContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { SUPABASE_URL, SUPABASE_KEY, getAccessToken } from '../../lib/supabase'
 import { computeLineItems } from '../../lib/bookingUtils'
+import { sendBookingConfirmation } from '../../utils/sendBookingConfirmation'
 
 // ── T&C text ──────────────────────────────────────────────────────────────────
 
@@ -222,7 +223,26 @@ export default function Step5Confirmation() {
       }
 
       const { ref } = await insertBookingWithRetry(body, token)
-      setSuccessData({ ref, total })
+      setSuccessData({ ref, total: freshTotal })
+
+      // Fire confirmation email — non-blocking, failures are silent to the customer
+      const formatDate = (iso) => {
+        if (!iso) return ''
+        const [y, m, d] = iso.split('-')
+        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+        return `${parseInt(d, 10)} ${months[parseInt(m, 10) - 1]} ${y}`
+      }
+      sendBookingConfirmation({
+        bookingRef:    ref,
+        customerName:  `${customerInfo.first_name} ${customerInfo.last_name}`.trim(),
+        customerEmail: customerInfo.email,
+        petNames:      safePets.map(p => p.name).filter(Boolean),
+        checkIn:       formatDate(startDate || ''),
+        checkOut:      formatDate(endDate || ''),
+        nights:        totalDays ?? 0,
+        services:      freshLineItems.map(i => i.label).filter(Boolean),
+        totalPrice:    freshTotal,
+      }).catch(err => console.warn('[Step5] email send failed:', err))
     } catch (err) {
       setSubmitError(err.message || 'Something went wrong. Please try again.')
     } finally {
