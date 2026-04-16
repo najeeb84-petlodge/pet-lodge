@@ -245,7 +245,7 @@ Deno.serve(async (req: Request) => {
   }
 
   const userRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: { Authorization: `Bearer ${token}`, apikey: token },
+    headers: { Authorization: `Bearer ${token}`, apikey: Deno.env.get('SUPABASE_ANON_KEY') ?? '' },
   })
   if (!userRes.ok) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {

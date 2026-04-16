@@ -97,6 +97,12 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
   const [sendTab, setSendTab]         = useState('confirmation')
   const [copied, setCopied]           = useState(false)
 
+  // confirmation email inline panel
+  const [confirmEmailOpen,    setConfirmEmailOpen]    = useState(false)
+  const [confirmEmailAddr,    setConfirmEmailAddr]    = useState('')
+  const [confirmEmailSending, setConfirmEmailSending] = useState(false)
+  const [confirmEmailResult,  setConfirmEmailResult]  = useState(null)
+
   useEffect(() => { fetchFull() }, [booking.id])
 
   async function fetchFull() {
@@ -274,6 +280,45 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
     }
   }
 
+  async function sendConfirmationEmail() {
+    setConfirmEmailSending(true); setConfirmEmailResult(null)
+    try {
+      const token = getAccessToken()
+      const perPet = b.service_details?.perPet?.[0] || {}
+      const hasTransport = !!(perPet.transport && perPet.transport !== 'self')
+      const payload = {
+        bookingRef:    b.booking_ref || b.id?.slice(0, 8),
+        customerName:  [b.customer_first_name, b.customer_last_name].filter(Boolean).join(' ') || ownerName,
+        customerEmail: confirmEmailAddr,
+        petNames:      Array.isArray(b.pets_data) ? b.pets_data.map(p => p?.name).filter(Boolean) : [allPetNames],
+        checkIn:       b.start_date ? format(new Date(b.start_date), 'EEE, d MMM yyyy') : '—',
+        checkOut:      b.end_date   ? format(new Date(b.end_date),   'EEE, d MMM yyyy') : '—',
+        nights:        b.total_days || 0,
+        services:      Array.isArray(b.service_details?.line_items)
+                         ? b.service_details.line_items.map(li => li.label).filter(Boolean)
+                         : [serviceLabel],
+        totalPrice:    gross,
+        has_transport: hasTransport,
+        pickup_time:   perPet.pickupTime  || null,
+        dropoff_time:  perPet.dropoffTime || null,
+        pickup_date:   b.start_date ? format(new Date(b.start_date), 'EEE, d MMM yyyy') : null,
+        dropoff_date:  b.end_date   ? format(new Date(b.end_date),   'EEE, d MMM yyyy') : null,
+      }
+      const res = await fetch(
+        `${SUPABASE_URL}/functions/v1/send-confirmation`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) }
+      )
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`)
+      setConfirmEmailResult({ ok: true, msg: `Confirmation sent to ${confirmEmailAddr} ✓` })
+      setTimeout(() => setConfirmEmailOpen(false), 4000)
+    } catch (err) {
+      setConfirmEmailResult({ ok: false, msg: err.message || 'Failed to send' })
+    } finally {
+      setConfirmEmailSending(false)
+    }
+  }
+
   function copyText(text) {
     navigator.clipboard.writeText(text).catch(() => {})
     setCopied(true)
@@ -408,7 +453,7 @@ We look forward to welcoming ${allPetNames}! 🐾`
                   <Edit2 size={13} /> Edit
                 </button>
               )}
-              <button onClick={() => { setSendTab('confirmation'); setSendOpen(true) }} style={headerBtnStyle}>
+              <button onClick={() => { setConfirmEmailAddr(b.customer_email || ''); setConfirmEmailResult(null); setConfirmEmailOpen(p => !p) }} style={headerBtnStyle}>
                 <Mail size={13} /> Email
               </button>
               <button onClick={() => setMode('receipt')} style={headerBtnStyle}>
@@ -440,6 +485,31 @@ We look forward to welcoming ${allPetNames}! 🐾`
   function ViewMode() {
     return (
       <div>
+        {/* Confirmation email inline panel */}
+        {confirmEmailOpen && (
+          <div style={{ border: '1px solid #c6dba0', background: '#eef4e2', borderRadius: '8px', padding: '12px 16px', marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#2d3a1e' }}>Send Confirmation Email</span>
+              <button onClick={() => setConfirmEmailOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={14} /></button>
+            </div>
+            <label style={{ fontSize: '0.75rem', color: 'var(--muted)', display: 'block', marginBottom: '4px' }}>To</label>
+            <input className="input" value={confirmEmailAddr} onChange={e => setConfirmEmailAddr(e.target.value)}
+              style={{ marginBottom: '8px' }} placeholder="customer@email.com" />
+            {confirmEmailResult && (
+              <p style={{ fontSize: '0.8rem', fontWeight: '600', color: confirmEmailResult.ok ? '#16a34a' : '#dc2626', marginBottom: '8px' }}>
+                {confirmEmailResult.msg}
+              </p>
+            )}
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button onClick={sendConfirmationEmail} disabled={confirmEmailSending || !confirmEmailAddr} className="btn-primary" style={{ fontSize: '0.825rem' }}>
+                {confirmEmailSending ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Mail size={13} />}
+                {confirmEmailSending ? ' Sending…' : ' Send confirmation email'}
+              </button>
+              <button onClick={() => setConfirmEmailOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--muted)', textDecoration: 'underline' }}>Cancel</button>
+            </div>
+          </div>
+        )}
+
         {/* Customer */}
         <Section title="Customer">
           <Row label="Name"      value={ownerName} />
