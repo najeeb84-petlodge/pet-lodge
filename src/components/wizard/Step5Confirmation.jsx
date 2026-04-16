@@ -194,7 +194,6 @@ export default function Step5Confirmation() {
         customer_phone:      customerInfo.contact_number,
         customer_whatsapp:   customerInfo.whatsapp_number || customerInfo.contact_number || null,
         how_heard:           customerInfo.how_they_heard || [],
-        newsletter_preferences: customerInfo.newsletter_preferences || [],
         pet_names:           safePets.map(p => p.name).filter(Boolean),
         num_pets:            safePets.length || 1,
         pets_data:           safePets,
