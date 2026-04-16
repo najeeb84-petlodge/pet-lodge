@@ -5,15 +5,16 @@ const CORS_HEADERS = {
 }
 
 interface EmailPayload {
-  bookingRef:    string
-  customerName:  string
-  customerEmail: string
-  petNames:      string[]
-  checkIn:       string
-  checkOut:      string
-  nights:        number
-  services:      string[]
-  totalPrice:    number
+  bookingRef:     string
+  customerName:   string
+  customerEmail:  string
+  petNames:       string[]
+  checkIn:        string
+  checkOut:       string
+  nights:         number
+  services:       string[]
+  totalPrice:     number
+  custom_message?: string
 }
 
 function row(label: string, value: string): string {
@@ -68,6 +69,13 @@ function buildHtml(p: EmailPayload): string {
                 <td style="padding:10px 16px;font-size:16px;color:#2d3a1e;font-weight:700;">${total}</td>
               </tr>
             </table>
+
+            ${p.custom_message ? `
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0 0;border-collapse:collapse;">
+              <tr>
+                <td style="border-left:3px solid #7aa63c;background:#f8fafc;padding:14px 16px;font-size:14px;color:#374151;line-height:1.65;white-space:pre-wrap;border-radius:0 4px 4px 0;">${p.custom_message}</td>
+              </tr>
+            </table>` : ''}
 
             <p style="margin:24px 0 0;font-size:13px;color:#9ca3af;line-height:1.6;">
               Questions? Reply to this email or contact us at
@@ -142,15 +150,16 @@ Deno.serve(async (req: Request) => {
   }
 
   const emailPayload: EmailPayload = {
-    bookingRef:    bookingRef,
-    customerName:  payload.customerName  || '',
-    customerEmail: customerEmail,
-    petNames:      payload.petNames      || [],
-    checkIn:       payload.checkIn       || '',
-    checkOut:      payload.checkOut      || '',
-    nights:        payload.nights        ?? 0,
-    services:      payload.services      || [],
-    totalPrice:    payload.totalPrice    ?? 0,
+    bookingRef:     bookingRef,
+    customerName:   payload.customerName   || '',
+    customerEmail:  customerEmail,
+    petNames:       payload.petNames       || [],
+    checkIn:        payload.checkIn        || '',
+    checkOut:       payload.checkOut       || '',
+    nights:         payload.nights         ?? 0,
+    services:       payload.services       || [],
+    totalPrice:     payload.totalPrice     ?? 0,
+    custom_message: payload.custom_message || undefined,
   }
 
   const resendRes = await fetch('https://api.resend.com/emails', {

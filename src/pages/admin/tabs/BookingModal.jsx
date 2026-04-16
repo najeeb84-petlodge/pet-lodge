@@ -107,7 +107,36 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
   const [emailStep,       setEmailStep]       = useState(null)   // null | 'sending'
   const [emailSendResult, setEmailSendResult] = useState(null)   // { ok, msg } | null
 
+  // confirmation email editable message
+  const [confirmMsgOpen,  setConfirmMsgOpen]  = useState(false)
+  const [confirmEmailMsg, setConfirmEmailMsg] = useState('')
+
+  // ReceiptMode state — ALL lifted here; ReceiptMode() is a plain function call inside a ternary,
+  // so any useState inside it is a conditional hook violation that causes React error #310
+  const [sendSection,    setSendSection]    = useState(null)
+  const [toast,          setToast]          = useState('')
+  const [downloading,    setDownloading]    = useState(false)
+  const [sendingReceipt, setSendingReceipt] = useState(false)
+  const [emailAddr,      setEmailAddr]      = useState('')
+  const [emailMsg,       setEmailMsg]       = useState('')
+  const [waNumber,       setWaNumber]       = useState('')
+  const [waMsg,          setWaMsg]          = useState('')
+
   useEffect(() => { fetchFull() }, [booking.id])
+
+  // Populate receipt send fields when entering receipt mode (b is loaded by then)
+  useEffect(() => {
+    if (mode !== 'receipt') return
+    const fn  = b.customer_first_name || b.profiles?.first_name || ''
+    const pts = Array.isArray(b.pets_data)
+      ? b.pets_data.map(p => p?.name).filter(Boolean).join(', ')
+      : (b.pets_data?.[0]?.name || '—')
+    const tmpl = `Dear Mr/Ms ${fn || 'Customer'}, Thank you for choosing Pet Lodge for ${pts}'s stay! Payment can be made via: Cash, Card, CliQ: 0795535405 / Saleh Abdelhadi. Stay connected: www.petlodgejo.com / +962 79 8906476 / info@petlodgejo.com`
+    setEmailMsg(tmpl)
+    setWaMsg(tmpl)
+    setEmailAddr(b.customer_email || '')
+    setWaNumber(b.customer_whatsapp || b.customer_phone || '')
+  }, [mode])
 
   async function fetchFull() {
     setLoading(true)
@@ -305,8 +334,9 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
         has_transport: hasTransport,
         pickup_time:   perPet.pickupTime  || null,
         dropoff_time:  perPet.dropoffTime || null,
-        pickup_date:   b.start_date ? format(new Date(b.start_date), 'EEE, d MMM yyyy') : null,
-        dropoff_date:  b.end_date   ? format(new Date(b.end_date),   'EEE, d MMM yyyy') : null,
+        pickup_date:    b.start_date ? format(new Date(b.start_date), 'EEE, d MMM yyyy') : null,
+        dropoff_date:   b.end_date   ? format(new Date(b.end_date),   'EEE, d MMM yyyy') : null,
+        custom_message: confirmEmailMsg.trim() || null,
       }
       const res = await fetch(
         `${SUPABASE_URL}/functions/v1/send-confirmation`,
@@ -457,7 +487,21 @@ We look forward to welcoming ${allPetNames}! 🐾`
                   <Edit2 size={13} /> Edit
                 </button>
               )}
-              <button onClick={() => { setConfirmEmailAddr(b.customer_email || ''); setConfirmEmailResult(null); setConfirmEmailOpen(p => !p) }} style={headerBtnStyle}>
+              <button onClick={() => {
+                setConfirmEmailAddr(b.customer_email || '')
+                setConfirmEmailResult(null)
+                if (!confirmEmailOpen) {
+                  const pets = Array.isArray(b.pets_data) ? b.pets_data.map(p => p?.name).filter(Boolean).join(', ') : allPetNames
+                  const cin  = b.start_date ? format(new Date(b.start_date), 'EEE, d MMM yyyy') : '—'
+                  const cout = b.end_date   ? format(new Date(b.end_date),   'EEE, d MMM yyyy') : '—'
+                  const svcs = Array.isArray(b.service_details?.line_items)
+                    ? b.service_details.line_items.map(li => li.label).filter(Boolean).join(', ')
+                    : serviceLabel
+                  setConfirmEmailMsg(`Hi ${b.customer_first_name || 'there'},\n\n${pets} is officially booked in.\nCheck-in: ${cin}.\nCheck-out: ${cout}.\nServices: ${svcs}.\n\nKind regards,\nPet Lodge Customer Care`)
+                  setConfirmMsgOpen(false)
+                }
+                setConfirmEmailOpen(p => !p)
+              }} style={headerBtnStyle}>
                 <Mail size={13} /> Email
               </button>
               <button onClick={() => setMode('receipt')} style={headerBtnStyle}>
@@ -499,6 +543,23 @@ We look forward to welcoming ${allPetNames}! 🐾`
             <label style={{ fontSize: '0.75rem', color: 'var(--muted)', display: 'block', marginBottom: '4px' }}>To</label>
             <input className="input" value={confirmEmailAddr} onChange={e => setConfirmEmailAddr(e.target.value)}
               style={{ marginBottom: '8px' }} placeholder="customer@email.com" />
+            <div style={{ marginBottom: '8px' }}>
+              <button
+                onClick={() => setConfirmMsgOpen(o => !o)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.78rem', color: '#5a7a2e', fontWeight: '600', padding: 0, display: 'flex', alignItems: 'center', gap: '4px', marginBottom: confirmMsgOpen ? '6px' : 0 }}
+              >
+                {confirmMsgOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />} Edit message
+              </button>
+              {confirmMsgOpen && (
+                <textarea
+                  className="input"
+                  rows={6}
+                  value={confirmEmailMsg}
+                  onChange={e => setConfirmEmailMsg(e.target.value)}
+                  style={{ resize: 'vertical', fontSize: '0.78rem', lineHeight: '1.55' }}
+                />
+              )}
+            </div>
             {confirmEmailResult && (
               <p style={{ fontSize: '0.8rem', fontWeight: '600', color: confirmEmailResult.ok ? '#16a34a' : '#dc2626', marginBottom: '8px' }}>
                 {confirmEmailResult.msg}
@@ -865,11 +926,6 @@ We look forward to welcoming ${allPetNames}! 🐾`
 
   // ── RECEIPT MODE ─────────────────────────────────────────────────────────────
   function ReceiptMode() {
-    const [sendSection,    setSendSection]    = useState(null) // 'email' | 'whatsapp' | null
-    const [toast,          setToast]          = useState('')
-    const [downloading,    setDownloading]    = useState(false)
-    const [sendingReceipt, setSendingReceipt] = useState(false)
-
     const receiptId    = (b.booking_ref || b.id || '').slice(-8).toUpperCase()
     const firstName    = b.customer_first_name || b.profiles?.first_name || ''
     const receiptOwner = `${firstName} ${b.customer_last_name || b.profiles?.last_name || ''}`.trim() || '—'
@@ -881,11 +937,6 @@ We look forward to welcoming ${allPetNames}! 🐾`
     const GREEN        = '#8CB733'
 
     const defaultMsg = `Dear Mr/Ms ${firstName || 'Customer'}, Thank you for choosing Pet Lodge for ${allPetNames}'s stay! Payment can be made via: Cash, Card, CliQ: 0795535405 / Saleh Abdelhadi. Stay connected: www.petlodgejo.com / +962 79 8906476 / info@petlodgejo.com`
-
-    const [emailAddr, setEmailAddr] = useState(b.customer_email || '')
-    const [emailMsg,  setEmailMsg]  = useState(defaultMsg)
-    const [waNumber,  setWaNumber]  = useState(b.customer_whatsapp || b.customer_phone || '')
-    const [waMsg,     setWaMsg]     = useState(defaultMsg)
 
     function fmtAmt(val) {
       const n = parseFloat(val)
