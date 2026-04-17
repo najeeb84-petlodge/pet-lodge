@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import { jsPDF } from 'jspdf'
 import html2canvas from 'html2canvas'
-import { supabase, dbQuery, dbUpdate, SUPABASE_URL, SUPABASE_KEY, getAccessToken } from '../../../lib/supabase'
+import { dbQuery, dbUpdate, SUPABASE_URL, SUPABASE_KEY, getAccessToken } from '../../../lib/supabase'
 
 const PAYMENT_METHODS = ['cash', 'card', 'bank_transfer', 'online']
 const METHOD_LABEL = { cash: 'Cash', card: 'Card', bank_transfer: 'Bank Transfer', online: 'Online' }
@@ -116,7 +116,7 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
   const [sendSection,    setSendSection]    = useState(null)
   const [toast,          setToast]          = useState('')
   const [downloading,    setDownloading]    = useState(false)
-  const [sendingReceipt, setSendingReceipt] = useState(false)
+
   const [emailAddr,      setEmailAddr]      = useState('')
   const [emailMsg,       setEmailMsg]       = useState('')
   const [waNumber,       setWaNumber]       = useState('')
@@ -163,11 +163,14 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
 
   function enterEdit() {
     const b = full
+    const computedNights = (b.start_date && b.end_date)
+      ? Math.max(0, Math.round((new Date(b.end_date) - new Date(b.start_date)) / (1000 * 60 * 60 * 24)))
+      : (b.total_days || 0)
     setEdit({
       status:              b.status || 'pending',
       start_date:          b.start_date || '',
       end_date:            b.end_date || '',
-      total_days:          b.total_days || 0,
+      total_days:          computedNights,
       total_amount:        b.total_amount ?? b.total_price ?? 0,
       discount:            b.discount || 0,
       additional_comments: b.additional_comments || '',
@@ -180,7 +183,9 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
       setLineItems(regularLines.map(li => {
         const qty = li.quantity ?? 1
         const unitP = li.unit_price != null ? li.unit_price : (qty > 1 ? ((li.amount || 0) / qty) : (li.amount || 0))
-        return { id: null, name: li.label || '', price: unitP, quantity: qty, unit: li.unit || 'service' }
+        // Silently sync night/day quantities to computed nights on load
+        const syncedQty = (li.unit === 'night' || li.unit === 'day') ? computedNights : qty
+        return { id: null, name: li.label || '', price: unitP, quantity: syncedQty, unit: li.unit || 'service' }
       }))
       setCustomItems(customLines.map(li => ({
         name:  li.label    || '',
@@ -224,8 +229,13 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
     const e = field === 'end_date'   ? value : next.end_date
     if (s && e) {
       const days = Math.max(0, differenceInCalendarDays(new Date(e), new Date(s)))
-      next.total_days    = days
-      next.total_amount  = calcTotal({ ...next, total_days: days }, lineItems)
+      next.total_days = days
+      // Auto-sync night/day line item quantities to new duration
+      const syncedItems = lineItems.map(li =>
+        (li.unit === 'night' || li.unit === 'day') ? { ...li, quantity: days } : li
+      )
+      setLineItems(syncedItems)
+      next.total_amount = calcTotal({ ...next, total_days: days }, syncedItems)
     }
     setEdit(next)
   }
@@ -854,14 +864,6 @@ We look forward to welcoming ${allPetNames}! 🐾`
           <div style={{ padding: '0.5rem 0.75rem', background: 'var(--light)', borderRadius: '0.5rem', fontSize: '0.875rem', color: 'var(--primary)', fontWeight: '600' }}>
             Duration: {edit.total_days || 0} night{edit.total_days !== 1 ? 's' : ''} (auto-calculated)
           </div>
-          {(() => {
-            const nightDayQty = lineItems.filter(li => li.unit === 'night' || li.unit === 'day').reduce((s, li) => s + (parseFloat(li.quantity) || 0), 0)
-            return nightDayQty > 0 && nightDayQty !== (edit.total_days || 0) ? (
-              <div style={{ marginTop: '0.5rem', padding: '0.5rem 0.75rem', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: '0.5rem', fontSize: '0.78rem', color: '#92400e', fontWeight: '600' }}>
-                ⚠ Stay duration changed to {edit.total_days} nights, but line item quantities still reflect {nightDayQty} nights. Review the Services section.
-              </div>
-            ) : null
-          })()}
         </Section>
 
         {/* Services list */}
@@ -1051,7 +1053,6 @@ We look forward to welcoming ${allPetNames}! 🐾`
     const petName      = b.pets_data?.[0]?.name || b.pets?.name || '—'
     const allPetNames  = Array.isArray(b.pets_data) ? b.pets_data.map(p => p?.name).filter(Boolean).join(', ') : petName
     const numPets      = b.num_pets || (Array.isArray(b.pets_data) ? b.pets_data.length : 1) || 1
-    const days         = b.total_days || 0
     const total        = parseFloat(b.total_amount ?? b.total_price ?? 0)
     const GREEN        = '#8CB733'
 
@@ -1063,10 +1064,6 @@ We look forward to welcoming ${allPetNames}! 🐾`
       return n % 1 === 0 ? String(Math.round(n)) : n.toFixed(2)
     }
 
-    function isPerDay(name = '') {
-      const n = name.toLowerCase()
-      return n.includes('boarding') || n.includes('daycare') || n.includes('food')
-    }
 
     const lineItemsRaw = b.service_details?.line_items
     let serviceRows = []
@@ -1182,19 +1179,17 @@ We look forward to welcoming ${allPetNames}! 🐾`
       }
     }
 
-    const thStyle   = { padding: '5px 8px', textAlign: 'left', fontWeight: '700', fontSize: '0.7rem', color: 'white', borderRight: '1px solid rgba(255,255,255,0.25)', whiteSpace: 'nowrap' }
-    const thWidths4 = ['45%', '12%', '18%', '25%']
-    const tdStyle   = { padding: '5px 8px', fontSize: '0.78rem', borderRight: '1px solid #e5e7eb', borderBottom: '1px solid #e5e7eb' }
-    const linkStyle = { display: 'block', color: '#2563eb', textDecoration: 'underline' }
-
     // Subtotal before discount (sum of all line items including custom)
     const receiptSubtotal = (Array.isArray(b.service_details?.line_items) && b.service_details.line_items.length > 0)
       ? b.service_details.line_items.reduce((s, li) => s + (parseFloat(li.amount) || 0), 0)
       : total
     const receiptDiscount = parseFloat(b.discount || 0)
-    const receiptNet      = Math.max(0, receiptSubtotal - receiptDiscount)
     const receiptPaid     = totalPaid + prepaid
-    const receiptDue      = Math.max(0, receiptNet - receiptPaid)
+    const receiptDue      = Math.max(0, receiptSubtotal - receiptDiscount - receiptPaid)
+    const stayNights      = b.total_days || 0
+
+    // Shared cell styles
+    const cellBorder = '1px solid #e5e7eb'
 
     return (
       <div>
@@ -1206,106 +1201,137 @@ We look forward to welcoming ${allPetNames}! 🐾`
         )}
 
         {/* ── Printable receipt card ── */}
-        <div id="receipt-content" style={{ fontFamily: 'Arial, sans-serif', background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '24px', marginBottom: '16px' }}>
+        <div id="receipt-content" style={{ fontFamily: 'Arial, Helvetica, sans-serif', background: 'white', border: cellBorder, borderRadius: '8px', padding: '28px', marginBottom: '16px' }}>
 
-          {/* ── Header row: ref+badge left · logo+contact right ── */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', gap: '16px' }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-                <h1 style={{ fontSize: '1.45rem', fontWeight: '800', margin: 0, color: '#111' }}>Receipt</h1>
-                <span style={{ display: 'inline-block', border: `1px solid ${GREEN}`, borderRadius: '20px', padding: '2px 10px', fontSize: '0.75rem', color: '#2d3a1e', fontWeight: '600' }}>#{receiptId}</span>
-              </div>
-              <p style={{ margin: 0, fontSize: '0.78rem', color: '#6b7280' }}>{format(new Date(), 'd MMM yyyy')}</p>
-            </div>
-            <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <img src="/logo.jpg" alt="Pet Lodge" style={{ width: '80px', height: 'auto', borderRadius: '6px', marginBottom: '6px', display: 'block', marginLeft: 'auto' }} />
-              <div style={{ fontSize: '0.68rem', lineHeight: '1.8', color: '#374151' }}>
-                <a href="https://www.petlodgejo.com/" target="_blank" rel="noopener noreferrer" style={linkStyle}>www.petlodgejo.com</a>
-                <span style={{ display: 'block' }}>+962 79 8906476</span>
-                <a href="mailto:info@petlodgejo.com" target="_blank" rel="noopener noreferrer" style={linkStyle}>info@petlodgejo.com</a>
-              </div>
-            </div>
-          </div>
+          {/* ── Top: Receipt title + ref | Logo + contact ── */}
+          <table width="100%" cellPadding="0" cellSpacing="0" style={{ marginBottom: '16px' }}>
+            <tbody>
+              <tr>
+                <td style={{ verticalAlign: 'top' }}>
+                  <p style={{ margin: '0 0 6px', fontSize: '24px', fontWeight: '800', color: '#2d3a1e', lineHeight: '1' }}>Receipt</p>
+                  <div style={{ display: 'inline-block', border: '1px solid #7aa63c', borderRadius: '20px', padding: '2px 10px', fontSize: '12px', color: '#2d3a1e', fontWeight: '600', marginBottom: '6px' }}>
+                    #{receiptId}
+                  </div>
+                  <p style={{ margin: '0 0 6px', fontSize: '12px', color: '#6b7280' }}>Issued: {format(new Date(), 'd MMM yyyy')}</p>
+                  <div style={{ display: 'inline-block', background: '#eef4e2', color: '#3B6D11', borderRadius: '20px', padding: '2px 8px', fontSize: '11px', fontWeight: '600' }}>
+                    Pending payment
+                  </div>
+                </td>
+                <td style={{ verticalAlign: 'top', textAlign: 'right', width: '170px' }}>
+                  <img src="/logo-email.jpg" alt="Pet Lodge" style={{ width: '80px', height: 'auto', borderRadius: '6px', marginBottom: '6px', display: 'block', marginLeft: 'auto' }} />
+                  <p style={{ margin: '0 0 1px', fontSize: '15px', fontWeight: '700', color: '#2d3a1e' }}>Pet Lodge</p>
+                  <p style={{ margin: '0 0 5px', fontSize: '11px', color: '#5a7a2e' }}>Kennels &amp; Cattery</p>
+                  <div style={{ fontSize: '11px', lineHeight: '1.75', color: '#5a7a2e' }}>
+                    <a href="https://www.petlodgejo.com/" style={{ display: 'block', color: '#5a7a2e', textDecoration: 'none' }}>petlodgejo.com</a>
+                    <span style={{ display: 'block' }}>+962 79 8906476</span>
+                    <a href="mailto:booking@petlodgejo.com" style={{ display: 'block', color: '#5a7a2e', textDecoration: 'none' }}>booking@petlodgejo.com</a>
+                    <a href="https://www.facebook.com/Pet.Lodge.Jo/" style={{ display: 'block', color: '#5a7a2e', textDecoration: 'none' }}>facebook.com/Pet.Lodge.Jo</a>
+                    <a href="https://maps.app.goo.gl/petlodgejo" style={{ display: 'block', color: '#5a7a2e', textDecoration: 'none' }}>Google Maps</a>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
 
-          {/* ── Customer / stay strip ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0', border: '1px solid #e5e7eb', borderRadius: '6px', overflow: 'hidden', marginBottom: '16px' }}>
-            {[
-              ["Owner's Name",   receiptOwner],
-              ["Pet's Name",     allPetNames],
-              ["Arrival",        b.start_date ? format(new Date(b.start_date), 'EEE, d MMM yyyy') : '—'],
-              ["Departure",      b.end_date   ? format(new Date(b.end_date),   'EEE, d MMM yyyy') : '—'],
-            ].map(([label, val], i) => (
-              <div key={label} style={{ padding: '8px 12px', background: i % 2 === 0 ? 'white' : '#f9fafb', borderRight: i % 2 === 0 ? '1px solid #e5e7eb' : 'none', borderBottom: i < 2 ? '1px solid #e5e7eb' : 'none' }}>
-                <p style={{ margin: '0 0 2px', fontSize: '0.65rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</p>
-                <p style={{ margin: 0, fontSize: '0.82rem', fontWeight: '600', color: '#111' }}>{val}</p>
-              </div>
-            ))}
-          </div>
+          {/* ── Customer / Stay strip ── */}
+          <table width="100%" cellPadding="0" cellSpacing="0" style={{ border: cellBorder, borderRadius: '6px', marginBottom: '16px', borderCollapse: 'separate', borderSpacing: '0', overflow: 'hidden' }}>
+            <tbody>
+              <tr>
+                <td style={{ padding: '10px 14px', verticalAlign: 'top', width: '50%', borderRight: cellBorder }}>
+                  <p style={{ margin: '0 0 4px', fontSize: '10px', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Customer</p>
+                  <p style={{ margin: '0 0 2px', fontSize: '13px', fontWeight: '700', color: '#2d3a1e' }}>{receiptOwner}</p>
+                  <p style={{ margin: '0', fontSize: '11px', color: '#6b7280' }}>{b.customer_email || '—'}</p>
+                </td>
+                <td style={{ padding: '10px 14px', verticalAlign: 'top' }}>
+                  <p style={{ margin: '0 0 4px', fontSize: '10px', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Stay</p>
+                  <p style={{ margin: '0 0 2px', fontSize: '13px', fontWeight: '700', color: '#2d3a1e' }}>{allPetNames}</p>
+                  <p style={{ margin: '0', fontSize: '11px', color: '#6b7280' }}>
+                    {b.start_date ? format(new Date(b.start_date), 'EEE, d MMM yyyy') : '—'} → {b.end_date ? format(new Date(b.end_date), 'EEE, d MMM yyyy') : '—'}
+                    {stayNights > 0 ? ` · ${stayNights} night${stayNights !== 1 ? 's' : ''}` : ''}
+                  </p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
 
-          {/* ── Services table (4 columns, no empty rows) ── */}
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '0', border: '1px solid #e5e7eb' }}>
+          {/* ── Services table ── */}
+          <table width="100%" cellPadding="0" cellSpacing="0" style={{ borderCollapse: 'collapse', border: cellBorder, marginBottom: '0' }}>
             <thead>
-              <tr style={{ background: GREEN }}>
-                {['Service','Qty','Unit Price','Total'].map((h, i) => (
-                  <th key={h} style={{ ...thStyle, width: thWidths4[i] }}>{h}</th>
-                ))}
+              <tr style={{ background: '#2d3a1e' }}>
+                <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: '700', fontSize: '11px', color: 'white', borderRight: '1px solid rgba(255,255,255,0.2)' }}>Service</th>
+                <th style={{ padding: '8px 10px', textAlign: 'center', fontWeight: '700', fontSize: '11px', color: 'white', borderRight: '1px solid rgba(255,255,255,0.2)', width: '44px' }}>Qty</th>
+                <th style={{ padding: '8px 10px', textAlign: 'right', fontWeight: '700', fontSize: '11px', color: 'white', borderRight: '1px solid rgba(255,255,255,0.2)', width: '88px' }}>Unit Price</th>
+                <th style={{ padding: '8px 10px', textAlign: 'right', fontWeight: '700', fontSize: '11px', color: 'white', width: '76px' }}>Total</th>
               </tr>
             </thead>
             <tbody>
               {serviceRows.filter(Boolean).map((row, i) => (
                 <tr key={i} style={{ background: i % 2 === 0 ? 'white' : '#f9fafb' }}>
-                  <td style={tdStyle}>
+                  <td style={{ padding: '7px 10px', fontSize: '13px', color: '#374151', borderRight: cellBorder, borderBottom: cellBorder }}>
                     {row.name}
-                    {row.isComp && <span style={{ marginLeft: '6px', fontSize: '0.68rem', color: '#6b7280', fontStyle: 'italic' }}>({row.unitPrice})</span>}
+                    {row.isComp && <span style={{ marginLeft: '6px', fontSize: '11px', color: '#6b7280', fontStyle: 'italic' }}>({row.unitPrice})</span>}
                   </td>
-                  <td style={{ ...tdStyle, textAlign: 'center' }}>{row.isComp ? '—' : row.quantity}</td>
-                  <td style={{ ...tdStyle, color: row.isComp ? '#6b7280' : 'inherit', fontStyle: row.isComp ? 'italic' : 'normal' }}>
+                  <td style={{ padding: '7px 10px', fontSize: '13px', color: '#6b7280', textAlign: 'center', borderRight: cellBorder, borderBottom: cellBorder }}>
+                    {row.isComp ? '—' : row.quantity}
+                  </td>
+                  <td style={{ padding: '7px 10px', fontSize: '13px', color: '#6b7280', textAlign: 'right', borderRight: cellBorder, borderBottom: cellBorder }}>
                     {row.isComp ? '—' : row.unitPrice}
                   </td>
-                  <td style={{ ...tdStyle, fontWeight: '600', color: row.isComp ? '#6b7280' : 'inherit' }}>
+                  <td style={{ padding: '7px 10px', fontSize: '13px', fontWeight: '700', color: '#2d3a1e', textAlign: 'right', borderBottom: cellBorder }}>
                     {row.isComp ? row.unitPrice : `JD ${fmtAmt(row.total)}`}
                   </td>
                 </tr>
               ))}
             </tbody>
-            <tfoot>
-              <tr style={{ background: '#f3f4f6', borderTop: '2px solid #d1d5db' }}>
-                <td colSpan={3} style={{ ...tdStyle, fontWeight: '600', color: '#374151', textAlign: 'right', paddingRight: '12px', borderRight: 'none' }}>Subtotal</td>
-                <td style={{ ...tdStyle, fontWeight: '600' }}>JD {fmtAmt(receiptSubtotal)}</td>
+          </table>
+
+          {/* ── Totals block ── */}
+          <table width="100%" cellPadding="0" cellSpacing="0" style={{ borderCollapse: 'collapse', border: cellBorder, borderTop: 'none', marginBottom: '16px' }}>
+            <tbody>
+              <tr style={{ borderTop: '2px solid #d1d5db' }}>
+                <td style={{ padding: '6px 10px', fontSize: '13px', color: '#6b7280', textAlign: 'right', borderRight: cellBorder, borderTop: '2px solid #d1d5db' }}>Subtotal</td>
+                <td style={{ padding: '6px 10px', fontSize: '13px', color: '#6b7280', textAlign: 'right', width: '100px', borderTop: '2px solid #d1d5db' }}>JD {fmtAmt(receiptSubtotal)}</td>
               </tr>
               {receiptDiscount > 0 && (
-                <tr style={{ background: '#f3f4f6' }}>
-                  <td colSpan={3} style={{ ...tdStyle, color: '#dc2626', textAlign: 'right', paddingRight: '12px', borderRight: 'none' }}>Discount</td>
-                  <td style={{ ...tdStyle, color: '#dc2626' }}>− JD {fmtAmt(receiptDiscount)}</td>
+                <tr>
+                  <td style={{ padding: '6px 10px', fontSize: '13px', color: '#dc2626', textAlign: 'right', borderRight: cellBorder }}>Discount</td>
+                  <td style={{ padding: '6px 10px', fontSize: '13px', color: '#dc2626', textAlign: 'right' }}>− JD {fmtAmt(receiptDiscount)}</td>
                 </tr>
               )}
               {receiptPaid > 0 && (
-                <tr style={{ background: '#f3f4f6' }}>
-                  <td colSpan={3} style={{ ...tdStyle, color: GREEN, textAlign: 'right', paddingRight: '12px', borderRight: 'none' }}>Cash received</td>
-                  <td style={{ ...tdStyle, color: GREEN, fontWeight: '600' }}>JD {fmtAmt(receiptPaid)}</td>
+                <tr>
+                  <td style={{ padding: '6px 10px', fontSize: '13px', color: '#3B6D11', textAlign: 'right', borderRight: cellBorder }}>Cash received</td>
+                  <td style={{ padding: '6px 10px', fontSize: '13px', color: '#3B6D11', textAlign: 'right' }}>JD {fmtAmt(receiptPaid)}</td>
                 </tr>
               )}
-              <tr style={{ background: '#f3f4f6', borderTop: '1px solid #d1d5db' }}>
-                <td colSpan={3} style={{ ...tdStyle, fontWeight: '800', fontSize: '0.9rem', color: '#111', textAlign: 'right', paddingRight: '12px', borderRight: 'none' }}>Amount due</td>
-                <td style={{ ...tdStyle, fontWeight: '800', fontSize: '0.9rem', color: GREEN }}>JD {fmtAmt(receiptDue)}</td>
+              <tr style={{ borderTop: '2px solid #d1d5db' }}>
+                <td style={{ padding: '8px 10px', fontSize: '15px', fontWeight: '800', color: '#2d3a1e', textAlign: 'right', borderRight: cellBorder, borderTop: '2px solid #d1d5db' }}>Amount due</td>
+                <td style={{ padding: '8px 10px', fontSize: '15px', fontWeight: '800', color: '#2d3a1e', textAlign: 'right', borderTop: '2px solid #d1d5db' }}>JD {fmtAmt(receiptDue)}</td>
               </tr>
-            </tfoot>
+            </tbody>
           </table>
 
-          {/* ── Book online link ── */}
-          <div style={{ textAlign: 'center', padding: '10px 0', borderBottom: '1px solid #e5e7eb', marginBottom: '10px' }}>
-            <a href="https://www.petlodgejo.com/" target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.78rem', color: '#2563eb', textDecoration: 'underline', fontWeight: '600' }}>
-              Book online at petlodgejo.com
+          {/* ── View booking link ── */}
+          <div style={{ textAlign: 'center', padding: '8px 0', marginBottom: '12px' }}>
+            <a href="https://www.petlodgejo.com/" target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: '#5a7a2e', textDecoration: 'none', fontWeight: '600' }}>
+              View your booking online →
             </a>
           </div>
 
-          {/* ── Footer row ── */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.68rem', color: '#6b7280', gap: '8px' }}>
-            <span>CliQ 0795535405 / Saleh Abdelhadi &nbsp;·&nbsp; Card accepted &nbsp;·&nbsp; Cash accepted</span>
-            <span style={{ textAlign: 'right', flexShrink: 0 }}>
-              Refer a friend — up to 10% off your next stay
-            </span>
-          </div>
+          {/* ── Footer ── */}
+          <table width="100%" cellPadding="0" cellSpacing="0" style={{ borderTop: '1px solid #e5e7eb' }}>
+            <tbody>
+              <tr>
+                <td style={{ paddingTop: '10px', fontSize: '11px', color: '#6b7280' }}>
+                  Pay via: Cash · Card · CliQ 0795535405 / Saleh Abdelhadi
+                </td>
+                <td style={{ paddingTop: '10px', fontSize: '11px', color: '#5a7a2e', textAlign: 'right' }}>
+                  Refer a friend → 10% off next visit
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
         </div>
 
         {/* ── Action buttons ── */}
