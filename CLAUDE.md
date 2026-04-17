@@ -185,7 +185,15 @@ Each function must:
    `GET https://qcwbkpcwtxpokgseethp.supabase.co/auth/v1/user`
 4. Return `{ success: true }` or `{ error: string }` consistently
 
-Deploy with: `supabase functions deploy function-name`
+Deploy with: `npx supabase functions deploy function-name --no-verify-jwt`
+The `--no-verify-jwt` flag is mandatory — omitting it causes Supabase to re-enable
+JWT verification on every redeploy, which blocks requests from the frontend.
+
+Current functions:
+```
+npx supabase functions deploy send-confirmation --no-verify-jwt
+npx supabase functions deploy send-receipt --no-verify-jwt
+```
 Set secrets with: `supabase secrets set KEY_NAME=value`
 
 ---
@@ -286,3 +294,22 @@ These are referenced throughout the codebase as `import.meta.env.VITE_SUPABASE_U
 and `import.meta.env.VITE_SUPABASE_ANON_KEY`. Do not hardcode these values.
 Do not add `VITE_` prefixed variables to Vercel unless confirmed with Najeeb —
 they may already exist in a local `.env` file not committed to GitHub.
+
+---
+
+## Git Push Protocol
+
+After every `git push`, report the short commit hash (7-character SHA shown in
+VSCode's Source Control panel next to the branch name, e.g. `98d6b7b`).
+
+Format the push confirmation like this:
+```
+Pushed: <short-hash>  (<commit message summary>)
+```
+
+Example:
+```
+Pushed: 98d6b7b  (Debug 401 on send-confirmation: disable auth + log token)
+```
+
+Run `git rev-parse --short HEAD` immediately after pushing to get the hash.
