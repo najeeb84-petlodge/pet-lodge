@@ -122,6 +122,13 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
   const [waNumber,       setWaNumber]       = useState('')
   const [waMsg,          setWaMsg]          = useState('')
 
+  // Fix 6: Discount mode toggle ('jd' | 'pct')
+  const [discountMode,  setDiscountMode]  = useState('jd')
+  const [discountInput, setDiscountInput] = useState('')
+
+  // Fix 7: Custom one-off line items in edit mode
+  const [customItems,   setCustomItems]   = useState([])
+
   useEffect(() => { fetchFull() }, [booking.id])
 
   // Populate receipt send fields when entering receipt mode (b is loaded by then)
@@ -168,16 +175,27 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
     })
     const storedLines = b.service_details?.line_items
     if (Array.isArray(storedLines) && storedLines.length > 0) {
-      setLineItems(storedLines.map(li => {
+      const regularLines = storedLines.filter(li => !li.is_custom)
+      const customLines  = storedLines.filter(li =>  li.is_custom)
+      setLineItems(regularLines.map(li => {
         const qty = li.quantity ?? 1
         const unitP = li.unit_price != null ? li.unit_price : (qty > 1 ? ((li.amount || 0) / qty) : (li.amount || 0))
         return { id: null, name: li.label || '', price: unitP, quantity: qty, unit: li.unit || 'service' }
       }))
+      setCustomItems(customLines.map(li => ({
+        name:  li.label    || '',
+        price: li.unit_price ?? li.amount ?? 0,
+        unit:  li.unit     || 'service',
+      })))
     } else if (b.services) {
       setLineItems([{ id: b.services.id, name: b.services.name, price: b.services.price || 0, quantity: b.total_days || 1, unit: b.services.unit || 'day' }])
+      setCustomItems([])
     } else {
       setLineItems([{ id: null, name: '', price: 0, quantity: 1, unit: 'service' }])
+      setCustomItems([])
     }
+    setDiscountMode('jd')
+    setDiscountInput(String(b.discount || 0))
     dbQuery('services', '?active=eq.true&select=id,name,price,category,unit&order=category,name').then(d => {
       const svcs = Array.isArray(d) ? d : []
       setAvailSvcs(svcs)
@@ -190,9 +208,10 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
     setMode('edit')
   }
 
-  function calcTotal(e, items) {
+  function calcTotal(e, items, extras = customItems) {
     const days = parseInt(e.total_days) || 0
-    const svcTotal = items.reduce((s, li) => {
+    const allItems = [...items, ...(extras || [])]
+    const svcTotal = allItems.reduce((s, li) => {
       const qty = li.quantity ?? (li.unit === 'day' || !li.unit ? days : 1)
       return s + (parseFloat(li.price) || 0) * qty
     }, 0)
@@ -250,11 +269,17 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
       how_heard:           edit.how_heard ? [edit.how_heard] : null,
     }
 
-    const updatedLineItems = lineItems.map(li => {
-      const qty   = parseFloat(li.quantity) || 1
-      const unitP = parseFloat(li.price)    || 0
-      return { label: li.name || '', amount: unitP * qty, unit_price: unitP, quantity: qty, unit: li.unit || 'service' }
-    })
+    const updatedLineItems = [
+      ...lineItems.map(li => {
+        const qty   = parseFloat(li.quantity) || 1
+        const unitP = parseFloat(li.price)    || 0
+        return { label: li.name || '', amount: unitP * qty, unit_price: unitP, quantity: qty, unit: li.unit || 'service' }
+      }),
+      ...customItems.filter(ci => ci.name.trim()).map(ci => {
+        const unitP = parseFloat(ci.price) || 0
+        return { label: ci.name, amount: unitP, unit_price: unitP, quantity: 1, unit: ci.unit || 'service', is_custom: true }
+      }),
+    ]
     const updatedTotal = updatedLineItems.reduce((s, i) => s + i.amount, 0)
     body.service_details = {
       ...(full.service_details || {}),
@@ -827,8 +852,16 @@ We look forward to welcoming ${allPetNames}! 🐾`
             </ERow>
           </div>
           <div style={{ padding: '0.5rem 0.75rem', background: 'var(--light)', borderRadius: '0.5rem', fontSize: '0.875rem', color: 'var(--primary)', fontWeight: '600' }}>
-            Duration: {edit.total_days || 0} days (auto-calculated)
+            Duration: {edit.total_days || 0} night{edit.total_days !== 1 ? 's' : ''} (auto-calculated)
           </div>
+          {(() => {
+            const nightDayQty = lineItems.filter(li => li.unit === 'night' || li.unit === 'day').reduce((s, li) => s + (parseFloat(li.quantity) || 0), 0)
+            return nightDayQty > 0 && nightDayQty !== (edit.total_days || 0) ? (
+              <div style={{ marginTop: '0.5rem', padding: '0.5rem 0.75rem', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: '0.5rem', fontSize: '0.78rem', color: '#92400e', fontWeight: '600' }}>
+                ⚠ Stay duration changed to {edit.total_days} nights, but line item quantities still reflect {nightDayQty} nights. Review the Services section.
+              </div>
+            ) : null
+          })()}
         </Section>
 
         {/* Services list */}
@@ -852,8 +885,16 @@ We look forward to welcoming ${allPetNames}! 🐾`
               </div>
               <div style={{ width: '65px' }}>
                 <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--muted)', marginBottom: '0.2rem', fontWeight: '600' }}>Qty</label>
-                <input className="input" type="number" min="1" step="1" value={li.quantity ?? 1} style={{ fontSize: '0.8rem' }}
-                  onChange={e => onLineChange(idx, 'quantity', e.target.value)} />
+                {(li.unit === 'night' || li.unit === 'day') ? (
+                  <div>
+                    <input className="input" type="number" min="1" step="1" value={li.quantity ?? 1} readOnly
+                      style={{ fontSize: '0.8rem', background: '#f3f4f6', color: 'var(--muted)', cursor: 'not-allowed' }} />
+                    <p style={{ fontSize: '0.65rem', color: 'var(--muted)', margin: '2px 0 0', lineHeight: '1.3' }}>Linked to dates</p>
+                  </div>
+                ) : (
+                  <input className="input" type="number" min="1" step="1" value={li.quantity ?? 1} style={{ fontSize: '0.8rem' }}
+                    onChange={e => onLineChange(idx, 'quantity', e.target.value)} />
+                )}
               </div>
               {lineItems.length > 1 && (
                 <button onClick={() => removeLine(idx)}
@@ -867,16 +908,92 @@ We look forward to welcoming ${allPetNames}! 🐾`
             style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--accent)', background: 'transparent', border: '1px dashed var(--border)', borderRadius: '0.5rem', padding: '6px 12px', cursor: 'pointer', marginTop: '0.25rem' }}>
             <Plus size={13} /> Add Service
           </button>
+
+          {/* Custom one-off charges */}
+          {(customItems.length > 0) && (
+            <div style={{ marginTop: '0.875rem', borderTop: '1px solid var(--border)', paddingTop: '0.875rem' }}>
+              <p style={{ fontSize: '0.72rem', fontWeight: '700', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>One-off charges not in price list</p>
+              {customItems.map((ci, idx) => (
+                <div key={idx} style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+                  <div style={{ flex: 3, minWidth: '140px' }}>
+                    <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--muted)', marginBottom: '0.2rem', fontWeight: '600' }}>Description</label>
+                    <input className="input" style={{ fontSize: '0.8rem' }} value={ci.name} placeholder="e.g. Extra bath, nail trim…"
+                      onChange={e => {
+                        const updated = customItems.map((c, i) => i === idx ? { ...c, name: e.target.value } : c)
+                        setCustomItems(updated)
+                        setEdit(prev => ({ ...prev, total_amount: calcTotal(prev, lineItems, updated) }))
+                      }} />
+                  </div>
+                  <div style={{ width: '80px' }}>
+                    <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--muted)', marginBottom: '0.2rem', fontWeight: '600' }}>Price (JD)</label>
+                    <input className="input" type="number" step="0.5" style={{ fontSize: '0.8rem' }} value={ci.price}
+                      onChange={e => {
+                        const updated = customItems.map((c, i) => i === idx ? { ...c, price: e.target.value } : c)
+                        setCustomItems(updated)
+                        setEdit(prev => ({ ...prev, total_amount: calcTotal(prev, lineItems, updated) }))
+                      }} />
+                  </div>
+                  <button onClick={() => {
+                    const updated = customItems.filter((_, i) => i !== idx)
+                    setCustomItems(updated)
+                    setEdit(prev => ({ ...prev, total_amount: calcTotal(prev, lineItems, updated) }))
+                  }} style={{ padding: '8px', borderRadius: '6px', border: 'none', background: '#fee2e2', cursor: 'pointer', color: '#dc2626', flexShrink: 0, marginBottom: '1px' }}>
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <button onClick={() => setCustomItems(prev => [...prev, { name: '', price: 0, unit: 'service' }])}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: '#6b7280', background: 'transparent', border: '1px dashed #d1d5db', borderRadius: '0.5rem', padding: '6px 12px', cursor: 'pointer', marginTop: customItems.length > 0 ? '0.25rem' : '0.875rem' }}>
+            <Plus size={13} /> Add one-off charge
+          </button>
         </Section>
 
         {/* Financial */}
         <Section title="Financial Details">
-          <ERow label="Discount (JD)">
-            <input className="input" type="number" step="0.5" value={edit.discount}
-              onChange={e => {
-                const v = e.target.value
-                setEdit(p => ({ ...p, discount: v, total_amount: calcTotal({ ...p, discount: v }, lineItems) }))
-              }} />
+          <ERow label="Discount">
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.4rem' }}>
+              {/* JD / % pill toggle */}
+              <div style={{ display: 'flex', borderRadius: '6px', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
+                {['jd', 'pct'].map(m => (
+                  <button key={m} onClick={() => {
+                    if (m === discountMode) return
+                    setDiscountMode(m)
+                    if (m === 'pct') {
+                      // Convert stored JD to pct display
+                      const subtotal = calcTotal({ ...edit, discount: 0 }, lineItems)
+                      const pct = subtotal > 0 ? ((parseFloat(edit.discount) || 0) / subtotal * 100).toFixed(1) : '0'
+                      setDiscountInput(pct)
+                    } else {
+                      setDiscountInput(String(edit.discount || 0))
+                    }
+                  }} style={{ padding: '4px 10px', fontSize: '0.75rem', fontWeight: '700', border: 'none', cursor: 'pointer', background: discountMode === m ? 'var(--dark)' : 'white', color: discountMode === m ? 'white' : 'var(--muted)', transition: 'background 0.15s' }}>
+                    {m === 'jd' ? 'JD' : '%'}
+                  </button>
+                ))}
+              </div>
+              <input className="input" type="number" step={discountMode === 'pct' ? '0.1' : '0.5'} min="0"
+                value={discountInput}
+                onChange={e => {
+                  const raw = e.target.value
+                  setDiscountInput(raw)
+                  let jdDiscount
+                  if (discountMode === 'pct') {
+                    const subtotal = calcTotal({ ...edit, discount: 0 }, lineItems)
+                    jdDiscount = (parseFloat(raw) || 0) / 100 * subtotal
+                  } else {
+                    jdDiscount = parseFloat(raw) || 0
+                  }
+                  setEdit(p => ({ ...p, discount: jdDiscount, total_amount: calcTotal({ ...p, discount: jdDiscount }, lineItems) }))
+                }}
+                style={{ flex: 1 }} />
+              {discountMode === 'pct' && (
+                <span style={{ fontSize: '0.8rem', color: 'var(--muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                  = JD {(parseFloat(edit.discount) || 0).toFixed(2)}
+                </span>
+              )}
+            </div>
           </ERow>
 
           <div style={{ padding: '0.75rem', background: 'var(--light)', borderRadius: '0.5rem', marginTop: '0.5rem' }}>
@@ -952,8 +1069,6 @@ We look forward to welcoming ${allPetNames}! 🐾`
     }
 
     const lineItemsRaw = b.service_details?.line_items
-    const MIN_ROWS = 8
-
     let serviceRows = []
     if (Array.isArray(lineItemsRaw) && lineItemsRaw.length > 0) {
       serviceRows = lineItemsRaw.map(item => {
@@ -981,8 +1096,6 @@ We look forward to welcoming ${allPetNames}! 🐾`
         total: fmtAmt(total), isComp: false,
       }]
     }
-    while (serviceRows.length < MIN_ROWS) serviceRows.push(null)
-
     async function downloadPDF() {
       setDownloading(true)
       try {
@@ -992,7 +1105,8 @@ We look forward to welcoming ${allPetNames}! 🐾`
         const w      = pdf.internal.pageSize.getWidth()
         const h      = (canvas.height * w) / canvas.width
         pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, w, h)
-        pdf.save(`Receipt-${b.booking_ref || b.id?.slice(0, 8)}.pdf`)
+        const checkoutStr = b.end_date ? format(new Date(b.end_date), 'd MMM yyyy') : 'checkout'
+        pdf.save(`Receipt - ${receiptOwner} (${allPetNames}) - ${checkoutStr} - ${b.booking_ref || b.id?.slice(0, 8)}.pdf`)
       } catch (e) { console.error(e) }
       setDownloading(false)
     }
@@ -1023,7 +1137,8 @@ We look forward to welcoming ${allPetNames}! 🐾`
         const h      = (canvas.height * w) / canvas.width
         pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, w, h)
         const pdf_base64   = pdf.output('datauristring').split(',')[1]
-        const pdf_filename = `Receipt-${b.booking_ref || b.id?.slice(0, 8)}-${b.customer_last_name || 'Customer'}.pdf`
+        const checkoutLabel = b.end_date ? format(new Date(b.end_date), 'd MMM yyyy') : 'checkout'
+        const pdf_filename  = `Receipt - ${receiptOwner} (${allPetNames}) - ${checkoutLabel} - ${b.booking_ref || b.id?.slice(0, 8)}.pdf`
 
         console.log('pdf_base64 length:', pdf_base64?.length)
 
@@ -1067,11 +1182,19 @@ We look forward to welcoming ${allPetNames}! 🐾`
       }
     }
 
-    const thStyle  = { padding: '5px 6px', textAlign: 'left', fontWeight: '700', fontSize: '0.7rem', color: 'white', borderRight: '1px solid rgba(255,255,255,0.25)', whiteSpace: 'nowrap' }
-    const thWidths = ['35%', '8%', '13%', '14%', '9%', '14%']
-    const tdStyle  = { padding: '5px 8px', fontSize: '0.78rem', borderRight: '1px solid #e5e7eb', borderBottom: '1px solid #e5e7eb' }
-    const tdDash   = { ...tdStyle, color: '#9ca3af', textAlign: 'center' }
+    const thStyle   = { padding: '5px 8px', textAlign: 'left', fontWeight: '700', fontSize: '0.7rem', color: 'white', borderRight: '1px solid rgba(255,255,255,0.25)', whiteSpace: 'nowrap' }
+    const thWidths4 = ['45%', '12%', '18%', '25%']
+    const tdStyle   = { padding: '5px 8px', fontSize: '0.78rem', borderRight: '1px solid #e5e7eb', borderBottom: '1px solid #e5e7eb' }
     const linkStyle = { display: 'block', color: '#2563eb', textDecoration: 'underline' }
+
+    // Subtotal before discount (sum of all line items including custom)
+    const receiptSubtotal = (Array.isArray(b.service_details?.line_items) && b.service_details.line_items.length > 0)
+      ? b.service_details.line_items.reduce((s, li) => s + (parseFloat(li.amount) || 0), 0)
+      : total
+    const receiptDiscount = parseFloat(b.discount || 0)
+    const receiptNet      = Math.max(0, receiptSubtotal - receiptDiscount)
+    const receiptPaid     = totalPaid + prepaid
+    const receiptDue      = Math.max(0, receiptNet - receiptPaid)
 
     return (
       <div>
@@ -1085,96 +1208,103 @@ We look forward to welcoming ${allPetNames}! 🐾`
         {/* ── Printable receipt card ── */}
         <div id="receipt-content" style={{ fontFamily: 'Arial, sans-serif', background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '24px', marginBottom: '16px' }}>
 
-          {/* Two-column header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', gap: '16px' }}>
-
-            {/* Left: title + info rows */}
+          {/* ── Header row: ref+badge left · logo+contact right ── */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', gap: '16px' }}>
             <div style={{ flex: 1 }}>
-              <h1 style={{ fontSize: '1.6rem', fontWeight: '800', margin: '0 0 14px', color: '#111' }}>
-                Receipt (#{receiptId})
-              </h1>
-              <div style={{ width: '100%', maxWidth: '340px' }}>
-                {[
-                  ["Owner's Name",   receiptOwner],
-                  ["Pet's Name",     allPetNames],
-                  ["Arrival Date",   b.start_date ? format(new Date(b.start_date), 'EEE, d MMM yyyy') : '—'],
-                  ["Departure Date", b.end_date   ? format(new Date(b.end_date),   'EEE, d MMM yyyy') : '—'],
-                ].map(([label, val]) => (
-                  <div key={label} style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '7px' }}>
-                    <span style={{ fontSize: '0.82rem', fontWeight: '700', color: '#374151', minWidth: '140px', flexShrink: 0 }}>{label}</span>
-                    <span style={{ fontSize: '0.82rem', color: '#111', borderBottom: '1px solid #9ca3af', flex: 1, paddingBottom: '2px' }}>{val}</span>
-                  </div>
-                ))}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+                <h1 style={{ fontSize: '1.45rem', fontWeight: '800', margin: 0, color: '#111' }}>Receipt</h1>
+                <span style={{ display: 'inline-block', border: `1px solid ${GREEN}`, borderRadius: '20px', padding: '2px 10px', fontSize: '0.75rem', color: '#2d3a1e', fontWeight: '600' }}>#{receiptId}</span>
               </div>
+              <p style={{ margin: 0, fontSize: '0.78rem', color: '#6b7280' }}>{format(new Date(), 'd MMM yyyy')}</p>
             </div>
-
-            {/* Right: logo + contact links */}
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <img src="/logo.jpg" alt="Pet Lodge" style={{ width: '100px', height: 'auto', borderRadius: '8px', marginBottom: '10px', display: 'block', marginLeft: 'auto' }} />
-              <div style={{ fontSize: '0.72rem', lineHeight: '1.9' }}>
-                <a href="https://www.petlodgejo.com/"           target="_blank" rel="noopener noreferrer" style={linkStyle}>www.petlodgejo.com</a>
-                <a href="tel:+962798906476"                      target="_blank" rel="noopener noreferrer" style={linkStyle}>+962 79 8906476</a>
-                <a href="mailto:info@petlodgejo.com"             target="_blank" rel="noopener noreferrer" style={linkStyle}>info@petlodgejo.com</a>
-                <a href="https://www.facebook.com/Pet.Lodge.Jo/" target="_blank" rel="noopener noreferrer" style={linkStyle}>facebook.com/Pet.Lodge.Jo</a>
-                <a href="https://goo.gl/maps/bWRapfE4YZS2"      target="_blank" rel="noopener noreferrer" style={linkStyle}>View on Maps</a>
+              <img src="/logo.jpg" alt="Pet Lodge" style={{ width: '80px', height: 'auto', borderRadius: '6px', marginBottom: '6px', display: 'block', marginLeft: 'auto' }} />
+              <div style={{ fontSize: '0.68rem', lineHeight: '1.8', color: '#374151' }}>
+                <a href="https://www.petlodgejo.com/" target="_blank" rel="noopener noreferrer" style={linkStyle}>www.petlodgejo.com</a>
+                <span style={{ display: 'block' }}>+962 79 8906476</span>
+                <a href="mailto:info@petlodgejo.com" target="_blank" rel="noopener noreferrer" style={linkStyle}>info@petlodgejo.com</a>
               </div>
             </div>
           </div>
 
-          {/* Services table */}
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px', border: '1px solid #e5e7eb' }}>
+          {/* ── Customer / stay strip ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0', border: '1px solid #e5e7eb', borderRadius: '6px', overflow: 'hidden', marginBottom: '16px' }}>
+            {[
+              ["Owner's Name",   receiptOwner],
+              ["Pet's Name",     allPetNames],
+              ["Arrival",        b.start_date ? format(new Date(b.start_date), 'EEE, d MMM yyyy') : '—'],
+              ["Departure",      b.end_date   ? format(new Date(b.end_date),   'EEE, d MMM yyyy') : '—'],
+            ].map(([label, val], i) => (
+              <div key={label} style={{ padding: '8px 12px', background: i % 2 === 0 ? 'white' : '#f9fafb', borderRight: i % 2 === 0 ? '1px solid #e5e7eb' : 'none', borderBottom: i < 2 ? '1px solid #e5e7eb' : 'none' }}>
+                <p style={{ margin: '0 0 2px', fontSize: '0.65rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</p>
+                <p style={{ margin: 0, fontSize: '0.82rem', fontWeight: '600', color: '#111' }}>{val}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* ── Services table (4 columns, no empty rows) ── */}
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '0', border: '1px solid #e5e7eb' }}>
             <thead>
               <tr style={{ background: GREEN }}>
-                {['Services provided','Unit','Unit Price','Number of Pets','Quantity','Total price'].map((h, i) => (
-                  <th key={h} style={{ ...thStyle, width: thWidths[i] }}>{h}</th>
+                {['Service','Qty','Unit Price','Total'].map((h, i) => (
+                  <th key={h} style={{ ...thStyle, width: thWidths4[i] }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {serviceRows.map((row, i) => row ? (
+              {serviceRows.filter(Boolean).map((row, i) => (
                 <tr key={i} style={{ background: i % 2 === 0 ? 'white' : '#f9fafb' }}>
-                  <td style={tdStyle}>{row.name}</td>
-                  <td style={tdStyle}>{row.unit}</td>
-                  <td style={row.isComp ? { ...tdStyle, color: '#6b7280', fontStyle: 'italic' } : tdStyle}>{row.unitPrice}</td>
-                  <td style={{ ...tdStyle, textAlign: 'center' }}>{row.numPets}</td>
-                  <td style={{ ...tdStyle, textAlign: 'center' }}>{row.quantity}</td>
-                  <td style={{ ...tdStyle, fontWeight: '600', color: row.isComp ? '#6b7280' : 'inherit', fontStyle: row.isComp ? 'italic' : 'normal' }}>{row.total}</td>
-                </tr>
-              ) : (
-                <tr key={i} style={{ background: i % 2 === 0 ? 'white' : '#f9fafb' }}>
-                  {[0,1,2,3,4,5].map(j => <td key={j} style={tdDash}>--</td>)}
+                  <td style={tdStyle}>
+                    {row.name}
+                    {row.isComp && <span style={{ marginLeft: '6px', fontSize: '0.68rem', color: '#6b7280', fontStyle: 'italic' }}>({row.unitPrice})</span>}
+                  </td>
+                  <td style={{ ...tdStyle, textAlign: 'center' }}>{row.isComp ? '—' : row.quantity}</td>
+                  <td style={{ ...tdStyle, color: row.isComp ? '#6b7280' : 'inherit', fontStyle: row.isComp ? 'italic' : 'normal' }}>
+                    {row.isComp ? '—' : row.unitPrice}
+                  </td>
+                  <td style={{ ...tdStyle, fontWeight: '600', color: row.isComp ? '#6b7280' : 'inherit' }}>
+                    {row.isComp ? row.unitPrice : `JD ${fmtAmt(row.total)}`}
+                  </td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
-              {[
-                ['Total in JD', fmtAmt(total)],
-                [null,          null],
-                ['Amount due',  fmtAmt(total)],
-              ].map(([label, val], i) => (
-                <tr key={i} style={{ background: '#f3f4f6', borderTop: i === 0 ? '2px solid #d1d5db' : 'none' }}>
-                  <td colSpan={5} style={{ ...tdStyle, fontWeight: label ? '700' : '400', color: label ? '#111' : '#9ca3af', textAlign: 'right', paddingRight: '12px', borderRight: 'none' }}>
-                    {label ?? '--'}
-                  </td>
-                  <td style={{ ...tdStyle, fontWeight: label ? '700' : '400', color: label === 'Amount due' ? GREEN : label ? '#111' : '#9ca3af' }}>
-                    {val !== null ? val : '--'}
-                  </td>
+              <tr style={{ background: '#f3f4f6', borderTop: '2px solid #d1d5db' }}>
+                <td colSpan={3} style={{ ...tdStyle, fontWeight: '600', color: '#374151', textAlign: 'right', paddingRight: '12px', borderRight: 'none' }}>Subtotal</td>
+                <td style={{ ...tdStyle, fontWeight: '600' }}>JD {fmtAmt(receiptSubtotal)}</td>
+              </tr>
+              {receiptDiscount > 0 && (
+                <tr style={{ background: '#f3f4f6' }}>
+                  <td colSpan={3} style={{ ...tdStyle, color: '#dc2626', textAlign: 'right', paddingRight: '12px', borderRight: 'none' }}>Discount</td>
+                  <td style={{ ...tdStyle, color: '#dc2626' }}>− JD {fmtAmt(receiptDiscount)}</td>
                 </tr>
-              ))}
+              )}
+              {receiptPaid > 0 && (
+                <tr style={{ background: '#f3f4f6' }}>
+                  <td colSpan={3} style={{ ...tdStyle, color: GREEN, textAlign: 'right', paddingRight: '12px', borderRight: 'none' }}>Cash received</td>
+                  <td style={{ ...tdStyle, color: GREEN, fontWeight: '600' }}>JD {fmtAmt(receiptPaid)}</td>
+                </tr>
+              )}
+              <tr style={{ background: '#f3f4f6', borderTop: '1px solid #d1d5db' }}>
+                <td colSpan={3} style={{ ...tdStyle, fontWeight: '800', fontSize: '0.9rem', color: '#111', textAlign: 'right', paddingRight: '12px', borderRight: 'none' }}>Amount due</td>
+                <td style={{ ...tdStyle, fontWeight: '800', fontSize: '0.9rem', color: GREEN }}>JD {fmtAmt(receiptDue)}</td>
+              </tr>
             </tfoot>
           </table>
 
-          {/* Referral box */}
-          <div style={{ border: '2px solid #e5e7eb', borderRadius: '6px', padding: '10px 16px', marginBottom: '14px', textAlign: 'center' }}>
-            <p style={{ margin: 0, color: '#2563eb', fontSize: '0.83rem', fontWeight: '600' }}>
-              Refer friends &amp; receive up to 10% discount on your and their next visit
-            </p>
+          {/* ── Book online link ── */}
+          <div style={{ textAlign: 'center', padding: '10px 0', borderBottom: '1px solid #e5e7eb', marginBottom: '10px' }}>
+            <a href="https://www.petlodgejo.com/" target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.78rem', color: '#2563eb', textDecoration: 'underline', fontWeight: '600' }}>
+              Book online at petlodgejo.com
+            </a>
           </div>
 
-          {/* Footer row */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.72rem', color: '#6b7280' }}>
-            <span>CliQ 0795535405 / Saleh Abdelhadi</span>
-            <span>Receipt - {receiptOwner} ({allPetNames}) - {b.end_date ? format(new Date(b.end_date), 'EEE, dd MMM yyyy') : '—'}</span>
+          {/* ── Footer row ── */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.68rem', color: '#6b7280', gap: '8px' }}>
+            <span>CliQ 0795535405 / Saleh Abdelhadi &nbsp;·&nbsp; Card accepted &nbsp;·&nbsp; Cash accepted</span>
+            <span style={{ textAlign: 'right', flexShrink: 0 }}>
+              Refer a friend — up to 10% off your next stay
+            </span>
           </div>
         </div>
 

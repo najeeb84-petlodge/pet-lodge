@@ -5,7 +5,7 @@ const CORS_HEADERS = {
 }
 
 const SUPABASE_URL = 'https://qcwbkpcwtxpokgseethp.supabase.co'
-const LOGO_URL     = 'https://pet-lodge.vercel.app/Logo%20-%20High%20resolution.jpg'
+const LOGO_URL     = 'https://pet-lodge.vercel.app/logo-email.jpg'
 
 interface ReceiptPayload {
   bookingRef:    string
@@ -37,7 +37,7 @@ function buildHtml(p: ReceiptPayload): string {
         <table width="100%" cellpadding="0" cellspacing="0">
           <tr>
             <td style="vertical-align:middle;width:130px;">
-              <a href="https://www.petlodgejo.com/"><img src="${LOGO_URL}" width="120" alt="Pet Lodge" style="display:block;border:0;" /></a>
+              <a href="https://www.petlodgejo.com/"><img src="${LOGO_URL}" width="100" alt="Pet Lodge" style="display:block;border:0;margin-bottom:8px;" /></a>
             </td>
             <td style="vertical-align:middle;padding-left:16px;">
               <p style="margin:0;font-size:20px;font-weight:700;color:#ffffff;">Pet Lodge</p>
