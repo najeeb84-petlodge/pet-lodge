@@ -48,12 +48,19 @@ function buildHtml(p: EmailPayload): string {
         <!-- Card -->
         <tr>
           <td style="background:#ffffff;padding:28px 32px;border-left:1px solid #e5e7eb;border-right:1px solid #e5e7eb;">
-            <p style="margin:0 0 24px;font-size:16px;color:#374151;">
-              Thank you, <strong>${p.customerName}</strong>! Your booking request has been received.
-            </p>
-            <p style="margin:0 0 24px;font-size:14px;color:#6b7280;">
-              Our team will review your request and confirm within 24 hours via WhatsApp or email.
-            </p>
+
+            <!-- Hero box -->
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#eef4e2;border-radius:8px;margin-bottom:24px;">
+              <tr>
+                <td style="padding:16px 20px;">
+                  <p style="margin:0 0 4px;font-size:16px;font-weight:700;color:#2d3a1e;">${p.petNames[0] || pets} is officially booked in.</p>
+                  <p style="margin:0;font-size:13px;color:#5a7a2e;">Your booking is confirmed. We'll take great care of them.</p>
+                </td>
+                <td style="padding:16px 20px;text-align:right;white-space:nowrap;vertical-align:middle;">
+                  <span style="display:inline-block;border:1px solid #7aa63c;border-radius:20px;padding:4px 12px;font-size:12px;color:#2d3a1e;font-family:monospace;">#${p.bookingRef}</span>
+                </td>
+              </tr>
+            </table>
 
             <!-- Details table -->
             <table width="100%" cellpadding="0" cellspacing="0"
