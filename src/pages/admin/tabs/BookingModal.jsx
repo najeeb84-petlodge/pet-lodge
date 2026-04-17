@@ -1010,10 +1010,24 @@ We look forward to welcoming ${allPetNames}! 🐾`
 
     async function sendReceiptViaEmail() {
       if (!emailAddr) { showToast('No email address entered'); return }
-      setEmailStep('sending'); setEmailSendResult(null)
+      setEmailStep('generating'); setEmailSendResult(null)
       try {
         const token = getAccessToken()
         const fmtD = d => { try { return d ? format(new Date(d), 'EEE, d MMM yyyy') : '' } catch { return '' } }
+
+        // Generate PDF from the on-screen receipt card
+        const el     = document.getElementById('receipt-content')
+        const canvas = await html2canvas(el, { scale: 2, useCORS: true })
+        const pdf    = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+        const w      = pdf.internal.pageSize.getWidth()
+        const h      = (canvas.height * w) / canvas.width
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, w, h)
+        const pdf_base64   = pdf.output('datauristring').split(',')[1]
+        const pdf_filename = `Receipt-${b.booking_ref || b.id?.slice(0, 8)}-${b.customer_last_name || 'Customer'}.pdf`
+
+        console.log('pdf_base64 length:', pdf_base64?.length)
+
+        setEmailStep('sending')
         const res = await fetch(
           `${SUPABASE_URL}/functions/v1/send-receipt`,
           {
@@ -1038,6 +1052,8 @@ We look forward to welcoming ${allPetNames}! 🐾`
               totalPaid,
               amountDue,
               personalMessage: emailMsg,
+              pdf_base64,
+              pdf_filename,
             }),
           }
         )
@@ -1244,8 +1260,8 @@ We look forward to welcoming ${allPetNames}! 🐾`
                   <input className="input" value={emailAddr} onChange={e => setEmailAddr(e.target.value)} placeholder="customer@email.com" />
                 </div>
                 <button onClick={sendReceiptViaEmail} disabled={!!emailStep} className="btn-primary" style={{ fontSize: '0.875rem', marginBottom: emailSendResult ? '0.4rem' : '0.875rem' }}>
-                  {emailStep === 'sending' ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Mail size={14} />}
-                  {emailStep === 'sending' ? ' Sending…' : ' Send Receipt via Email'}
+                  {emailStep ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Mail size={14} />}
+                  {emailStep === 'generating' ? ' Generating PDF…' : emailStep === 'sending' ? ' Sending…' : ' Send Receipt via Email'}
                 </button>
                 {emailSendResult && (
                   <p style={{ fontSize: '0.8rem', fontWeight: '600', color: emailSendResult.ok ? '#16a34a' : '#dc2626', marginBottom: '0.875rem' }}>

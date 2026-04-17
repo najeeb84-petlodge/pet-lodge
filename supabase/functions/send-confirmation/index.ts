@@ -4,6 +4,8 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
+const LOGO_URL = 'https://pet-lodge.vercel.app/Logo%20-%20High%20resolution.jpg'
+
 interface EmailPayload {
   bookingRef:      string
   customerName:    string
@@ -22,9 +24,9 @@ interface EmailPayload {
 }
 
 function buildHtml(p: EmailPayload): string {
-  const pets       = p.petNames.length ? p.petNames.join(', ') : '—'
-  const petName    = p.petNames[0] || pets
-  const firstName  = p.customerName.split(' ')[0] || 'there'
+  const pets      = p.petNames.length ? p.petNames.join(', ') : '—'
+  const petName   = p.petNames[0] || pets
+  const firstName = p.customerName.split(' ')[0] || 'there'
 
   const pills = p.services.map(s =>
     `<span style="display:inline-block;background:#eef4e2;color:#3B6D11;border-radius:20px;padding:3px 10px;margin:2px;font-size:12px;">${s}</span>`
@@ -34,17 +36,11 @@ function buildHtml(p: EmailPayload): string {
         <table width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0 0;border-collapse:collapse;">
           <tr>
             <td style="background:#f8f8f8;border:1px solid #e5e7eb;border-radius:6px;padding:12px 14px;">
+              <p style="margin:0 0 8px;font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em;">Transport details</p>
               <p style="margin:0 0 4px;font-size:13px;color:#374151;"><strong>Pick-up:</strong> ${p.pickup_date || '—'} &nbsp;·&nbsp; ${p.pickup_time || '—'}</p>
               <p style="margin:0 0 6px;font-size:13px;color:#374151;"><strong>Drop-off:</strong> ${p.dropoff_date || '—'} &nbsp;·&nbsp; ${p.dropoff_time || '—'}</p>
               <p style="margin:0;font-size:12px;color:#6b7280;font-style:italic;">We'll do our best to be on time. If we need to adjust slightly, we'll call ahead.</p>
             </td>
-          </tr>
-        </table>` : ''
-
-  const customMsgBlock = p.custom_message ? `
-        <table width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0 0;border-collapse:collapse;">
-          <tr>
-            <td style="border-left:3px solid #7aa63c;background:#f9fafb;padding:12px 16px;font-size:14px;color:#374151;line-height:1.65;white-space:pre-wrap;border-radius:0 4px 4px 0;">${p.custom_message}</td>
           </tr>
         </table>` : ''
 
@@ -59,8 +55,17 @@ function buildHtml(p: EmailPayload): string {
     <!-- Row 1: Header -->
     <tr>
       <td style="background:#2d3a1e;border-radius:12px 12px 0 0;padding:20px 32px;">
-        <p style="margin:0;font-size:20px;font-weight:700;color:#ffffff;">Pet Lodge</p>
-        <p style="margin:4px 0 0;font-size:13px;color:#7aa63c;">Kennels &amp; Cattery &nbsp;·&nbsp; petlodgejo.com</p>
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td style="vertical-align:middle;width:130px;">
+              <a href="https://www.petlodgejo.com/"><img src="${LOGO_URL}" width="120" alt="Pet Lodge" style="display:block;border:0;" /></a>
+            </td>
+            <td style="vertical-align:middle;padding-left:16px;">
+              <p style="margin:0;font-size:20px;font-weight:700;color:#ffffff;">Pet Lodge</p>
+              <p style="margin:4px 0 0;font-size:13px;color:#7aa63c;">Kennels &amp; Cattery &nbsp;·&nbsp; petlodgejo.com</p>
+            </td>
+          </tr>
+        </table>
       </td>
     </tr>
 
@@ -112,21 +117,20 @@ function buildHtml(p: EmailPayload): string {
         <p style="margin:0 0 20px;line-height:1.8;">${pills || '—'}</p>
 
         ${transportBlock}
-        ${customMsgBlock}
 
         <!-- Policy note -->
         <table width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0 0;border-collapse:collapse;">
           <tr>
             <td style="border-left:3px solid #7aa63c;background:#f5f5f5;padding:12px 16px;font-size:12px;color:#6b7280;line-height:1.65;">
-              All invoices are based on our <a href="https://www.petlodgejo.com/" style="color:#5a7a2e;text-decoration:none;">price list</a> unless otherwise agreed.
+              All invoices are based on our <a href="https://petlodgejo.com/services-and-prices" style="color:#5a7a2e;font-weight:bold;text-decoration:underline;">price list</a> unless otherwise agreed.
               Please let us know 48 hours in advance for any cancellations or date changes.
-              Questions? Check our <a href="https://www.petlodgejo.com/" style="color:#5a7a2e;text-decoration:none;">FAQs</a> or reply to this email.
+              Questions? Check our <a href="https://petlodgejo.com/faqs" style="color:#5a7a2e;font-weight:bold;text-decoration:underline;">FAQs</a> or reply to this email.
             </td>
           </tr>
         </table>
 
         <p style="margin:16px 0 0;font-size:13px;color:#6b7280;font-style:italic;">
-          Don't forget to follow us on <a href="https://www.instagram.com/pet.lodge.jo/" style="color:#5a7a2e;">Instagram</a> — you just might catch ${petName} living their absolute best life.
+          Don't forget to follow us on <a href="https://www.instagram.com/pet.lodge.jo/" style="color:#5a7a2e;font-weight:bold;">Instagram</a> — you just might catch ${petName} living their absolute best life.
         </p>
 
         <p style="margin:20px 0 0;font-size:14px;color:#374151;">Kind regards,<br><strong>Pet Lodge Customer Care</strong></p>
@@ -143,7 +147,7 @@ function buildHtml(p: EmailPayload): string {
           <a href="https://www.facebook.com/petlodgejo" style="color:#7aa63c;text-decoration:none;">Facebook</a> &nbsp;·&nbsp;
           <a href="https://www.instagram.com/pet.lodge.jo/" style="color:#7aa63c;text-decoration:none;">Instagram</a> &nbsp;·&nbsp;
           <a href="https://maps.app.goo.gl/petlodgejo" style="color:#7aa63c;text-decoration:none;">Google Maps</a> &nbsp;·&nbsp;
-          <a href="https://www.petlodgejo.com/" style="color:#7aa63c;text-decoration:none;">FAQs</a> &nbsp;·&nbsp;
+          <a href="https://petlodgejo.com/faqs" style="color:#7aa63c;text-decoration:none;">FAQs</a> &nbsp;·&nbsp;
           <a href="https://www.petlodgejo.com/" style="color:#7aa63c;text-decoration:none;">Book online</a>
         </p>
       </td>
@@ -234,11 +238,15 @@ Deno.serve(async (req: Request) => {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from:     'Pet Lodge <booking@petlodgejo.com>',
+      from:     'Pet Lodge Jordan <booking@petlodgejo.com>',
       to:       [customerEmail],
       reply_to: 'info@petlodgejo.com',
       subject:  `Booking Confirmation (${serviceType}) - ${subjectFirst} ${subjectLast} (${petsJoined}) - ${bookingRef}`,
       html:     buildHtml(emailPayload),
+      headers: {
+        'X-Entity-Ref-ID': bookingRef,
+        'Precedence': 'bulk',
+      },
     }),
   })
 

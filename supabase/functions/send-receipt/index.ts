@@ -5,6 +5,7 @@ const CORS_HEADERS = {
 }
 
 const SUPABASE_URL = 'https://qcwbkpcwtxpokgseethp.supabase.co'
+const LOGO_URL     = 'https://pet-lodge.vercel.app/Logo%20-%20High%20resolution.jpg'
 
 interface ReceiptPayload {
   bookingRef:    string
@@ -12,7 +13,9 @@ interface ReceiptPayload {
   customerName:  string
   petNames:      string[]
   endDate?:      string
-  // remaining fields accepted but not used in this wrapper email
+  pdf_base64?:   string
+  pdf_filename?: string
+  // remaining fields accepted but not rendered in this wrapper email
   [key: string]: unknown
 }
 
@@ -31,8 +34,17 @@ function buildHtml(p: ReceiptPayload): string {
     <!-- Row 1: Header -->
     <tr>
       <td style="background:#2d3a1e;border-radius:12px 12px 0 0;padding:20px 32px;">
-        <p style="margin:0;font-size:20px;font-weight:700;color:#ffffff;">Pet Lodge</p>
-        <p style="margin:4px 0 0;font-size:13px;color:#7aa63c;">Kennels &amp; Cattery &nbsp;·&nbsp; petlodgejo.com</p>
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td style="vertical-align:middle;width:130px;">
+              <a href="https://www.petlodgejo.com/"><img src="${LOGO_URL}" width="120" alt="Pet Lodge" style="display:block;border:0;" /></a>
+            </td>
+            <td style="vertical-align:middle;padding-left:16px;">
+              <p style="margin:0;font-size:20px;font-weight:700;color:#ffffff;">Pet Lodge</p>
+              <p style="margin:4px 0 0;font-size:13px;color:#7aa63c;">Kennels &amp; Cattery &nbsp;·&nbsp; petlodgejo.com</p>
+            </td>
+          </tr>
+        </table>
       </td>
     </tr>
 
@@ -54,7 +66,7 @@ function buildHtml(p: ReceiptPayload): string {
 
         <p style="margin:0;font-size:14px;color:#374151;line-height:1.65;">
           Thank you for your trust — we really appreciate it.<br>
-          <strong>Saed Elias</strong>
+          <strong>Pet Lodge Customer Care</strong>
         </p>
 
       </td>
@@ -69,7 +81,7 @@ function buildHtml(p: ReceiptPayload): string {
           <a href="https://www.facebook.com/petlodgejo" style="color:#7aa63c;text-decoration:none;">Facebook</a> &nbsp;·&nbsp;
           <a href="https://www.instagram.com/pet.lodge.jo/" style="color:#7aa63c;text-decoration:none;">Instagram</a> &nbsp;·&nbsp;
           <a href="https://maps.app.goo.gl/petlodgejo" style="color:#7aa63c;text-decoration:none;">Google Maps</a> &nbsp;·&nbsp;
-          <a href="https://www.petlodgejo.com/" style="color:#7aa63c;text-decoration:none;">FAQs</a> &nbsp;·&nbsp;
+          <a href="https://petlodgejo.com/faqs" style="color:#7aa63c;text-decoration:none;">FAQs</a> &nbsp;·&nbsp;
           <a href="https://www.petlodgejo.com/" style="color:#7aa63c;text-decoration:none;">Book online</a>
         </p>
       </td>
@@ -145,7 +157,9 @@ Deno.serve(async (req: Request) => {
     customerEmail,
     customerName: payload.customerName || '',
     petNames:     payload.petNames     || [],
-    endDate:      payload.endDate      || '',
+    endDate:      (payload.endDate as string) || '',
+    pdf_base64:   (payload.pdf_base64  as string | undefined) || undefined,
+    pdf_filename: (payload.pdf_filename as string | undefined) || undefined,
   }
 
   // Build subject: Receipt - First Last (Pet1, Pet2) - d MMM yyyy - REF
@@ -156,19 +170,34 @@ Deno.serve(async (req: Request) => {
   // endDate arrives as "Mon, 10 May 2026" — strip the day-of-week prefix
   const checkoutFmt  = (receiptPayload.endDate || '').replace(/^[A-Za-z]+,?\s*/, '') || '—'
 
+  const { pdf_base64, pdf_filename } = receiptPayload
+  console.error('attachment size:', pdf_base64?.length)
+
+  const resendBody_payload: Record<string, unknown> = {
+    from:     'Pet Lodge Jordan <booking@petlodgejo.com>',
+    to:       [customerEmail],
+    reply_to: 'info@petlodgejo.com',
+    subject:  `Receipt - ${subjectFirst} ${subjectLast} (${petsJoined}) - ${checkoutFmt} - ${bookingRef}`,
+    html:     buildHtml(receiptPayload),
+    headers: {
+      'X-Entity-Ref-ID': bookingRef,
+      'Precedence': 'bulk',
+    },
+  }
+
+  if (pdf_base64) {
+    resendBody_payload.attachments = [
+      { filename: pdf_filename || 'Receipt.pdf', content: pdf_base64 },
+    ]
+  }
+
   const resendRes = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      from:     'Pet Lodge <booking@petlodgejo.com>',
-      to:       [customerEmail],
-      reply_to: 'info@petlodgejo.com',
-      subject:  `Receipt - ${subjectFirst} ${subjectLast} (${petsJoined}) - ${checkoutFmt} - ${bookingRef}`,
-      html:     buildHtml(receiptPayload),
-    }),
+    body: JSON.stringify(resendBody_payload),
   })
 
   const resendBody = await resendRes.json()
