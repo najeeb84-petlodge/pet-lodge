@@ -1188,9 +1188,6 @@ We look forward to welcoming ${allPetNames}! 🐾`
     const receiptDue      = Math.max(0, receiptSubtotal - receiptDiscount - receiptPaid)
     const stayNights      = b.total_days || 0
 
-    // Shared cell styles
-    const cellBorder = '1px solid #e5e7eb'
-
     return (
       <div>
         {/* Toast */}
@@ -1201,50 +1198,54 @@ We look forward to welcoming ${allPetNames}! 🐾`
         )}
 
         {/* ── Printable receipt card ── */}
-        <div id="receipt-content" style={{ fontFamily: 'Arial, Helvetica, sans-serif', background: 'white', border: cellBorder, borderRadius: '8px', padding: '28px', marginBottom: '16px' }}>
+        <div id="receipt-content" style={{ fontFamily: 'Arial, Helvetica, sans-serif', background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '28px', marginBottom: '16px' }}>
 
-          {/* ── Top: Receipt title + ref | Logo + contact ── */}
+          {/* ── Header: Receipt + ref (same line) | Logo + contact ── */}
           <table width="100%" cellPadding="0" cellSpacing="0" style={{ marginBottom: '16px' }}>
             <tbody>
               <tr>
                 <td style={{ verticalAlign: 'top' }}>
-                  <p style={{ margin: '0 0 6px', fontSize: '24px', fontWeight: '800', color: '#2d3a1e', lineHeight: '1' }}>Receipt</p>
-                  <div style={{ display: 'inline-block', border: '1px solid #7aa63c', borderRadius: '20px', padding: '2px 10px', fontSize: '12px', color: '#2d3a1e', fontWeight: '600', marginBottom: '6px' }}>
-                    #{receiptId}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '22px', fontWeight: '800', color: '#2d3a1e', lineHeight: '1' }}>Receipt</span>
+                    <span style={{ display: 'inline-block', border: '1px solid #7aa63c', borderRadius: '20px', padding: '2px 10px', fontSize: '12px', color: '#2d3a1e', fontWeight: '600' }}>
+                      #{receiptId}
+                    </span>
                   </div>
-                  <p style={{ margin: '0 0 6px', fontSize: '12px', color: '#6b7280' }}>Issued: {format(new Date(), 'd MMM yyyy')}</p>
-                  <div style={{ display: 'inline-block', background: '#eef4e2', color: '#3B6D11', borderRadius: '20px', padding: '2px 8px', fontSize: '11px', fontWeight: '600' }}>
-                    Pending payment
+                  <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                    Issued: {format(new Date(), 'd MMM yyyy')} &nbsp;·&nbsp;
+                    <span style={{ display: 'inline-block', background: '#eef4e2', color: '#3B6D11', borderRadius: '20px', padding: '2px 8px', fontSize: '11px', fontWeight: '600' }}>
+                      Pending payment
+                    </span>
                   </div>
                 </td>
-                <td style={{ verticalAlign: 'top', textAlign: 'right', width: '170px' }}>
-                  <img src="/logo-email.jpg" alt="Pet Lodge" style={{ width: '80px', height: 'auto', borderRadius: '6px', marginBottom: '6px', display: 'block', marginLeft: 'auto' }} />
-                  <p style={{ margin: '0 0 1px', fontSize: '15px', fontWeight: '700', color: '#2d3a1e' }}>Pet Lodge</p>
-                  <p style={{ margin: '0 0 5px', fontSize: '11px', color: '#5a7a2e' }}>Kennels &amp; Cattery</p>
-                  <div style={{ fontSize: '11px', lineHeight: '1.75', color: '#5a7a2e' }}>
-                    <a href="https://www.petlodgejo.com/" style={{ display: 'block', color: '#5a7a2e', textDecoration: 'none' }}>petlodgejo.com</a>
-                    <span style={{ display: 'block' }}>+962 79 8906476</span>
-                    <a href="mailto:booking@petlodgejo.com" style={{ display: 'block', color: '#5a7a2e', textDecoration: 'none' }}>booking@petlodgejo.com</a>
-                    <a href="https://www.facebook.com/Pet.Lodge.Jo/" style={{ display: 'block', color: '#5a7a2e', textDecoration: 'none' }}>facebook.com/Pet.Lodge.Jo</a>
-                    <a href="https://maps.app.goo.gl/petlodgejo" style={{ display: 'block', color: '#5a7a2e', textDecoration: 'none' }}>Google Maps</a>
-                  </div>
+                <td style={{ verticalAlign: 'top', textAlign: 'right', width: '160px' }}>
+                  <img src="/logo-email.jpg" alt="Pet Lodge" style={{ width: '70px', height: 'auto', borderRadius: '6px', marginBottom: '5px', display: 'block', marginLeft: 'auto' }} />
+                  <p style={{ margin: '0 0 1px', fontSize: '14px', fontWeight: '700', color: '#2d3a1e' }}>Pet Lodge</p>
+                  <p style={{ margin: '0 0 4px', fontSize: '11px', color: '#5a7a2e' }}>Kennels &amp; Cattery</p>
+                  <p style={{ margin: '0', fontSize: '11px', color: '#5a7a2e', lineHeight: '1.75' }}>
+                    petlodgejo.com<br />
+                    +962 79 8906476<br />
+                    booking@petlodgejo.com<br />
+                    facebook.com/Pet.Lodge.Jo<br />
+                    Google Maps
+                  </p>
                 </td>
               </tr>
             </tbody>
           </table>
 
           {/* ── Customer / Stay strip ── */}
-          <table width="100%" cellPadding="0" cellSpacing="0" style={{ border: cellBorder, borderRadius: '6px', marginBottom: '16px', borderCollapse: 'separate', borderSpacing: '0', overflow: 'hidden' }}>
+          <table width="100%" cellPadding="0" cellSpacing="0" style={{ border: '1px solid #e5e7eb', borderRadius: '6px', margin: '0 0 16px', borderCollapse: 'separate', borderSpacing: '0', overflow: 'hidden' }}>
             <tbody>
               <tr>
-                <td style={{ padding: '10px 14px', verticalAlign: 'top', width: '50%', borderRight: cellBorder }}>
+                <td style={{ padding: '12px 16px', verticalAlign: 'top', width: '50%' }}>
                   <p style={{ margin: '0 0 4px', fontSize: '10px', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Customer</p>
-                  <p style={{ margin: '0 0 2px', fontSize: '13px', fontWeight: '700', color: '#2d3a1e' }}>{receiptOwner}</p>
+                  <p style={{ margin: '0 0 2px', fontSize: '13px', fontWeight: '700', color: '#111827' }}>{receiptOwner}</p>
                   <p style={{ margin: '0', fontSize: '11px', color: '#6b7280' }}>{b.customer_email || '—'}</p>
                 </td>
-                <td style={{ padding: '10px 14px', verticalAlign: 'top' }}>
+                <td style={{ padding: '12px 16px', verticalAlign: 'top', borderLeft: '1px solid #e5e7eb' }}>
                   <p style={{ margin: '0 0 4px', fontSize: '10px', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Stay</p>
-                  <p style={{ margin: '0 0 2px', fontSize: '13px', fontWeight: '700', color: '#2d3a1e' }}>{allPetNames}</p>
+                  <p style={{ margin: '0 0 2px', fontSize: '13px', fontWeight: '700', color: '#111827' }}>{allPetNames}</p>
                   <p style={{ margin: '0', fontSize: '11px', color: '#6b7280' }}>
                     {b.start_date ? format(new Date(b.start_date), 'EEE, d MMM yyyy') : '—'} → {b.end_date ? format(new Date(b.end_date), 'EEE, d MMM yyyy') : '—'}
                     {stayNights > 0 ? ` · ${stayNights} night${stayNights !== 1 ? 's' : ''}` : ''}
@@ -1255,82 +1256,77 @@ We look forward to welcoming ${allPetNames}! 🐾`
           </table>
 
           {/* ── Services table ── */}
-          <table width="100%" cellPadding="0" cellSpacing="0" style={{ borderCollapse: 'collapse', border: cellBorder, marginBottom: '0' }}>
+          <table width="100%" cellPadding="0" cellSpacing="0" style={{ borderCollapse: 'collapse', margin: '16px 0' }}>
             <thead>
-              <tr style={{ background: '#2d3a1e' }}>
-                <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: '700', fontSize: '11px', color: 'white', borderRight: '1px solid rgba(255,255,255,0.2)' }}>Service</th>
-                <th style={{ padding: '8px 10px', textAlign: 'center', fontWeight: '700', fontSize: '11px', color: 'white', borderRight: '1px solid rgba(255,255,255,0.2)', width: '44px' }}>Qty</th>
-                <th style={{ padding: '8px 10px', textAlign: 'right', fontWeight: '700', fontSize: '11px', color: 'white', borderRight: '1px solid rgba(255,255,255,0.2)', width: '88px' }}>Unit Price</th>
-                <th style={{ padding: '8px 10px', textAlign: 'right', fontWeight: '700', fontSize: '11px', color: 'white', width: '76px' }}>Total</th>
+              <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: '700', fontSize: '10px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Service</th>
+                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: '700', fontSize: '10px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', width: '44px' }}>Qty</th>
+                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: '700', fontSize: '10px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', width: '90px' }}>Unit Price</th>
+                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: '700', fontSize: '10px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', width: '80px' }}>Total</th>
               </tr>
             </thead>
             <tbody>
               {serviceRows.filter(Boolean).map((row, i) => (
-                <tr key={i} style={{ background: i % 2 === 0 ? 'white' : '#f9fafb' }}>
-                  <td style={{ padding: '7px 10px', fontSize: '13px', color: '#374151', borderRight: cellBorder, borderBottom: cellBorder }}>
-                    {row.name}
-                    {row.isComp && <span style={{ marginLeft: '6px', fontSize: '11px', color: '#6b7280', fontStyle: 'italic' }}>({row.unitPrice})</span>}
+                <tr key={i} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                  <td style={{ padding: '10px 8px', verticalAlign: 'top' }}>
+                    <div style={{ fontSize: '13px', color: '#111827' }}>{row.name}</div>
+                    {row.isComp && <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '1px' }}>{row.unitPrice}</div>}
                   </td>
-                  <td style={{ padding: '7px 10px', fontSize: '13px', color: '#6b7280', textAlign: 'center', borderRight: cellBorder, borderBottom: cellBorder }}>
+                  <td style={{ padding: '10px 8px', fontSize: '13px', color: '#6b7280', textAlign: 'right', verticalAlign: 'top' }}>
                     {row.isComp ? '—' : row.quantity}
                   </td>
-                  <td style={{ padding: '7px 10px', fontSize: '13px', color: '#6b7280', textAlign: 'right', borderRight: cellBorder, borderBottom: cellBorder }}>
+                  <td style={{ padding: '10px 8px', fontSize: '13px', color: '#6b7280', textAlign: 'right', verticalAlign: 'top' }}>
                     {row.isComp ? '—' : row.unitPrice}
                   </td>
-                  <td style={{ padding: '7px 10px', fontSize: '13px', fontWeight: '700', color: '#2d3a1e', textAlign: 'right', borderBottom: cellBorder }}>
-                    {row.isComp ? row.unitPrice : `JD ${fmtAmt(row.total)}`}
+                  <td style={{ padding: '10px 8px', fontSize: '13px', fontWeight: '700', color: '#111827', textAlign: 'right', verticalAlign: 'top' }}>
+                    {row.isComp ? '—' : `JD ${fmtAmt(row.total)}`}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
 
-          {/* ── Totals block ── */}
-          <table width="100%" cellPadding="0" cellSpacing="0" style={{ borderCollapse: 'collapse', border: cellBorder, borderTop: 'none', marginBottom: '16px' }}>
-            <tbody>
-              <tr style={{ borderTop: '2px solid #d1d5db' }}>
-                <td style={{ padding: '6px 10px', fontSize: '13px', color: '#6b7280', textAlign: 'right', borderRight: cellBorder, borderTop: '2px solid #d1d5db' }}>Subtotal</td>
-                <td style={{ padding: '6px 10px', fontSize: '13px', color: '#6b7280', textAlign: 'right', width: '100px', borderTop: '2px solid #d1d5db' }}>JD {fmtAmt(receiptSubtotal)}</td>
-              </tr>
-              {receiptDiscount > 0 && (
-                <tr>
-                  <td style={{ padding: '6px 10px', fontSize: '13px', color: '#dc2626', textAlign: 'right', borderRight: cellBorder }}>Discount</td>
-                  <td style={{ padding: '6px 10px', fontSize: '13px', color: '#dc2626', textAlign: 'right' }}>− JD {fmtAmt(receiptDiscount)}</td>
-                </tr>
-              )}
-              {receiptPaid > 0 && (
-                <tr>
-                  <td style={{ padding: '6px 10px', fontSize: '13px', color: '#3B6D11', textAlign: 'right', borderRight: cellBorder }}>Cash received</td>
-                  <td style={{ padding: '6px 10px', fontSize: '13px', color: '#3B6D11', textAlign: 'right' }}>JD {fmtAmt(receiptPaid)}</td>
-                </tr>
-              )}
-              <tr style={{ borderTop: '2px solid #d1d5db' }}>
-                <td style={{ padding: '8px 10px', fontSize: '15px', fontWeight: '800', color: '#2d3a1e', textAlign: 'right', borderRight: cellBorder, borderTop: '2px solid #d1d5db' }}>Amount due</td>
-                <td style={{ padding: '8px 10px', fontSize: '15px', fontWeight: '800', color: '#2d3a1e', textAlign: 'right', borderTop: '2px solid #d1d5db' }}>JD {fmtAmt(receiptDue)}</td>
-              </tr>
-            </tbody>
-          </table>
+          {/* ── Totals block (no table — plain right-aligned rows) ── */}
+          <div style={{ paddingTop: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '4px 0' }}>
+              <span style={{ fontSize: '13px', color: '#6b7280', marginRight: '24px' }}>Subtotal</span>
+              <span style={{ fontSize: '13px', color: '#6b7280', minWidth: '80px', textAlign: 'right' }}>JD {fmtAmt(receiptSubtotal)}</span>
+            </div>
+            {receiptDiscount > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '4px 0' }}>
+                <span style={{ fontSize: '13px', color: '#dc2626', marginRight: '24px' }}>Discount</span>
+                <span style={{ fontSize: '13px', color: '#dc2626', minWidth: '80px', textAlign: 'right' }}>– JD {fmtAmt(receiptDiscount)}</span>
+              </div>
+            )}
+            {receiptPaid > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '4px 0' }}>
+                <span style={{ fontSize: '13px', color: '#3B6D11', marginRight: '24px' }}>Cash received</span>
+                <span style={{ fontSize: '13px', color: '#3B6D11', minWidth: '80px', textAlign: 'right' }}>– JD {fmtAmt(receiptPaid)}</span>
+              </div>
+            )}
+            <div style={{ borderTop: '1px solid #e5e7eb', margin: '8px 0' }} />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '4px 0' }}>
+              <span style={{ fontSize: '15px', fontWeight: '700', color: '#111827', marginRight: '24px' }}>Amount due</span>
+              <span style={{ fontSize: '15px', fontWeight: '700', color: '#111827', minWidth: '80px', textAlign: 'right' }}>JD {fmtAmt(receiptDue)}</span>
+            </div>
+          </div>
 
           {/* ── View booking link ── */}
-          <div style={{ textAlign: 'center', padding: '8px 0', marginBottom: '12px' }}>
-            <a href="https://www.petlodgejo.com/" target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: '#5a7a2e', textDecoration: 'none', fontWeight: '600' }}>
+          <div style={{ textAlign: 'center', padding: '16px 0' }}>
+            <a href="https://www.petlodgejo.com/" target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: '#5a7a2e', textDecoration: 'none' }}>
               View your booking online →
             </a>
           </div>
 
           {/* ── Footer ── */}
-          <table width="100%" cellPadding="0" cellSpacing="0" style={{ borderTop: '1px solid #e5e7eb' }}>
-            <tbody>
-              <tr>
-                <td style={{ paddingTop: '10px', fontSize: '11px', color: '#6b7280' }}>
-                  Pay via: Cash · Card · CliQ 0795535405 / Saleh Abdelhadi
-                </td>
-                <td style={{ paddingTop: '10px', fontSize: '11px', color: '#5a7a2e', textAlign: 'right' }}>
-                  Refer a friend → 10% off next visit
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '11px', color: '#6b7280' }}>
+              Pay via: Cash · Card · CliQ 0795535405 / Saleh Abdelhadi
+            </span>
+            <span style={{ fontSize: '11px', color: '#5a7a2e', textAlign: 'right' }}>
+              Refer a friend → 10% off next visit
+            </span>
+          </div>
 
         </div>
 
