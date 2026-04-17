@@ -5,219 +5,79 @@ const CORS_HEADERS = {
 }
 
 const SUPABASE_URL = 'https://qcwbkpcwtxpokgseethp.supabase.co'
-const GREEN = '#8CB733'
-
-interface LineItem {
-  label:      string
-  amount:     number
-  unit_price?: number
-  quantity?:  number
-  unit?:      string
-  num_pets?:  number
-  note?:      string
-}
 
 interface ReceiptPayload {
-  bookingRef:      string
-  customerEmail:   string
-  customerName:    string
-  petNames:        string[]
-  serviceLabel:    string
-  startDate?:      string
-  endDate?:        string
-  totalDays?:      number
-  lineItems:       LineItem[]
-  total:           number
-  discount?:       number
-  prepaid?:        number
-  totalPaid?:      number
-  amountDue?:      number
-  personalMessage?: string
-}
-
-function fmtAmt(val: number): string {
-  return val % 1 === 0 ? String(Math.round(val)) : val.toFixed(2)
-}
-
-function buildServiceRows(items: LineItem[], numPets: number): string {
-  const MIN_ROWS = 8
-  const rows: string[] = []
-
-  const filled = items.map(item => {
-    const qty = item.quantity != null
-      ? item.quantity
-      : (() => { const m = (item.label || '').match(/×\s*(\d+)/); return m ? parseInt(m[1]) : 1 })()
-    const unitPrice = item.unit_price != null
-      ? item.unit_price
-      : (qty > 1 ? (item.amount / qty) : item.amount)
-    const isComp = !!item.note
-    const unitLabel = item.unit === 'night' ? 'Night' : item.unit === 'day' ? 'Day' : 'Service'
-    const name = (item.label || '').replace(/\s*×\s*\d+\s*(nights?|days?)?/i, '').trim() || item.label
-
-    const tdBase = 'padding:5px 8px;font-size:0.78rem;border-right:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;'
-    const bgColor = rows.length % 2 === 0 ? 'white' : '#f9fafb'
-
-    if (isComp) {
-      return `<tr style="background:${bgColor};">
-        <td style="${tdBase}">${name}</td>
-        <td style="${tdBase}">${unitLabel}</td>
-        <td style="${tdBase};color:#6b7280;font-style:italic;">${item.note}</td>
-        <td style="${tdBase};text-align:center;">${item.num_pets ?? numPets}</td>
-        <td style="${tdBase};text-align:center;"></td>
-        <td style="${tdBase};color:#6b7280;font-style:italic;">${item.note}</td>
-      </tr>`
-    }
-    return `<tr style="background:${bgColor};">
-      <td style="${tdBase}">${name}</td>
-      <td style="${tdBase}">${unitLabel}</td>
-      <td style="${tdBase}">JD ${fmtAmt(unitPrice)}</td>
-      <td style="${tdBase};text-align:center;">${item.num_pets ?? numPets}</td>
-      <td style="${tdBase};text-align:center;">${qty}</td>
-      <td style="${tdBase};font-weight:600;">${fmtAmt(item.amount ?? 0)}</td>
-    </tr>`
-  })
-
-  rows.push(...filled)
-
-  const dashRow = (i: number) => {
-    const bgColor = i % 2 === 0 ? 'white' : '#f9fafb'
-    const tdDash = 'padding:5px 8px;font-size:0.78rem;border-right:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;color:#9ca3af;text-align:center;'
-    return `<tr style="background:${bgColor};">${[0,1,2,3,4,5].map(() => `<td style="${tdDash}">--</td>`).join('')}</tr>`
-  }
-
-  while (rows.length < MIN_ROWS) rows.push(dashRow(rows.length))
-
-  return rows.join('')
+  bookingRef:    string
+  customerEmail: string
+  customerName:  string
+  petNames:      string[]
+  endDate?:      string
+  // remaining fields accepted but not used in this wrapper email
+  [key: string]: unknown
 }
 
 function buildHtml(p: ReceiptPayload): string {
-  const petNames   = p.petNames.length ? p.petNames.join(', ') : '—'
-  const numPets    = p.petNames.length || 1
-  const total      = p.total ?? 0
-  const discount   = p.discount ?? 0
-  const prepaid    = p.prepaid ?? 0
-  const totalPaid  = p.totalPaid ?? 0
-  const amountDue  = p.amountDue ?? Math.max(0, total - discount - prepaid - totalPaid)
-  const receiptId  = p.bookingRef.slice(-8).toUpperCase()
-  const firstName  = p.customerName.split(' ')[0] || 'Customer'
-
-  const thStyle = `padding:5px 6px;text-align:left;font-weight:700;font-size:0.7rem;color:white;border-right:1px solid rgba(255,255,255,0.25);white-space:nowrap;`
-  const tdFooter = `padding:5px 8px;font-size:0.78rem;border-right:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;`
-
-  const serviceRowsHtml = buildServiceRows(p.lineItems || [], numPets)
-
-  const msgSection = p.personalMessage
-    ? `<div style="border:1px solid #e5e7eb;border-radius:6px;padding:14px 16px;margin-bottom:16px;background:#f8fafc;">
-        <p style="margin:0;font-size:0.82rem;color:#374151;line-height:1.65;white-space:pre-wrap;">${p.personalMessage}</p>
-      </div>`
-    : ''
+  const pets      = p.petNames.length ? p.petNames.join(', ') : '—'
+  const firstName = p.customerName.split(' ')[0] || 'there'
 
   return `<!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <title>Receipt #${receiptId}</title>
-</head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Receipt</title></head>
 <body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,Helvetica,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:32px 16px;">
-    <tr><td align="center">
-      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:32px 16px;">
+  <tr><td align="center">
+  <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;">
 
-        <!-- Header -->
-        <tr>
-          <td style="background:#2d3a1e;border-radius:12px 12px 0 0;padding:22px 28px;text-align:center;">
-            <p style="margin:0;font-size:20px;font-weight:700;color:#ffffff;">Receipt (#${receiptId})</p>
-          </td>
-        </tr>
+    <!-- Row 1: Header -->
+    <tr>
+      <td style="background:#2d3a1e;border-radius:12px 12px 0 0;padding:20px 32px;">
+        <p style="margin:0;font-size:20px;font-weight:700;color:#ffffff;">Pet Lodge</p>
+        <p style="margin:4px 0 0;font-size:13px;color:#7aa63c;">Kennels &amp; Cattery &nbsp;·&nbsp; petlodgejo.com</p>
+      </td>
+    </tr>
 
-        <!-- Card -->
-        <tr>
-          <td style="background:#ffffff;padding:24px 28px;border-left:1px solid #e5e7eb;border-right:1px solid #e5e7eb;">
+    <!-- Row 2: Body -->
+    <tr>
+      <td style="background:#ffffff;padding:28px 32px;border-left:1px solid #e5e7eb;border-right:1px solid #e5e7eb;">
 
-            <p style="margin:0 0 20px;font-size:15px;color:#374151;">
-              Dear <strong>${firstName}</strong>, please find your receipt below.
-            </p>
+        <p style="margin:0 0 16px;font-size:15px;color:#374151;">Hi ${firstName},</p>
 
-            <!-- Info rows -->
-            <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:8px;border-collapse:separate;border-spacing:0;overflow:hidden;margin-bottom:20px;">
-              ${[
-                ["Owner's Name",   p.customerName],
-                ["Pet(s)",         petNames],
-                ["Service",        p.serviceLabel || '—'],
-                ["Arrival Date",   p.startDate   || '—'],
-                ["Departure Date", p.endDate     || '—'],
-                ["Duration",       p.totalDays   ? `${p.totalDays} day${p.totalDays !== 1 ? 's' : ''}` : '—'],
-              ].map(([lbl, val]) => `
-                <tr>
-                  <td style="padding:9px 14px;font-size:13px;color:#6b7280;width:150px;border-bottom:1px solid #f0f0f0;white-space:nowrap;">${lbl}</td>
-                  <td style="padding:9px 14px;font-size:13px;color:#1a1a1a;font-weight:600;border-bottom:1px solid #f0f0f0;">${val}</td>
-                </tr>`).join('')}
-            </table>
+        <p style="margin:0 0 12px;font-size:15px;font-weight:700;color:#1a1a1a;">${pets} is all set.</p>
 
-            <!-- Services table -->
-            <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:16px;border:1px solid #e5e7eb;">
-              <thead>
-                <tr style="background:${GREEN};">
-                  <th style="${thStyle}width:35%;">Services provided</th>
-                  <th style="${thStyle}width:8%;">Unit</th>
-                  <th style="${thStyle}width:13%;">Unit Price</th>
-                  <th style="${thStyle}width:14%;">Number of Pets</th>
-                  <th style="${thStyle}width:9%;">Quantity</th>
-                  <th style="${thStyle}width:14%;">Total price</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${serviceRowsHtml}
-              </tbody>
-              <tfoot>
-                <tr style="background:#f3f4f6;border-top:2px solid #d1d5db;">
-                  <td colspan="5" style="${tdFooter}font-weight:700;color:#111;text-align:right;padding-right:12px;border-right:none;">Total in JD</td>
-                  <td style="${tdFooter}font-weight:700;color:#111;">${fmtAmt(total)}</td>
-                </tr>
-                <tr style="background:#f3f4f6;">
-                  <td colspan="5" style="${tdFooter}color:#9ca3af;text-align:right;padding-right:12px;border-right:none;">--</td>
-                  <td style="${tdFooter}color:#9ca3af;">--</td>
-                </tr>
-                <tr style="background:#f3f4f6;">
-                  <td colspan="5" style="${tdFooter}font-weight:700;color:#111;text-align:right;padding-right:12px;border-right:none;">Amount due</td>
-                  <td style="${tdFooter}font-weight:700;color:${GREEN};">${fmtAmt(amountDue)}</td>
-                </tr>
-              </tfoot>
-            </table>
+        <p style="margin:0 0 12px;font-size:14px;color:#374151;line-height:1.65;">
+          You can settle payment at any time via cash, card, or CliQ (0795535405 / Saleh Abdelhadi).
+        </p>
 
-            <!-- Referral box -->
-            <div style="border:2px solid #e5e7eb;border-radius:6px;padding:10px 16px;margin-bottom:16px;text-align:center;">
-              <p style="margin:0;color:#2563eb;font-size:0.83rem;font-weight:600;">
-                Refer friends &amp; receive up to 10% discount on your and their next visit
-              </p>
-            </div>
+        <p style="margin:0 0 24px;font-size:14px;color:#374151;line-height:1.65;">
+          Please find your receipt attached. Let us know if you have any questions.
+        </p>
 
-            ${msgSection}
+        <p style="margin:0;font-size:14px;color:#374151;line-height:1.65;">
+          Thank you for your trust — we really appreciate it.<br>
+          <strong>Saed Elias</strong>
+        </p>
 
-            <!-- Contact -->
-            <p style="margin:0 0 4px;font-size:12px;color:#9ca3af;">
-              Payment: Cash · Card · CliQ 0795535405 / Saleh Abdelhadi
-            </p>
-            <p style="margin:0;font-size:12px;color:#9ca3af;">
-              Questions? <a href="mailto:info@petlodgejo.com" style="color:#5a7a2e;">info@petlodgejo.com</a>
-              or <a href="tel:+962798906476" style="color:#5a7a2e;">+962 79 890 6476</a>
-            </p>
-          </td>
-        </tr>
+      </td>
+    </tr>
 
-        <!-- Footer -->
-        <tr>
-          <td style="background:#2d3a1e;border-radius:0 0 12px 12px;padding:18px 28px;text-align:center;">
-            <p style="margin:0;font-size:12px;color:#ffffff;opacity:0.85;">
-              Pet Lodge Jordan &nbsp;·&nbsp; booking@petlodgejo.com &nbsp;·&nbsp; +962 79 890 6476
-            </p>
-          </td>
-        </tr>
+    <!-- Row 3: Footer -->
+    <tr>
+      <td style="background:#2d3a1e;border-radius:0 0 12px 12px;padding:20px 32px;text-align:center;">
+        <p style="margin:0 0 8px;font-size:13px;color:#ffffff;">+962 79 8906476 &nbsp;·&nbsp; booking@petlodgejo.com</p>
+        <p style="margin:0;font-size:12px;">
+          <a href="https://www.petlodgejo.com/" style="color:#7aa63c;text-decoration:none;">Website</a> &nbsp;·&nbsp;
+          <a href="https://www.facebook.com/petlodgejo" style="color:#7aa63c;text-decoration:none;">Facebook</a> &nbsp;·&nbsp;
+          <a href="https://www.instagram.com/pet.lodge.jo/" style="color:#7aa63c;text-decoration:none;">Instagram</a> &nbsp;·&nbsp;
+          <a href="https://maps.app.goo.gl/petlodgejo" style="color:#7aa63c;text-decoration:none;">Google Maps</a> &nbsp;·&nbsp;
+          <a href="https://www.petlodgejo.com/" style="color:#7aa63c;text-decoration:none;">FAQs</a> &nbsp;·&nbsp;
+          <a href="https://www.petlodgejo.com/" style="color:#7aa63c;text-decoration:none;">Book online</a>
+        </p>
+      </td>
+    </tr>
 
-      </table>
-    </td></tr>
   </table>
+  </td></tr>
+</table>
 </body>
 </html>`
 }
@@ -283,20 +143,18 @@ Deno.serve(async (req: Request) => {
   const receiptPayload: ReceiptPayload = {
     bookingRef,
     customerEmail,
-    customerName:    payload.customerName    || '',
-    petNames:        payload.petNames        || [],
-    serviceLabel:    payload.serviceLabel    || '',
-    startDate:       payload.startDate       || '',
-    endDate:         payload.endDate         || '',
-    totalDays:       payload.totalDays       ?? 0,
-    lineItems:       payload.lineItems       || [],
-    total:           payload.total           ?? 0,
-    discount:        payload.discount        ?? 0,
-    prepaid:         payload.prepaid         ?? 0,
-    totalPaid:       payload.totalPaid       ?? 0,
-    amountDue:       payload.amountDue       ?? 0,
-    personalMessage: payload.personalMessage || '',
+    customerName: payload.customerName || '',
+    petNames:     payload.petNames     || [],
+    endDate:      payload.endDate      || '',
   }
+
+  // Build subject: Receipt - First Last (Pet1, Pet2) - d MMM yyyy - REF
+  const nameParts    = receiptPayload.customerName.split(' ')
+  const subjectFirst = nameParts[0] || ''
+  const subjectLast  = nameParts.slice(1).join(' ') || ''
+  const petsJoined   = receiptPayload.petNames.join(', ')
+  // endDate arrives as "Mon, 10 May 2026" — strip the day-of-week prefix
+  const checkoutFmt  = (receiptPayload.endDate || '').replace(/^[A-Za-z]+,?\s*/, '') || '—'
 
   const resendRes = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -305,10 +163,10 @@ Deno.serve(async (req: Request) => {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from:     'Pet Lodge Jordan <booking@petlodgejo.com>',
+      from:     'Pet Lodge <booking@petlodgejo.com>',
       to:       [customerEmail],
       reply_to: 'info@petlodgejo.com',
-      subject:  `Receipt #${bookingRef} | Pet Lodge Jordan`,
+      subject:  `Receipt - ${subjectFirst} ${subjectLast} (${petsJoined}) - ${checkoutFmt} - ${bookingRef}`,
       html:     buildHtml(receiptPayload),
     }),
   })
