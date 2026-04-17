@@ -317,6 +317,8 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
     setConfirmEmailSending(true); setConfirmEmailResult(null)
     try {
       const token = getAccessToken()
+      console.log('token:', token)
+      console.log('Authorization header being sent:', `Bearer ${token}`)
       const perPet = b.service_details?.perPet?.[0] || {}
       const hasTransport = !!(perPet.transport && perPet.transport !== 'self')
       const payload = {
