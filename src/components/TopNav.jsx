@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { Phone, Mail, Facebook, Instagram, MessageCircle } from 'lucide-react'
 
 export default function TopNav() {
-  const { profile, signOut } = useAuth()
+  const { profile, signOut, isAdmin } = useAuth()
   const navigate = useNavigate()  // used for My Bookings / Admin nav
 
   function handleSignOut() {
@@ -51,10 +51,12 @@ export default function TopNav() {
             className="text-sm hidden md:block hover:text-white transition-colors" style={{ color: 'var(--border)' }}>
             My Bookings
           </button>
-          <button onClick={() => navigate('/admin/dashboard')}
-            className="text-sm hidden md:block hover:text-white transition-colors" style={{ color: 'var(--border)' }}>
-            Admin
-          </button>
+          {isAdmin && (
+            <button onClick={() => navigate('/admin/dashboard')}
+              className="text-sm hidden md:block hover:text-white transition-colors" style={{ color: 'var(--border)' }}>
+              Admin
+            </button>
+          )}
           <button onClick={handleSignOut}
             className="text-sm hover:text-white transition-colors" style={{ color: 'var(--border)' }}>
             Sign Out

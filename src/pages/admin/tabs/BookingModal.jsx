@@ -1313,9 +1313,12 @@ We look forward to welcoming ${allPetNames}! 🐾`
 
           {/* ── View booking link ── */}
           <div style={{ textAlign: 'center', padding: '16px 0' }}>
-            <a href="https://www.petlodgejo.com/" target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: '#5a7a2e', textDecoration: 'none' }}>
+            <a href="https://pet-lodge.vercel.app/customer/bookings" target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: '#5a7a2e', textDecoration: 'none' }}>
               View your booking online →
             </a>
+            <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#9ca3af' }}>
+              Log in to view your full booking details and history.
+            </p>
           </div>
 
           {/* ── Footer ── */}
