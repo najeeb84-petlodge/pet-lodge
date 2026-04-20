@@ -1054,7 +1054,6 @@ We look forward to welcoming ${allPetNames}! 🐾`
     const allPetNames  = Array.isArray(b.pets_data) ? b.pets_data.map(p => p?.name).filter(Boolean).join(', ') : petName
     const numPets      = b.num_pets || (Array.isArray(b.pets_data) ? b.pets_data.length : 1) || 1
     const total        = parseFloat(b.total_amount ?? b.total_price ?? 0)
-    const GREEN        = '#8CB733'
 
     const defaultMsg = `Dear Mr/Ms ${firstName || 'Customer'}, Thank you for choosing Pet Lodge for ${allPetNames}'s stay! Payment can be made via: Cash, Card, CliQ: 0795535405 / Saleh Abdelhadi. Stay connected: www.petlodgejo.com / +962 79 8906476 / info@petlodgejo.com`
 
@@ -1184,9 +1183,17 @@ We look forward to welcoming ${allPetNames}! 🐾`
       ? b.service_details.line_items.reduce((s, li) => s + (parseFloat(li.amount) || 0), 0)
       : total
     const receiptDiscount = parseFloat(b.discount || 0)
-    const receiptPaid     = totalPaid + prepaid
-    const receiptDue      = Math.max(0, receiptSubtotal - receiptDiscount - receiptPaid)
-    const stayNights      = b.total_days || 0
+    // Sum all recorded payments (payments table has no status column — count every record)
+    const receiptTotalPaid = payments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0)
+                           + parseFloat(b.prepaid_amount || 0)
+    const receiptBalanceDue = Math.max(0, receiptSubtotal - receiptDiscount - receiptTotalPaid)
+    const stayNights        = b.total_days || 0
+
+    const paymentBadge = receiptBalanceDue <= 0 && receiptTotalPaid > 0
+      ? { label: 'Paid in full',   bg: '#d1fae5', color: '#065f46' }
+      : receiptTotalPaid > 0
+      ? { label: 'Partially paid', bg: '#fef3c7', color: '#92400e' }
+      : { label: 'Pending payment', bg: '#eef4e2', color: '#3B6D11' }
 
     return (
       <div>
@@ -1213,8 +1220,8 @@ We look forward to welcoming ${allPetNames}! 🐾`
                   </div>
                   <div style={{ fontSize: '12px', color: '#6b7280' }}>
                     Issued: {format(new Date(), 'd MMM yyyy')} &nbsp;·&nbsp;
-                    <span style={{ display: 'inline-block', background: '#eef4e2', color: '#3B6D11', borderRadius: '20px', padding: '2px 8px', fontSize: '11px', fontWeight: '600' }}>
-                      Pending payment
+                    <span style={{ display: 'inline-block', background: paymentBadge.bg, color: paymentBadge.color, borderRadius: '20px', padding: '2px 8px', fontSize: '11px', fontWeight: '600' }}>
+                      {paymentBadge.label}
                     </span>
                   </div>
                 </td>
@@ -1298,16 +1305,20 @@ We look forward to welcoming ${allPetNames}! 🐾`
                 <span style={{ fontSize: '13px', color: '#dc2626', minWidth: '80px', textAlign: 'right' }}>– JD {fmtAmt(receiptDiscount)}</span>
               </div>
             )}
-            {receiptPaid > 0 && (
+            {receiptTotalPaid > 0 && (
               <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '4px 0' }}>
                 <span style={{ fontSize: '13px', color: '#3B6D11', marginRight: '24px' }}>Cash received</span>
-                <span style={{ fontSize: '13px', color: '#3B6D11', minWidth: '80px', textAlign: 'right' }}>– JD {fmtAmt(receiptPaid)}</span>
+                <span style={{ fontSize: '13px', color: '#3B6D11', minWidth: '80px', textAlign: 'right' }}>– JD {fmtAmt(receiptTotalPaid)}</span>
               </div>
             )}
             <div style={{ borderTop: '1px solid #e5e7eb', margin: '8px 0' }} />
             <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '4px 0' }}>
-              <span style={{ fontSize: '15px', fontWeight: '700', color: '#111827', marginRight: '24px' }}>Amount due</span>
-              <span style={{ fontSize: '15px', fontWeight: '700', color: '#111827', minWidth: '80px', textAlign: 'right' }}>JD {fmtAmt(receiptDue)}</span>
+              <span style={{ fontSize: '15px', fontWeight: '700', color: '#111827', marginRight: '24px' }}>
+                {receiptTotalPaid > 0 ? 'Balance due' : 'Amount due'}
+              </span>
+              <span style={{ fontSize: '15px', fontWeight: '700', color: receiptBalanceDue <= 0 && receiptTotalPaid > 0 ? '#3B6D11' : '#111827', minWidth: '80px', textAlign: 'right' }}>
+                JD {receiptBalanceDue <= 0 && receiptTotalPaid > 0 ? '0' : fmtAmt(receiptBalanceDue)}
+              </span>
             </div>
           </div>
 
