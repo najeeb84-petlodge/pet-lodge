@@ -76,6 +76,27 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: body?.message || 'Failed to update user role' })
     }
 
+    // Step 3: Sync profiles table using service role key (bypasses RLS — browser token cannot
+    // update another user's profile row due to "auth.uid() = id" RLS policy)
+    const profilePatchRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/profiles?id=eq.${user.id}`,
+      {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${serviceRoleKey}`,
+          apikey: serviceRoleKey,
+          'Content-Type': 'application/json',
+          Prefer: 'return=minimal',
+        },
+        body: JSON.stringify({ role }),
+      }
+    )
+    if (!profilePatchRes.ok) {
+      const txt = await profilePatchRes.text().catch(() => '')
+      console.error('admin-set-role: profiles PATCH failed', profilePatchRes.status, txt)
+      // Non-fatal: user_metadata.role was updated; log and continue
+    }
+
     return res.status(200).json({ success: true, userId: user.id })
   } catch (err) {
     console.error('admin-set-role error:', err.message)

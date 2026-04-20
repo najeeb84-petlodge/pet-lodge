@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { dbQuery, dbUpdate } from '../../../lib/supabase'
+import { dbQuery } from '../../../lib/supabase'
 import { Loader2, Download } from 'lucide-react'
 import { useAuth } from '../../../contexts/AuthContext'
 import { format } from 'date-fns'
@@ -81,11 +81,7 @@ export default function UserManagement({ isSuperAdmin }) {
         return
       }
 
-      // Sync the profiles table using the userId returned by the API (more reliable than email lookup)
-      if (roleBody.userId) {
-        await dbUpdate('profiles', roleBody.userId, { role: newRole })
-      }
-
+      // profiles table is now updated server-side in admin-set-role.js using the service role key
       await fetchUsers()
     } catch(e) { setError('Error adding user') }
     setNewEmail('')
@@ -93,16 +89,20 @@ export default function UserManagement({ isSuperAdmin }) {
   }
 
   async function changeRole(id, role) {
-    // Find the email for this user so we can update user_metadata via admin API
     const target = users.find(u => u.id === id)
     if (target?.email) {
-      await fetch('/api/admin-set-role', {
+      // Updates both user_metadata.role (Auth) and profiles.role (DB) server-side via service role key
+      const res = await fetch('/api/admin-set-role', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: target.email, role }),
       })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setError(body?.error || 'Failed to update role')
+        return
+      }
     }
-    await dbUpdate('profiles', id, { role })
     setUsers(prev => prev.map(u => u.id === id ? { ...u, role } : u))
   }
 
