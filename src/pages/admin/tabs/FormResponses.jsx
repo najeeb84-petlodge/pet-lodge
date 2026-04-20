@@ -257,7 +257,7 @@ function cellValue(b, key) {
   }
 }
 
-export default function FormResponses({ isSuperAdmin }) {
+export default function FormResponses({ isSuperAdmin, isAdmin }) {
   const [bookings,  setBookings]  = useState([])
   const [loading,   setLoading]   = useState(true)
   const [error,     setError]     = useState(null)
@@ -341,7 +341,7 @@ export default function FormResponses({ isSuperAdmin }) {
                     <td key={col.key} className="px-3 py-2 whitespace-nowrap"
                       style={{ maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {col.key === 'action' ? (
-                        isSuperAdmin && (
+                        (isSuperAdmin || isAdmin) && (
                           <button onClick={() => setSelected(b)}
                             style={{ padding: '4px', borderRadius: '6px', border: 'none', background: 'transparent', cursor: 'pointer' }}
                             title="View / Edit booking">

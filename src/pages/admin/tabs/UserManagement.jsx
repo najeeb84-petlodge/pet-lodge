@@ -5,10 +5,10 @@ import { useAuth } from '../../../contexts/AuthContext'
 import { format } from 'date-fns'
 
 const ROLE_BADGE = {
-  super_admin: { bg:'#fee2e2', color:'#991b1b', label:'⊙ Super Admin' },
-  admin:       { bg:'#fef9c3', color:'#854d0e', label:'Admin' },
+  super_admin: { bg:'#d1fae5', color:'#065f46', label:'⊙ Super Admin' },
+  admin:       { bg:'#dcfce7', color:'#166534', label:'Admin' },
   employee:    { bg:'#dbeafe', color:'#1e40af', label:'Employee' },
-  customer:    { bg:'#dcfce7', color:'#166534', label:'Customer' },
+  customer:    { bg:'#f1f5f9', color:'#475569', label:'Customer' },
 }
 
 export default function UserManagement({ isSuperAdmin }) {
@@ -81,10 +81,9 @@ export default function UserManagement({ isSuperAdmin }) {
         return
       }
 
-      // Also sync the profiles table row
-      const existing = await dbQuery('profiles', `?email=eq.${encodeURIComponent(newEmail)}&select=id`)
-      if (existing?.length > 0) {
-        await dbUpdate('profiles', existing[0].id, { role: newRole })
+      // Sync the profiles table using the userId returned by the API (more reliable than email lookup)
+      if (roleBody.userId) {
+        await dbUpdate('profiles', roleBody.userId, { role: newRole })
       }
 
       await fetchUsers()
