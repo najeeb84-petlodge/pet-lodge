@@ -66,20 +66,43 @@ export default function UserManagement({ isSuperAdmin }) {
   async function addAdmin() {
     if (!newEmail) return
     setAdding(true)
+    setError('')
     try {
+      // Update user_metadata.role via secure server-side API (requires service role key)
+      const roleRes = await fetch('/api/admin-set-role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: newEmail, role: newRole }),
+      })
+      const roleBody = await roleRes.json()
+      if (!roleRes.ok) {
+        setError(roleBody?.error || 'Failed to update user role')
+        setAdding(false)
+        return
+      }
+
+      // Also sync the profiles table row
       const existing = await dbQuery('profiles', `?email=eq.${encodeURIComponent(newEmail)}&select=id`)
       if (existing?.length > 0) {
         await dbUpdate('profiles', existing[0].id, { role: newRole })
-        await fetchUsers()
-      } else {
-        setError('User not found — they must sign up first')
       }
+
+      await fetchUsers()
     } catch(e) { setError('Error adding user') }
     setNewEmail('')
     setAdding(false)
   }
 
   async function changeRole(id, role) {
+    // Find the email for this user so we can update user_metadata via admin API
+    const target = users.find(u => u.id === id)
+    if (target?.email) {
+      await fetch('/api/admin-set-role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: target.email, role }),
+      })
+    }
     await dbUpdate('profiles', id, { role })
     setUsers(prev => prev.map(u => u.id === id ? { ...u, role } : u))
   }

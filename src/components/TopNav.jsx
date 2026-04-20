@@ -2,9 +2,18 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { Phone, Mail, Facebook, Instagram, MessageCircle } from 'lucide-react'
 
+function getLocalRole() {
+  try {
+    const session = JSON.parse(localStorage.getItem('sb-qcwbkpcwtxpokgseethp-auth-token'))
+    return session?.user?.user_metadata?.role || ''
+  } catch { return '' }
+}
+
 export default function TopNav() {
-  const { profile, signOut, isAdmin } = useAuth()
+  const { profile, signOut } = useAuth()
   const navigate = useNavigate()  // used for My Bookings / Admin nav
+  const role = getLocalRole()
+  const showAdmin = role === 'admin' || role === 'super_admin'
 
   function handleSignOut() {
     signOut()
@@ -51,7 +60,7 @@ export default function TopNav() {
             className="text-sm hidden md:block hover:text-white transition-colors" style={{ color: 'var(--border)' }}>
             My Bookings
           </button>
-          {isAdmin && (
+          {showAdmin && (
             <button onClick={() => navigate('/admin/dashboard')}
               className="text-sm hidden md:block hover:text-white transition-colors" style={{ color: 'var(--border)' }}>
               Admin
