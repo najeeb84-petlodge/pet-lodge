@@ -3,7 +3,7 @@ import { format, differenceInCalendarDays } from 'date-fns'
 import {
   X, Edit2, Mail, FileText, MessageCircle,
   ChevronDown, ChevronUp, Save, Plus, Trash2,
-  Loader2, Check, Copy,
+  Loader2, Check,
 } from 'lucide-react'
 import { jsPDF } from 'jspdf'
 import html2canvas from 'html2canvas'
@@ -92,24 +92,16 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
   const [transportOpen, setTransportOpen] = useState(false)
   const [howHeardOpen, setHowHeardOpen]   = useState(false)
 
-  // send modal
-  const [sendOpen, setSendOpen]       = useState(false)
-  const [sendTab, setSendTab]         = useState('confirmation')
-  const [copied, setCopied]           = useState(false)
-
-  // confirmation email inline panel
-  const [confirmEmailOpen,    setConfirmEmailOpen]    = useState(false)
-  const [confirmEmailAddr,    setConfirmEmailAddr]    = useState('')
+  // confirmation mode
+  const [confirmMethod,    setConfirmMethod]    = useState('email')  // 'email' | 'whatsapp'
+  const [confirmRecipient, setConfirmRecipient] = useState('')
+  const [confirmNote,      setConfirmNote]      = useState('')
   const [confirmEmailSending, setConfirmEmailSending] = useState(false)
   const [confirmEmailResult,  setConfirmEmailResult]  = useState(null)
 
   // receipt email send state — lifted to outer scope (ReceiptMode is called as a function, not a component)
   const [emailStep,       setEmailStep]       = useState(null)   // null | 'sending'
   const [emailSendResult, setEmailSendResult] = useState(null)   // { ok, msg } | null
-
-  // confirmation email editable message
-  const [confirmMsgOpen,  setConfirmMsgOpen]  = useState(false)
-  const [confirmEmailMsg, setConfirmEmailMsg] = useState('')
 
   // ReceiptMode state — ALL lifted here; ReceiptMode() is a plain function call inside a ternary,
   // so any useState inside it is a conditional hook violation that causes React error #310
@@ -359,7 +351,7 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
       const payload = {
         bookingRef:    b.booking_ref || b.id?.slice(0, 8),
         customerName:  [b.customer_first_name, b.customer_last_name].filter(Boolean).join(' ') || ownerName,
-        customerEmail: confirmEmailAddr,
+        customerEmail: confirmRecipient,
         petNames:      Array.isArray(b.pets_data) ? b.pets_data.map(p => p?.name).filter(Boolean) : [allPetNames],
         checkIn:       b.start_date ? format(new Date(b.start_date), 'EEE, d MMM yyyy') : '—',
         checkOut:      b.end_date   ? format(new Date(b.end_date),   'EEE, d MMM yyyy') : '—',
@@ -373,7 +365,7 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
         dropoff_time:  perPet.dropoffTime || null,
         pickup_date:    b.start_date ? format(new Date(b.start_date), 'EEE, d MMM yyyy') : null,
         dropoff_date:   b.end_date   ? format(new Date(b.end_date),   'EEE, d MMM yyyy') : null,
-        custom_message: confirmEmailMsg.trim() || null,
+        custom_message: confirmNote.trim() || null,
       }
       const res = await fetch(
         `${SUPABASE_URL}/functions/v1/send-confirmation`,
@@ -381,19 +373,13 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
       )
       const body = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`)
-      setConfirmEmailResult({ ok: true, msg: `Confirmation sent to ${confirmEmailAddr} ✓` })
-      setTimeout(() => setConfirmEmailOpen(false), 4000)
+      setConfirmEmailResult({ ok: true, msg: `Confirmation sent to ${confirmRecipient} ✓` })
+      setTimeout(() => setMode('view'), 4000)
     } catch (err) {
       setConfirmEmailResult({ ok: false, msg: err.message || 'Failed to send' })
     } finally {
       setConfirmEmailSending(false)
     }
-  }
-
-  function copyText(text) {
-    navigator.clipboard.writeText(text).catch(() => {})
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
   }
 
   // ── derived ─────────────────────────────────────────────────────────────────
@@ -482,6 +468,24 @@ We look forward to welcoming ${allPetNames}! 🐾`
   const waPhone = (b.customer_whatsapp || b.customer_phone || '').replace(/\D/g, '')
   const waLink  = `https://wa.me/${waPhone}?text=${encodeURIComponent(waMessage)}`
 
+  function buildWaConfirmMessage(note) {
+    const firstName = b.customer_first_name || b.profiles?.first_name || ''
+    const ref  = b.booking_ref || b.id?.slice(0, 8)
+    const cin  = b.start_date ? format(new Date(b.start_date), 'EEE, d MMM yyyy') : '—'
+    const cout = b.end_date   ? format(new Date(b.end_date),   'EEE, d MMM yyyy') : '—'
+    const noteLine = note?.trim() ? `\n_${note.trim()}_\n` : ''
+    return `Hello ${firstName}! 🐾${noteLine}
+Your booking at *Pet Lodge* is confirmed.
+
+📋 *Ref:* ${ref}
+🐾 *Pet:* ${allPetNames}
+🏡 *Service:* ${serviceLabel}
+📅 *Check-in:* ${cin}
+📅 *Check-out:* ${cout}
+
+We look forward to welcoming ${allPetNames}! 🐾`
+  }
+
   // ── loading splash ───────────────────────────────────────────────────────────
   if (loading) return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
@@ -525,27 +529,16 @@ We look forward to welcoming ${allPetNames}! 🐾`
                 </button>
               )}
               <button onClick={() => {
-                setConfirmEmailAddr(b.customer_email || '')
+                setConfirmMethod('email')
+                setConfirmRecipient(b.customer_email || '')
+                setConfirmNote('')
                 setConfirmEmailResult(null)
-                if (!confirmEmailOpen) {
-                  const pets = Array.isArray(b.pets_data) ? b.pets_data.map(p => p?.name).filter(Boolean).join(', ') : allPetNames
-                  const cin  = b.start_date ? format(new Date(b.start_date), 'EEE, d MMM yyyy') : '—'
-                  const cout = b.end_date   ? format(new Date(b.end_date),   'EEE, d MMM yyyy') : '—'
-                  const svcs = Array.isArray(b.service_details?.line_items)
-                    ? b.service_details.line_items.map(li => li.label).filter(Boolean).join(', ')
-                    : serviceLabel
-                  setConfirmEmailMsg(`Hi ${b.customer_first_name || 'there'},\n\n${pets} is officially booked in.\nCheck-in: ${cin}.\nCheck-out: ${cout}.\nServices: ${svcs}.\n\nKind regards,\nPet Lodge Customer Care`)
-                  setConfirmMsgOpen(false)
-                }
-                setConfirmEmailOpen(p => !p)
+                setMode('confirm')
               }} style={headerBtnStyle}>
-                <Mail size={13} /> Email
+                <Mail size={13} /> Confirmation
               </button>
               <button onClick={() => setMode('receipt')} style={headerBtnStyle}>
                 <FileText size={13} /> Receipt
-              </button>
-              <button onClick={() => { setSendTab('whatsapp'); setSendOpen(true) }} style={headerBtnStyle}>
-                <MessageCircle size={13} /> WhatsApp
               </button>
               <button onClick={onClose} style={{ ...headerBtnStyle, padding: '6px 8px' }}>
                 <X size={15} />
@@ -555,12 +548,10 @@ We look forward to welcoming ${allPetNames}! 🐾`
 
           {/* ── Body ── */}
           <div style={{ padding: '1.25rem', maxHeight: '78vh', overflowY: 'auto' }}>
-            {mode === 'view' ? ViewMode() : mode === 'receipt' ? ReceiptMode() : EditMode()}
+            {mode === 'view' ? ViewMode() : mode === 'confirm' ? ConfirmationMode() : mode === 'receipt' ? ReceiptMode() : EditMode()}
           </div>
         </div>
       </div>
-
-      {sendOpen && SendModal()}
 
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </>
@@ -570,48 +561,6 @@ We look forward to welcoming ${allPetNames}! 🐾`
   function ViewMode() {
     return (
       <div>
-        {/* Confirmation email inline panel */}
-        {confirmEmailOpen && (
-          <div style={{ border: '1px solid #c6dba0', background: '#eef4e2', borderRadius: '8px', padding: '12px 16px', marginBottom: '1rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#2d3a1e' }}>Send Confirmation Email</span>
-              <button onClick={() => setConfirmEmailOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={14} /></button>
-            </div>
-            <label style={{ fontSize: '0.75rem', color: 'var(--muted)', display: 'block', marginBottom: '4px' }}>To</label>
-            <input className="input" value={confirmEmailAddr} onChange={e => setConfirmEmailAddr(e.target.value)}
-              style={{ marginBottom: '8px' }} placeholder="customer@email.com" />
-            <div style={{ marginBottom: '8px' }}>
-              <button
-                onClick={() => setConfirmMsgOpen(o => !o)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.78rem', color: '#5a7a2e', fontWeight: '600', padding: 0, display: 'flex', alignItems: 'center', gap: '4px', marginBottom: confirmMsgOpen ? '6px' : 0 }}
-              >
-                {confirmMsgOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />} Edit message
-              </button>
-              {confirmMsgOpen && (
-                <textarea
-                  className="input"
-                  rows={6}
-                  value={confirmEmailMsg}
-                  onChange={e => setConfirmEmailMsg(e.target.value)}
-                  style={{ resize: 'vertical', fontSize: '0.78rem', lineHeight: '1.55' }}
-                />
-              )}
-            </div>
-            {confirmEmailResult && (
-              <p style={{ fontSize: '0.8rem', fontWeight: '600', color: confirmEmailResult.ok ? '#16a34a' : '#dc2626', marginBottom: '8px' }}>
-                {confirmEmailResult.msg}
-              </p>
-            )}
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <button onClick={sendConfirmationEmail} disabled={confirmEmailSending || !confirmEmailAddr} className="btn-primary" style={{ fontSize: '0.825rem' }}>
-                {confirmEmailSending ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Mail size={13} />}
-                {confirmEmailSending ? ' Sending…' : ' Send confirmation email'}
-              </button>
-              <button onClick={() => setConfirmEmailOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--muted)', textDecoration: 'underline' }}>Cancel</button>
-            </div>
-          </div>
-        )}
-
         {/* Customer */}
         <Section title="Customer">
           <Row label="Name"      value={ownerName} />
@@ -815,6 +764,113 @@ We look forward to welcoming ${allPetNames}! 🐾`
           {b.created_at && <Row label="Created"      value={fmtTs(b.created_at)} />}
           {b.updated_at && <Row label="Last Updated" value={fmtTs(b.updated_at)} />}
         </Section>
+      </div>
+    )
+  }
+
+  // ── CONFIRMATION MODE ────────────────────────────────────────────────────────
+  function ConfirmationMode() {
+    const cin  = b.start_date ? format(new Date(b.start_date), 'EEE, d MMM yyyy') : '—'
+    const cout = b.end_date   ? format(new Date(b.end_date),   'EEE, d MMM yyyy') : '—'
+    const waPreview = buildWaConfirmMessage(confirmNote)
+
+    function SendBtn({ placement }) {
+      const mb = placement === 'top' ? '1rem' : 0
+      if (confirmMethod === 'email') {
+        return (
+          <button onClick={sendConfirmationEmail} disabled={confirmEmailSending || !confirmRecipient}
+            className="btn-primary" style={{ fontSize: '0.875rem', marginBottom: mb }}>
+            {confirmEmailSending
+              ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} />
+              : <Mail size={13} />}
+            {confirmEmailSending ? ' Sending…' : ' Send confirmation email'}
+          </button>
+        )
+      }
+      return (
+        <button
+          onClick={() => {
+            const phone = confirmRecipient.replace(/\D/g, '')
+            window.open(`https://wa.me/${phone}?text=${encodeURIComponent(buildWaConfirmMessage(confirmNote))}`, '_blank')
+          }}
+          disabled={!confirmRecipient}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', border: 'none', background: '#25d366', color: 'white', fontSize: '0.875rem', marginBottom: mb }}
+        >
+          <MessageCircle size={13} /> Open WhatsApp to send
+        </button>
+      )
+    }
+
+    return (
+      <div>
+        {/* Method toggle */}
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+          {['email', 'whatsapp'].map(m => (
+            <button key={m} onClick={() => {
+              setConfirmMethod(m)
+              setConfirmRecipient(m === 'email' ? (b.customer_email || '') : (b.customer_whatsapp || b.customer_phone || ''))
+              setConfirmEmailResult(null)
+            }} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '7px 18px', borderRadius: '20px', border: 'none', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem', background: confirmMethod === m ? '#7aa63c' : '#f1f5f9', color: confirmMethod === m ? 'white' : 'var(--muted)' }}>
+              {m === 'email' ? <><Mail size={13} /> Email</> : <><MessageCircle size={13} /> WhatsApp</>}
+            </button>
+          ))}
+        </div>
+
+        {/* Recipient */}
+        <div style={{ marginBottom: '0.75rem' }}>
+          <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.2rem', fontWeight: '600' }}>
+            {confirmMethod === 'email' ? 'Email address' : 'WhatsApp number'}
+          </label>
+          <input className="input" value={confirmRecipient} onChange={e => setConfirmRecipient(e.target.value)}
+            placeholder={confirmMethod === 'email' ? 'customer@email.com' : '+962 7X XXX XXXX'} />
+        </div>
+
+        {/* Personal note */}
+        <div style={{ marginBottom: '0.75rem' }}>
+          <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.2rem', fontWeight: '600' }}>Personal note (optional)</label>
+          <textarea className="input" rows={3} value={confirmNote} onChange={e => setConfirmNote(e.target.value)}
+            placeholder="Add a personal note…" style={{ resize: 'vertical', fontSize: '0.82rem' }} />
+        </div>
+
+        {/* Send — top */}
+        <SendBtn placement="top" />
+
+        {confirmEmailResult && (
+          <p style={{ fontSize: '0.8rem', fontWeight: '600', color: confirmEmailResult.ok ? '#16a34a' : '#dc2626', marginBottom: '0.875rem' }}>
+            {confirmEmailResult.msg}
+          </p>
+        )}
+
+        {/* Live preview */}
+        <div style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '1rem', background: '#f8f9f6', marginBottom: '1rem' }}>
+          <p style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.625rem' }}>
+            {confirmMethod === 'email' ? 'Email preview' : 'Message preview'}
+          </p>
+          {confirmMethod === 'email' ? (
+            <div style={{ fontSize: '0.82rem', color: 'var(--text)', lineHeight: '1.65' }}>
+              <div style={{ marginBottom: '0.25rem' }}><span style={{ fontWeight: '600', color: 'var(--muted)', minWidth: '60px', display: 'inline-block' }}>To:</span> {confirmRecipient || '—'}</div>
+              <div style={{ marginBottom: '0.25rem' }}><span style={{ fontWeight: '600', color: 'var(--muted)', minWidth: '60px', display: 'inline-block' }}>Subject:</span> Booking Confirmation – {b.booking_ref || b.id?.slice(0, 8)}</div>
+              {confirmNote.trim() && (
+                <div style={{ fontStyle: 'italic', color: '#555', borderLeft: '2px solid #7aa63c', paddingLeft: '10px', margin: '8px 0', fontSize: '0.8rem' }}>{confirmNote}</div>
+              )}
+              <div style={{ marginBottom: '0.2rem' }}><span style={{ fontWeight: '600', color: 'var(--muted)', minWidth: '60px', display: 'inline-block' }}>Check-in:</span> {cin}</div>
+              <div style={{ marginBottom: '0.2rem' }}><span style={{ fontWeight: '600', color: 'var(--muted)', minWidth: '60px', display: 'inline-block' }}>Check-out:</span> {cout}</div>
+              <div><span style={{ fontWeight: '600', color: 'var(--muted)', minWidth: '60px', display: 'inline-block' }}>Pet:</span> {allPetNames}</div>
+            </div>
+          ) : (
+            <pre style={{ fontFamily: 'inherit', fontSize: '0.82rem', color: 'var(--text)', lineHeight: '1.65', whiteSpace: 'pre-wrap', margin: 0 }}>{waPreview}</pre>
+          )}
+        </div>
+
+        {/* Send — bottom */}
+        <SendBtn placement="bottom" />
+
+        {/* Back */}
+        <div style={{ marginTop: '1rem' }}>
+          <button onClick={() => setMode('view')} className="btn-secondary" style={{ fontSize: '0.875rem' }}>
+            <X size={14} /> Back
+          </button>
+        </div>
       </div>
     )
   }
@@ -1481,79 +1537,4 @@ We look forward to welcoming ${allPetNames}! 🐾`
     )
   }
 
-  // ── SEND MODAL ───────────────────────────────────────────────────────────────
-  function SendModal() {
-    const tabs = [
-      { id: 'confirmation', label: 'Confirmation Email', icon: <Mail size={13} /> },
-      { id: 'receipt',      label: 'Receipt',            icon: <FileText size={13} /> },
-      { id: 'whatsapp',     label: 'WhatsApp',           icon: <MessageCircle size={13} /> },
-    ]
-    const content = sendTab === 'confirmation' ? confirmBody : sendTab === 'receipt' ? receiptBody : waMessage
-
-    return (
-      <div
-        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60, padding: '1rem' }}
-        onClick={() => setSendOpen(false)}
-      >
-        <div
-          style={{ background: 'white', borderRadius: '1rem', width: '100%', maxWidth: '560px', overflow: 'hidden', boxShadow: '0 25px 50px rgba(0,0,0,0.35)' }}
-          onClick={e => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div style={{ background: 'var(--dark)', padding: '0.875rem 1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ color: 'white', fontWeight: '700', margin: 0, fontSize: '0.95rem' }}>Send to Customer</h3>
-            <button onClick={() => setSendOpen(false)} style={{ ...headerBtnStyle, padding: '5px 7px' }}>
-              <X size={15} />
-            </button>
-          </div>
-
-          {/* Tabs */}
-          <div style={{ display: 'flex', borderBottom: '1px solid var(--border)' }}>
-            {tabs.map(t => (
-              <button key={t.id} onClick={() => setSendTab(t.id)}
-                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', padding: '0.7rem 0.5rem', fontSize: '0.78rem', fontWeight: '600', border: 'none', borderBottom: sendTab === t.id ? '2px solid var(--accent)' : '2px solid transparent', background: 'white', cursor: 'pointer', color: sendTab === t.id ? 'var(--accent)' : 'var(--muted)', transition: 'color 0.15s' }}>
-                {t.icon} {t.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Content */}
-          <div style={{ padding: '1.25rem' }}>
-            <textarea readOnly value={content}
-              style={{ width: '100%', minHeight: '210px', fontFamily: 'monospace', fontSize: '0.78rem', lineHeight: '1.65', padding: '0.75rem', border: '1px solid var(--border)', borderRadius: '0.5rem', background: '#f8f9f6', color: 'var(--text)', resize: 'vertical' }}
-            />
-
-            <div style={{ display: 'flex', gap: '0.625rem', marginTop: '0.75rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-              <button onClick={() => copyText(content)} className="btn-secondary" style={{ fontSize: '0.875rem' }}>
-                {copied ? <Check size={13} /> : <Copy size={13} />}
-                {copied ? 'Copied!' : 'Copy'}
-              </button>
-
-              {sendTab === 'confirmation' && b.profiles?.email && (
-                <a
-                  href={`mailto:${b.profiles.email}?subject=Booking Confirmation – ${b.booking_ref || b.id?.slice(0, 8)}&body=${encodeURIComponent(confirmBody)}`}
-                  className="btn-primary" style={{ fontSize: '0.875rem', textDecoration: 'none' }}
-                >
-                  <Mail size={13} /> Open in Mail
-                </a>
-              )}
-
-              {sendTab === 'whatsapp' && waPhone && (
-                <a href={waLink} target="_blank" rel="noopener noreferrer"
-                  className="btn-primary" style={{ fontSize: '0.875rem', textDecoration: 'none', background: '#25d366' }}>
-                  <MessageCircle size={13} /> Open WhatsApp
-                </a>
-              )}
-
-              {sendTab === 'receipt' && (
-                <button onClick={() => window.print()} className="btn-primary" style={{ fontSize: '0.875rem' }}>
-                  <FileText size={13} /> Print
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
 }

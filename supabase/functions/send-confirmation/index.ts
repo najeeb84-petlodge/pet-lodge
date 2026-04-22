@@ -23,6 +23,10 @@ interface EmailPayload {
   custom_message?: string
 }
 
+function htmlEscape(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
 function buildHtml(p: EmailPayload): string {
   const pets      = p.petNames.length ? p.petNames.join(', ') : '—'
   const petName   = p.petNames[0] || pets
@@ -74,6 +78,8 @@ function buildHtml(p: EmailPayload): string {
       <td style="background:#ffffff;padding:28px 32px;border-left:1px solid #e5e7eb;border-right:1px solid #e5e7eb;">
 
         <p style="margin:0 0 16px;font-size:15px;color:#374151;">Hi ${firstName},</p>
+
+        ${p.custom_message ? `<p style="font-style:italic;color:#555555;padding-left:10px;border-left:2px solid #7aa63c;margin:10px 0 14px;">${htmlEscape(p.custom_message)}</p>` : ''}
 
         <!-- Hero box -->
         <table width="100%" cellpadding="0" cellspacing="0" style="background:#eef4e2;border-radius:8px;margin-bottom:20px;">
