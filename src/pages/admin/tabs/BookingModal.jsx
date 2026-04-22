@@ -417,7 +417,7 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
   const serviceLabel = SERVICE_LABELS_MAP[b.service_type] || b.service_type || '—'
   const howHeardStr  = Array.isArray(b.how_heard) ? b.how_heard.join(', ') : (b.how_heard || '—')
 
-  const totalPaid  = payments.filter(p => p.status === 'paid').reduce((s, p) => s + (p.amount || 0), 0)
+  const totalPaid  = payments.reduce((s, p) => s + parseFloat(p.amount || 0), 0)
   const gross      = parseFloat(b.total_amount ?? b.total_price ?? 0)
   const discount   = parseFloat(b.discount || 0)
   const prepaid    = parseFloat(b.prepaid_amount || 0)
