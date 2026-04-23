@@ -1,40 +1,42 @@
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
+// Shared confirmation email HTML builder.
+// Used by BookingModal.jsx (preview + send payload) and referenced by the
+// send-confirmation Edge Function (which accepts a pre-built `html` field).
+// Keeping the builder here ensures the preview is byte-identical to what Resend delivers.
 
 const LOGO_URL = 'https://pet-lodge.vercel.app/logo-email.jpg'
 
-interface EmailPayload {
-  bookingRef:      string
-  customerName:    string
-  customerEmail:   string
-  petNames:        string[]
-  checkIn:         string
-  checkOut:        string
-  nights:          number
-  services:        string[]
-  has_transport?:  boolean
-  pickup_date?:    string | null
-  pickup_time?:    string | null
-  dropoff_date?:   string | null
-  dropoff_time?:   string | null
-  custom_message?: string
-  // Pre-built HTML from the frontend — used directly when present, skipping buildHtml()
-  html?:           string
+function htmlEscape(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
 }
 
-function htmlEscape(str: string): string {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
-
-function buildHtml(p: EmailPayload): string {
+/**
+ * Build the confirmation email HTML.
+ * @param {object} p
+ * @param {string}   p.bookingRef
+ * @param {string}   p.customerName
+ * @param {string[]} p.petNames
+ * @param {string}   p.checkIn
+ * @param {string}   p.checkOut
+ * @param {number}   p.nights
+ * @param {string[]} p.services
+ * @param {boolean}  [p.has_transport]
+ * @param {string}   [p.pickup_date]
+ * @param {string}   [p.pickup_time]
+ * @param {string}   [p.dropoff_date]
+ * @param {string}   [p.dropoff_time]
+ * @param {string}   [p.custom_message]
+ * @returns {string} Full HTML document
+ */
+export function buildConfirmationEmail(p) {
   const pets      = p.petNames.length ? p.petNames.join(', ') : '—'
   const petName   = p.petNames[0] || pets
-  const firstName = p.customerName.split(' ')[0] || 'there'
+  const firstName = (p.customerName || '').split(' ')[0] || 'there'
 
-  const pills = p.services.map(s =>
+  const pills = (p.services || []).map(s =>
     `<span style="display:inline-block;background:#eef4e2;color:#3B6D11;border-radius:20px;padding:3px 10px;margin:2px;font-size:12px;">${s}</span>`
   ).join(' ')
 
@@ -49,6 +51,10 @@ function buildHtml(p: EmailPayload): string {
             </td>
           </tr>
         </table>` : ''
+
+  const customMsgBlock = p.custom_message
+    ? `<p style="font-style:italic;color:#555555;padding-left:10px;border-left:2px solid #7aa63c;margin:10px 0 14px;">${htmlEscape(p.custom_message)}</p>`
+    : ''
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -81,7 +87,7 @@ function buildHtml(p: EmailPayload): string {
 
         <p style="margin:0 0 16px;font-size:15px;color:#374151;">Hi ${firstName},</p>
 
-        ${p.custom_message ? `<p style="font-style:italic;color:#555555;padding-left:10px;border-left:2px solid #7aa63c;margin:10px 0 14px;">${htmlEscape(p.custom_message)}</p>` : ''}
+        ${customMsgBlock}
 
         <!-- Hero box -->
         <table width="100%" cellpadding="0" cellspacing="0" style="background:#eef4e2;border-radius:8px;margin-bottom:20px;">
@@ -96,7 +102,7 @@ function buildHtml(p: EmailPayload): string {
           </tr>
         </table>
 
-        <!-- 2×2 detail table -->
+        <!-- 2x2 detail table -->
         <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:6px;border-collapse:separate;border-spacing:0;overflow:hidden;margin-bottom:20px;">
           <tr>
             <td style="padding:10px 14px;width:50%;border-right:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;vertical-align:top;">
@@ -168,108 +174,14 @@ function buildHtml(p: EmailPayload): string {
 </html>`
 }
 
-Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: CORS_HEADERS })
-  }
-
-  if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-    })
-  }
-
-  // Auth check temporarily disabled for debugging
-  // const authHeader = req.headers.get('Authorization') || ''
-  // if (!authHeader.startsWith('Bearer ')) {
-  //   return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-  //     status: 401,
-  //     headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-  //   })
-  // }
-
-  let payload: Partial<EmailPayload>
-  try {
-    payload = await req.json()
-  } catch {
-    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
-      status: 400,
-      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-    })
-  }
-
-  const { bookingRef, customerEmail } = payload
-  if (!bookingRef || !customerEmail) {
-    return new Response(JSON.stringify({ error: 'bookingRef and customerEmail are required' }), {
-      status: 400,
-      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-    })
-  }
-
-  const apiKey = Deno.env.get('RESEND_API_KEY')
-  if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'RESEND_API_KEY not configured' }), {
-      status: 500,
-      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-    })
-  }
-
-  const emailPayload: EmailPayload = {
-    bookingRef:     bookingRef,
-    customerName:   payload.customerName   || '',
-    customerEmail:  customerEmail,
-    petNames:       payload.petNames       || [],
-    checkIn:        payload.checkIn        || '',
-    checkOut:       payload.checkOut       || '',
-    nights:         payload.nights         ?? 0,
-    services:       payload.services       || [],
-    has_transport:  payload.has_transport  ?? false,
-    pickup_date:    payload.pickup_date    ?? null,
-    pickup_time:    payload.pickup_time    ?? null,
-    dropoff_date:   payload.dropoff_date   ?? null,
-    dropoff_time:   payload.dropoff_time   ?? null,
-    custom_message: payload.custom_message || undefined,
-  }
-
-  // Build subject: Booking Confirmation (Service) - First Last (Pet1, Pet2) - REF
-  const nameParts    = emailPayload.customerName.split(' ')
-  const subjectFirst = nameParts[0] || ''
-  const subjectLast  = nameParts.slice(1).join(' ') || ''
-  const petsJoined   = emailPayload.petNames.join(', ')
-  const serviceType  = (emailPayload.services[0] || '').replace(/\s*[×x]\s*\d+.*/i, '').trim() || emailPayload.services[0] || '—'
-
-  const resendRes = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from:     'Pet Lodge Jordan <booking@petlodgejo.com>',
-      to:       [customerEmail],
-      reply_to: 'info@petlodgejo.com',
-      subject:  `Booking Confirmation (${serviceType}) - ${subjectFirst} ${subjectLast} (${petsJoined}) - ${bookingRef}`,
-      html:     payload.html || buildHtml(emailPayload),
-      headers: {
-        'X-Entity-Ref-ID': bookingRef,
-        'Precedence': 'bulk',
-      },
-    }),
-  })
-
-  const resendBody = await resendRes.json()
-
-  if (!resendRes.ok) {
-    console.error('Resend error', resendRes.status, resendBody)
-    return new Response(JSON.stringify({ error: resendBody?.message || 'Failed to send email' }), {
-      status: 500,
-      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-    })
-  }
-
-  return new Response(JSON.stringify({ success: true, id: resendBody.id }), {
-    status: 200,
-    headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-  })
-})
+/**
+ * Build the email subject line (same format as the Edge Function).
+ */
+export function buildEmailSubject(p) {
+  const nameParts    = (p.customerName || '').split(' ')
+  const first        = nameParts[0] || ''
+  const last         = nameParts.slice(1).join(' ') || ''
+  const petsJoined   = (p.petNames || []).join(', ')
+  const serviceType  = ((p.services || [])[0] || '').replace(/\s*[×x]\s*\d+.*/i, '').trim() || (p.services || [])[0] || '—'
+  return `Booking Confirmation (${serviceType}) - ${first} ${last} (${petsJoined}) - ${p.bookingRef}`
+}

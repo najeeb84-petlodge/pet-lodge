@@ -8,6 +8,7 @@ import {
 import { jsPDF } from 'jspdf'
 import html2canvas from 'html2canvas'
 import { dbQuery, dbUpdate, SUPABASE_URL, SUPABASE_KEY, getAccessToken } from '../../../lib/supabase'
+import { buildConfirmationEmail, buildEmailSubject } from '../../../lib/buildConfirmationEmail'
 
 const PAYMENT_METHODS = ['cash', 'card', 'bank_transfer', 'online']
 const METHOD_LABEL = { cash: 'Cash', card: 'Card', bank_transfer: 'Bank Transfer', online: 'Online' }
@@ -348,7 +349,7 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
       console.log('Authorization header being sent:', `Bearer ${token}`)
       const perPet = b.service_details?.perPet?.[0] || {}
       const hasTransport = !!(perPet.transport && perPet.transport !== 'self')
-      const payload = {
+      const emailPayloadObj = {
         bookingRef:    b.booking_ref || b.id?.slice(0, 8),
         customerName:  [b.customer_first_name, b.customer_last_name].filter(Boolean).join(' ') || ownerName,
         customerEmail: confirmRecipient,
@@ -359,13 +360,16 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
         services:      Array.isArray(b.service_details?.line_items)
                          ? b.service_details.line_items.map(li => li.label).filter(Boolean)
                          : [serviceLabel],
-        totalPrice:    gross,
         has_transport: hasTransport,
         pickup_time:   perPet.pickupTime  || null,
         dropoff_time:  perPet.dropoffTime || null,
-        pickup_date:    b.start_date ? format(new Date(b.start_date), 'EEE, d MMM yyyy') : null,
-        dropoff_date:   b.end_date   ? format(new Date(b.end_date),   'EEE, d MMM yyyy') : null,
+        pickup_date:   b.start_date ? format(new Date(b.start_date), 'EEE, d MMM yyyy') : null,
+        dropoff_date:  b.end_date   ? format(new Date(b.end_date),   'EEE, d MMM yyyy') : null,
         custom_message: confirmNote.trim() || null,
+      }
+      const payload = {
+        ...emailPayloadObj,
+        html: buildConfirmationEmail(emailPayloadObj),
       }
       const res = await fetch(
         `${SUPABASE_URL}/functions/v1/send-confirmation`,
@@ -473,17 +477,16 @@ We look forward to welcoming ${allPetNames}! 🐾`
     const ref  = b.booking_ref || b.id?.slice(0, 8)
     const cin  = b.start_date ? format(new Date(b.start_date), 'EEE, d MMM yyyy') : '—'
     const cout = b.end_date   ? format(new Date(b.end_date),   'EEE, d MMM yyyy') : '—'
-    const noteLine = note?.trim() ? `\n_${note.trim()}_\n` : ''
-    return `Hello ${firstName}! 🐾${noteLine}
-Your booking at *Pet Lodge* is confirmed.
+    const notePart = note?.trim() ? `\n_${note.trim()}_\n\n` : '\n'
+    return `Hello ${firstName}!${notePart}Your booking at *Pet Lodge* is confirmed.
 
-📋 *Ref:* ${ref}
-🐾 *Pet:* ${allPetNames}
-🏡 *Service:* ${serviceLabel}
-📅 *Check-in:* ${cin}
-📅 *Check-out:* ${cout}
+*Ref:* ${ref}
+*Pet:* ${allPetNames}
+*Service:* ${serviceLabel}
+*Check-in:* ${cin}
+*Check-out:* ${cout}
 
-We look forward to welcoming ${allPetNames}! 🐾`
+We look forward to welcoming ${allPetNames}!`
   }
 
   // ── loading splash ───────────────────────────────────────────────────────────
@@ -770,9 +773,28 @@ We look forward to welcoming ${allPetNames}! 🐾`
 
   // ── CONFIRMATION MODE ────────────────────────────────────────────────────────
   function ConfirmationMode() {
-    const cin  = b.start_date ? format(new Date(b.start_date), 'EEE, d MMM yyyy') : '—'
-    const cout = b.end_date   ? format(new Date(b.end_date),   'EEE, d MMM yyyy') : '—'
     const waPreview = buildWaConfirmMessage(confirmNote)
+
+    // Build the same payload used by sendConfirmationEmail so the preview is byte-identical
+    const previewPayload = {
+      bookingRef:    b.booking_ref || b.id?.slice(0, 8),
+      customerName:  [b.customer_first_name, b.customer_last_name].filter(Boolean).join(' ') || ownerName,
+      petNames:      Array.isArray(b.pets_data) ? b.pets_data.map(p => p?.name).filter(Boolean) : [allPetNames],
+      checkIn:       b.start_date ? format(new Date(b.start_date), 'EEE, d MMM yyyy') : '—',
+      checkOut:      b.end_date   ? format(new Date(b.end_date),   'EEE, d MMM yyyy') : '—',
+      nights:        b.total_days || 0,
+      services:      Array.isArray(b.service_details?.line_items)
+                       ? b.service_details.line_items.map(li => li.label).filter(Boolean)
+                       : [serviceLabel],
+      has_transport: !!(b.service_details?.perPet?.[0]?.transport && b.service_details?.perPet?.[0]?.transport !== 'self'),
+      pickup_time:   b.service_details?.perPet?.[0]?.pickupTime  || null,
+      dropoff_time:  b.service_details?.perPet?.[0]?.dropoffTime || null,
+      pickup_date:   b.start_date ? format(new Date(b.start_date), 'EEE, d MMM yyyy') : null,
+      dropoff_date:  b.end_date   ? format(new Date(b.end_date),   'EEE, d MMM yyyy') : null,
+      custom_message: confirmNote.trim() || null,
+    }
+    const emailHtml    = buildConfirmationEmail(previewPayload)
+    const emailSubject = buildEmailSubject(previewPayload)
 
     function SendBtn({ placement }) {
       const mb = placement === 'top' ? '1rem' : 0
@@ -842,23 +864,27 @@ We look forward to welcoming ${allPetNames}! 🐾`
         )}
 
         {/* Live preview */}
-        <div style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '1rem', background: '#f8f9f6', marginBottom: '1rem' }}>
-          <p style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.625rem' }}>
+        <div style={{ marginBottom: '1rem' }}>
+          <p style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.5rem' }}>
             {confirmMethod === 'email' ? 'Email preview' : 'Message preview'}
           </p>
+
           {confirmMethod === 'email' ? (
-            <div style={{ fontSize: '0.82rem', color: 'var(--text)', lineHeight: '1.65' }}>
-              <div style={{ marginBottom: '0.25rem' }}><span style={{ fontWeight: '600', color: 'var(--muted)', minWidth: '60px', display: 'inline-block' }}>To:</span> {confirmRecipient || '—'}</div>
-              <div style={{ marginBottom: '0.25rem' }}><span style={{ fontWeight: '600', color: 'var(--muted)', minWidth: '60px', display: 'inline-block' }}>Subject:</span> Booking Confirmation – {b.booking_ref || b.id?.slice(0, 8)}</div>
-              {confirmNote.trim() && (
-                <div style={{ fontStyle: 'italic', color: '#555', borderLeft: '2px solid #7aa63c', paddingLeft: '10px', margin: '8px 0', fontSize: '0.8rem' }}>{confirmNote}</div>
-              )}
-              <div style={{ marginBottom: '0.2rem' }}><span style={{ fontWeight: '600', color: 'var(--muted)', minWidth: '60px', display: 'inline-block' }}>Check-in:</span> {cin}</div>
-              <div style={{ marginBottom: '0.2rem' }}><span style={{ fontWeight: '600', color: 'var(--muted)', minWidth: '60px', display: 'inline-block' }}>Check-out:</span> {cout}</div>
-              <div><span style={{ fontWeight: '600', color: 'var(--muted)', minWidth: '60px', display: 'inline-block' }}>Pet:</span> {allPetNames}</div>
-            </div>
+            <>
+              {/* Envelope header */}
+              <div style={{ background: '#f8f9f6', border: '0.5px solid #d1d5db', borderBottom: 'none', borderRadius: '8px 8px 0 0', padding: '8px 12px', fontSize: '0.78rem', color: 'var(--muted)' }}>
+                <div><span style={{ fontWeight: '600' }}>To: </span>{confirmRecipient || '—'}</div>
+                <div style={{ marginTop: '2px' }}><span style={{ fontWeight: '600' }}>Subject: </span>{emailSubject}</div>
+              </div>
+              <iframe
+                srcDoc={emailHtml}
+                title="Email preview"
+                style={{ width: '100%', height: '620px', border: '0.5px solid #d1d5db', borderRadius: '0 0 8px 8px', display: 'block' }}
+                scrolling="yes"
+              />
+            </>
           ) : (
-            <pre style={{ fontFamily: 'inherit', fontSize: '0.82rem', color: 'var(--text)', lineHeight: '1.65', whiteSpace: 'pre-wrap', margin: 0 }}>{waPreview}</pre>
+            <pre style={{ fontFamily: 'inherit', fontSize: '0.82rem', color: 'var(--text)', lineHeight: '1.65', whiteSpace: 'pre-wrap', margin: 0, border: '1px solid var(--border)', borderRadius: '8px', padding: '1rem', background: '#f8f9f6' }}>{waPreview}</pre>
           )}
         </div>
 
