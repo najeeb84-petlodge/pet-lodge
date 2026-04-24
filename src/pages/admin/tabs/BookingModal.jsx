@@ -73,7 +73,7 @@ function CollapsibleSection({ title, open, onToggle, children }) {
   )
 }
 
-export default function BookingModal({ booking, onClose, onUpdated }) {
+export default function BookingModal({ booking, onClose, onUpdated, isOwner }) {
   const [mode, setMode]               = useState('view')
   const [full, setFull]               = useState(null)
   const [loading, setLoading]         = useState(true)
@@ -473,7 +473,7 @@ We look forward to welcoming ${joinedPetNames}!`
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', flexWrap: 'wrap' }}>
-              {mode === 'view' && (
+              {mode === 'view' && !isOwner && (
                 <button onClick={enterEdit} style={headerBtnStyle}>
                   <Edit2 size={13} /> Edit
                 </button>
@@ -675,8 +675,8 @@ We look forward to welcoming ${joinedPetNames}!`
             <p style={{ fontSize: '0.875rem', color: 'var(--muted)', marginBottom: '0.5rem' }}>No payments recorded yet.</p>
           )}
 
-          {/* Record payment form */}
-          <div style={{ background: 'var(--light)', borderRadius: '0.625rem', padding: '0.875rem', border: '1px solid var(--border)', marginTop: '0.75rem' }}>
+          {/* Record payment form — hidden for owner (read-only role) */}
+          {!isOwner && <div style={{ background: 'var(--light)', borderRadius: '0.625rem', padding: '0.875rem', border: '1px solid var(--border)', marginTop: '0.75rem' }}>
             <p style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--primary)', marginBottom: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Record Payment</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.5rem' }}>
               <input
@@ -698,7 +698,7 @@ We look forward to welcoming ${joinedPetNames}!`
               {savingPay ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={14} />}
               Record Payment
             </button>
-          </div>
+          </div>}
         </Section>
 
         {/* How They Heard (collapsible) */}
@@ -802,7 +802,7 @@ We look forward to welcoming ${joinedPetNames}!`
         </div>
 
         {/* Send — top */}
-        <SendBtn placement="top" />
+        {!isOwner && <SendBtn placement="top" />}
 
         {confirmEmailResult && (
           <p style={{ fontSize: '0.8rem', fontWeight: '600', color: confirmEmailResult.ok ? '#16a34a' : '#dc2626', marginBottom: '0.875rem' }}>
@@ -836,7 +836,7 @@ We look forward to welcoming ${joinedPetNames}!`
         </div>
 
         {/* Send — bottom */}
-        <SendBtn placement="bottom" />
+        {!isOwner && <SendBtn placement="bottom" />}
 
         {/* Back */}
         <div style={{ marginTop: '1rem' }}>
@@ -1245,20 +1245,22 @@ We look forward to welcoming ${joinedPetNames}!`
             {downloading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <FileText size={14} />}
             {downloading ? 'Generating…' : 'Download PDF'}
           </button>
-          <button
-            onClick={() => setSendSection(s => s === 'email' ? null : 'email')}
-            className={sendSection === 'email' ? 'btn-primary' : 'btn-secondary'}
-            style={{ fontSize: '0.875rem' }}
-          >
-            <Mail size={14} /> Send via Email
-          </button>
-          <button
-            onClick={() => setSendSection(s => s === 'whatsapp' ? null : 'whatsapp')}
-            className={sendSection === 'whatsapp' ? 'btn-primary' : 'btn-secondary'}
-            style={{ fontSize: '0.875rem' }}
-          >
-            <MessageCircle size={14} /> Send via WhatsApp
-          </button>
+          {!isOwner && <>
+            <button
+              onClick={() => setSendSection(s => s === 'email' ? null : 'email')}
+              className={sendSection === 'email' ? 'btn-primary' : 'btn-secondary'}
+              style={{ fontSize: '0.875rem' }}
+            >
+              <Mail size={14} /> Send via Email
+            </button>
+            <button
+              onClick={() => setSendSection(s => s === 'whatsapp' ? null : 'whatsapp')}
+              className={sendSection === 'whatsapp' ? 'btn-primary' : 'btn-secondary'}
+              style={{ fontSize: '0.875rem' }}
+            >
+              <MessageCircle size={14} /> Send via WhatsApp
+            </button>
+          </>}
         </div>
 
         {/* ── Printable receipt card ── */}
@@ -1401,7 +1403,7 @@ We look forward to welcoming ${joinedPetNames}!`
 
         </div>
 
-        {/* ── Action buttons ── */}
+        {/* ── Action buttons (bottom) ── */}
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end', marginBottom: '0.75rem' }}>
           <button onClick={() => setMode('view')} className="btn-secondary" style={{ fontSize: '0.875rem' }}>
             <X size={14} /> Back
@@ -1413,24 +1415,26 @@ We look forward to welcoming ${joinedPetNames}!`
             {downloading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <FileText size={14} />}
             {downloading ? 'Generating…' : 'Download PDF'}
           </button>
-          <button
-            onClick={() => setSendSection(s => s === 'email' ? null : 'email')}
-            className={sendSection === 'email' ? 'btn-primary' : 'btn-secondary'}
-            style={{ fontSize: '0.875rem' }}
-          >
-            <Mail size={14} /> Send via Email
-          </button>
-          <button
-            onClick={() => setSendSection(s => s === 'whatsapp' ? null : 'whatsapp')}
-            className={sendSection === 'whatsapp' ? 'btn-primary' : 'btn-secondary'}
-            style={{ fontSize: '0.875rem' }}
-          >
-            <MessageCircle size={14} /> Send via WhatsApp
-          </button>
+          {!isOwner && <>
+            <button
+              onClick={() => setSendSection(s => s === 'email' ? null : 'email')}
+              className={sendSection === 'email' ? 'btn-primary' : 'btn-secondary'}
+              style={{ fontSize: '0.875rem' }}
+            >
+              <Mail size={14} /> Send via Email
+            </button>
+            <button
+              onClick={() => setSendSection(s => s === 'whatsapp' ? null : 'whatsapp')}
+              className={sendSection === 'whatsapp' ? 'btn-primary' : 'btn-secondary'}
+              style={{ fontSize: '0.875rem' }}
+            >
+              <MessageCircle size={14} /> Send via WhatsApp
+            </button>
+          </>}
         </div>
 
         {/* ── Unified send panel ── */}
-        {sendSection && (
+        {sendSection && !isOwner && (
           <div style={{ border: '1px solid #e2e8f0', borderRadius: '10px', padding: '1rem', marginBottom: '0.75rem', background: '#f8fafc' }}>
 
             {/* Customer Details */}

@@ -852,6 +852,7 @@ function DayCampOptions({ form, onChange, prices, petsData, errors, profileHasAd
           ? cleanName.replace(/\(2x per week\)/i, '').trim() + ' — 2 visits per week'
           : cleanName,
         sublabel: `JD ${parseFloat(p.price || 0).toFixed(0)}`,
+        popular: p.is_most_popular === true,
       }
     })
 
@@ -896,7 +897,7 @@ function DogWalkingOptions({ form, onChange, prices, errors, profileHasAddress }
   // Only "Weekly (2hr" gets Most Popular badge — not Monthly
   const packages = (prices.dog_walking || []).map(p => ({
     value: p.id, label: p.name, sublabel: `JD ${parseFloat(p.price || 0).toFixed(0)}`,
-    popular: p.name.toLowerCase().includes('weekly') && p.name.toLowerCase().includes('2hr'),
+    popular: p.is_most_popular === true,
   }))
 
   return (
@@ -960,6 +961,7 @@ function GroomingOptions({ form, onChange, prices, petsData, errors, profileHasA
   const packages = filteredPkgs.map(p => ({
     value: p.id, label: p.name,
     sublabel: `JD ${parseFloat(p.price || 0).toFixed(0)}`,
+    popular: p.is_most_popular === true,
   }))
 
   const standaloneItems = [
@@ -1330,7 +1332,7 @@ export default function Step4ServiceOptions() {
   useEffect(() => {
     const token = getAccessToken()
     fetch(
-      `${SUPABASE_URL}/rest/v1/services?active=eq.true&select=id,name,price,description,category,unit,pet_type&order=name`,
+      `${SUPABASE_URL}/rest/v1/services?active=eq.true&select=id,name,price,description,category,unit,pet_type,is_most_popular&order=name`,
       { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token || SUPABASE_KEY}` } }
     )
       .then(r => r.ok ? r.json() : [])

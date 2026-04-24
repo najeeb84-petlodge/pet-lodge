@@ -96,7 +96,7 @@ function Comments({ b }) {
   )
 }
 
-export default function AllBookings({ isSuperAdmin }) {
+export default function AllBookings({ isSuperAdmin, isOwner }) {
   const [bookings, setBookings]       = useState([])
   const [loading, setLoading]         = useState(true)
   const [search, setSearch]           = useState('')
@@ -338,9 +338,13 @@ export default function AllBookings({ isSuperAdmin }) {
 
             {/* Col 6: Actions */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-end' }}>
-              <select value={b.status} onChange={e => updateStatus(b.id, e.target.value)} className="input" style={{ fontSize: '0.75rem', padding: '4px 8px', width: '120px' }}>
-                {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
-              </select>
+              {isOwner ? (
+                <span className={STATUS_CLASS[b.status] || 'badge-pending'} style={{ display: 'inline-block' }}>{b.status}</span>
+              ) : (
+                <select value={b.status} onChange={e => updateStatus(b.id, e.target.value)} className="input" style={{ fontSize: '0.75rem', padding: '4px 8px', width: '120px' }}>
+                  {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+                </select>
+              )}
               <button onClick={() => setSelected(b)} style={{ padding: '6px', borderRadius: '6px', border: 'none', background: 'transparent', cursor: 'pointer' }} title="Open">
                 <Eye size={15} style={{ color: '#3b82f6' }} />
               </button>
@@ -355,6 +359,7 @@ export default function AllBookings({ isSuperAdmin }) {
           booking={selected}
           onClose={() => setSelected(null)}
           onUpdated={fetchAll}
+          isOwner={isOwner}
         />
       )}
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>

@@ -7,6 +7,7 @@ import { format } from 'date-fns'
 const ROLE_BADGE = {
   super_admin: { bg:'#d1fae5', color:'#065f46', label:'⊙ Super Admin' },
   admin:       { bg:'#dcfce7', color:'#166534', label:'Admin' },
+  owner:       { bg:'#e2e8f0', color:'#334155', label:'Owner' },
   employee:    { bg:'#dbeafe', color:'#1e40af', label:'Employee' },
   customer:    { bg:'#f1f5f9', color:'#475569', label:'Customer' },
 }
@@ -27,7 +28,7 @@ export default function UserManagement({ isSuperAdmin }) {
   async function fetchUsers() {
     setLoading(true)
     try {
-      const data = await dbQuery('profiles', '?role=in.(admin,super_admin,employee)&order=created_at')
+      const data = await dbQuery('profiles', '?role=in.(admin,super_admin,employee,owner)&order=created_at')
       setUsers(Array.isArray(data) ? data : [])
     } catch(e) {
       setError('Could not load users')
@@ -128,8 +129,9 @@ export default function UserManagement({ isSuperAdmin }) {
         <div className="flex gap-2 flex-wrap">
           <input className="input flex-1" style={{ minWidth:'200px' }} placeholder="employee@example.com"
             value={newEmail} onChange={e => setNewEmail(e.target.value)}/>
-          <select className="input" style={{ width:'130px' }} value={newRole} onChange={e => setNewRole(e.target.value)}>
+          <select className="input" style={{ width:'160px' }} value={newRole} onChange={e => setNewRole(e.target.value)}>
             <option value="admin">Admin</option>
+            <option value="owner">Owner (read-only)</option>
             <option value="employee">Employee</option>
             <option value="super_admin">Super Admin</option>
           </select>
@@ -176,13 +178,25 @@ export default function UserManagement({ isSuperAdmin }) {
                             Promote to Super Admin
                           </button>
                         )}
+                        {u.role === 'owner' && (
+                          <button onClick={() => changeRole(u.id,'admin')}
+                            style={{ fontSize:'0.75rem', padding:'2px 10px', borderRadius:'4px', border:'1px solid #bbf7d0', color:'#166534', background:'white', cursor:'pointer' }}>
+                            Promote to Admin
+                          </button>
+                        )}
+                        {u.role === 'admin' && (
+                          <button onClick={() => changeRole(u.id,'owner')}
+                            style={{ fontSize:'0.75rem', padding:'2px 10px', borderRadius:'4px', border:'1px solid #cbd5e1', color:'#334155', background:'white', cursor:'pointer' }}>
+                            Demote to Owner
+                          </button>
+                        )}
                         {u.role === 'super_admin' && (
                           <button onClick={() => changeRole(u.id,'admin')}
                             style={{ fontSize:'0.75rem', padding:'2px 10px', borderRadius:'4px', border:'1px solid #fed7aa', color:'#9a3412', background:'white', cursor:'pointer' }}>
                             Demote to Admin
                           </button>
                         )}
-                        {['admin','super_admin','employee'].includes(u.role) && (
+                        {['admin','super_admin','employee','owner'].includes(u.role) && (
                           <button onClick={() => changeRole(u.id,'customer')}
                             style={{ fontSize:'0.75rem', padding:'2px 10px', borderRadius:'4px', border:'1px solid #fca5a5', color:'#991b1b', background:'white', cursor:'pointer' }}>
                             Remove Admin

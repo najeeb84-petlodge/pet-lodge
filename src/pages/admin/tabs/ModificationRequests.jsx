@@ -33,7 +33,7 @@ async function restFetch(path, opts = {}) {
   }
 }
 
-export default function ModificationRequests() {
+export default function ModificationRequests({ isOwner }) {
   const [requests, setRequests] = useState([])
   const [loading,  setLoading]  = useState(true)
   const [error,    setError]    = useState(null)
@@ -122,7 +122,7 @@ export default function ModificationRequests() {
                 </div>
                 <div>
                   <p className="text-xs font-medium text-gray-500 mb-1">Admin Notes</p>
-                  {r.status === 'pending' || !r.status ? (
+                  {(r.status === 'pending' || !r.status) && !isOwner ? (
                     <textarea
                       className="input text-sm h-16 resize-none"
                       placeholder="Add notes..."
@@ -135,7 +135,7 @@ export default function ModificationRequests() {
                 </div>
               </div>
 
-              {(!r.status || r.status === 'pending') && (
+              {(!r.status || r.status === 'pending') && !isOwner && (
                 <div className="flex gap-2 mt-3">
                   <button
                     onClick={() => updateStatus(r.id, 'approved')}

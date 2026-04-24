@@ -13,7 +13,7 @@ export default function TopNav() {
   const { profile, signOut } = useAuth()
   const navigate = useNavigate()  // used for My Bookings / Admin nav
   const role = getLocalRole()
-  const showAdmin = role === 'admin' || role === 'super_admin'
+  const showAdmin = role === 'admin' || role === 'super_admin' || role === 'owner'
 
   function handleSignOut() {
     signOut()

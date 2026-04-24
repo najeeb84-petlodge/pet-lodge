@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { SUPABASE_URL, SUPABASE_KEY, getAccessToken } from '../../../lib/supabase'
-import { Edit2, Save, X, Loader2, ToggleLeft, ToggleRight } from 'lucide-react'
+import { Edit2, Save, X, Loader2, ToggleLeft, ToggleRight, Star } from 'lucide-react'
 
 const DEACTIVATE_NAMES = ['Additional Dog (Day Camp)', 'Additional Dogs Daycamp']
 
@@ -142,6 +142,34 @@ export default function PricesMaster({ isSuperAdmin }) {
     setServices(prev => prev.map(r => r.id === s.id ? { ...r, active: !r.active } : r))
   }
 
+  // Enforce one Most Popular per category: clear others in same category, then set (or unset) this one.
+  async function toggleMostPopular(s) {
+    if (!isSuperAdmin) return
+    const normCat = c => {
+      let cat = (c || '').toLowerCase().replace(/[\s-]+/g, '_')
+      if (cat === 'daycamp') cat = 'day_camp'
+      if (cat === 'walking') cat = 'dog_walking'
+      return cat
+    }
+    const sCat = normCat(s.category)
+    const token = getAccessToken()
+    const h = { apikey: SUPABASE_KEY, Authorization: `Bearer ${token || SUPABASE_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' }
+    const turningOn = !s.is_most_popular
+    if (turningOn) {
+      // Clear all others in same normalised category
+      const toUnset = services.filter(x => normCat(x.category) === sCat && x.is_most_popular && x.id !== s.id)
+      for (const x of toUnset) {
+        await fetch(`${SUPABASE_URL}/rest/v1/services?id=eq.${x.id}`, { method: 'PATCH', headers: h, body: JSON.stringify({ is_most_popular: false }) })
+      }
+    }
+    await fetch(`${SUPABASE_URL}/rest/v1/services?id=eq.${s.id}`, { method: 'PATCH', headers: h, body: JSON.stringify({ is_most_popular: turningOn }) })
+    setServices(prev => prev.map(r => {
+      if (r.id === s.id) return { ...r, is_most_popular: turningOn }
+      if (turningOn && normCat(r.category) === sCat) return { ...r, is_most_popular: false }
+      return r
+    }))
+  }
+
   // Normalise category aliases and strip deactivated add-on rows
   const grouped = services
     .filter(s => !DEACTIVATE_NAMES.includes(s.name))
@@ -198,9 +226,14 @@ export default function PricesMaster({ isSuperAdmin }) {
             <div className="flex items-start justify-between gap-2 mb-1">
               <p className="font-semibold text-sm leading-snug">{s.name}</p>
               {isSuperAdmin && (
-                <button onClick={() => toggleActive(s)} title={s.active === false ? 'Inactive — click to activate' : 'Active — click to deactivate'} className="flex-shrink-0 mt-0.5">
-                  {s.active === false ? <ToggleLeft size={20} className="text-gray-400" /> : <ToggleRight size={20} style={{ color: '#7aa63c' }} />}
-                </button>
+                <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
+                  <button onClick={() => toggleMostPopular(s)} title="Mark as most popular in this category">
+                    <Star size={16} style={{ color: s.is_most_popular ? '#f59e0b' : '#d1d5db', fill: s.is_most_popular ? '#f59e0b' : 'none' }} />
+                  </button>
+                  <button onClick={() => toggleActive(s)} title={s.active === false ? 'Inactive — click to activate' : 'Active — click to deactivate'}>
+                    {s.active === false ? <ToggleLeft size={20} className="text-gray-400" /> : <ToggleRight size={20} style={{ color: '#7aa63c' }} />}
+                  </button>
+                </div>
               )}
             </div>
             {s.description && <p className="text-xs text-gray-400 mb-2">{s.description}</p>}
@@ -240,9 +273,14 @@ export default function PricesMaster({ isSuperAdmin }) {
             <div className="flex items-start justify-between gap-2 mb-1">
               <p className="font-semibold text-sm leading-snug">{baseName}</p>
               {isSuperAdmin && (
-                <button onClick={() => toggleActive(base)} title={base.active === false ? 'Inactive — click to activate' : 'Active — click to deactivate'} className="flex-shrink-0 mt-0.5">
-                  {base.active === false ? <ToggleLeft size={20} className="text-gray-400" /> : <ToggleRight size={20} style={{ color: '#7aa63c' }} />}
-                </button>
+                <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
+                  <button onClick={() => toggleMostPopular(base)} title="Mark as most popular in this category">
+                    <Star size={16} style={{ color: base.is_most_popular ? '#f59e0b' : '#d1d5db', fill: base.is_most_popular ? '#f59e0b' : 'none' }} />
+                  </button>
+                  <button onClick={() => toggleActive(base)} title={base.active === false ? 'Inactive — click to activate' : 'Active — click to deactivate'}>
+                    {base.active === false ? <ToggleLeft size={20} className="text-gray-400" /> : <ToggleRight size={20} style={{ color: '#7aa63c' }} />}
+                  </button>
+                </div>
               )}
             </div>
             {base.description && <p className="text-xs text-gray-400 mb-2">{base.description}</p>}
