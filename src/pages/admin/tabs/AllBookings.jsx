@@ -3,6 +3,7 @@ import { dbQuery, dbUpdate } from '../../../lib/supabase'
 import { format, isAfter, isBefore, isEqual } from 'date-fns'
 import { Search, Eye, Loader2, SlidersHorizontal } from 'lucide-react'
 import BookingModal from './BookingModal'
+import { joinPetNames } from '../../../lib/buildConfirmationEmail'
 
 const STATUS_OPTIONS  = ['pending','confirmed','completed','cancelled']
 const STATUS_CLASS    = { pending:'badge-pending', confirmed:'badge-confirmed', completed:'badge-completed', cancelled:'badge-cancelled' }
@@ -286,7 +287,7 @@ export default function AllBookings({ isSuperAdmin }) {
             {/* Col 1: Customer */}
             <div style={{ minWidth: 0 }}>
               <p style={{ fontWeight: '600', fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {ownerName(b)} <span style={{ fontWeight: '400', color: 'var(--muted)' }}>— {b.pets_data?.[0]?.name || '—'}</span>
+                {ownerName(b)} <span style={{ fontWeight: '400', color: 'var(--muted)' }}>— {joinPetNames(Array.isArray(b.pets_data) ? b.pets_data.map(p => p?.name).filter(Boolean) : [])}</span>
               </p>
               <p style={{ fontSize: '0.75rem', color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.customer_email}</p>
               <p style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{b.customer_phone}</p>

@@ -1233,6 +1233,34 @@ We look forward to welcoming ${joinedPetNames}!`
           </div>
         )}
 
+        {/* ── Action buttons (top) ── */}
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end', marginBottom: '0.75rem' }}>
+          <button onClick={() => setMode('view')} className="btn-secondary" style={{ fontSize: '0.875rem' }}>
+            <X size={14} /> Back
+          </button>
+          <button onClick={() => window.print()} className="btn-secondary" style={{ fontSize: '0.875rem' }}>
+            <FileText size={14} /> Print
+          </button>
+          <button onClick={downloadPDF} disabled={downloading} className="btn-secondary" style={{ fontSize: '0.875rem' }}>
+            {downloading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <FileText size={14} />}
+            {downloading ? 'Generating…' : 'Download PDF'}
+          </button>
+          <button
+            onClick={() => setSendSection(s => s === 'email' ? null : 'email')}
+            className={sendSection === 'email' ? 'btn-primary' : 'btn-secondary'}
+            style={{ fontSize: '0.875rem' }}
+          >
+            <Mail size={14} /> Send via Email
+          </button>
+          <button
+            onClick={() => setSendSection(s => s === 'whatsapp' ? null : 'whatsapp')}
+            className={sendSection === 'whatsapp' ? 'btn-primary' : 'btn-secondary'}
+            style={{ fontSize: '0.875rem' }}
+          >
+            <MessageCircle size={14} /> Send via WhatsApp
+          </button>
+        </div>
+
         {/* ── Printable receipt card ── */}
         <div id="receipt-content" style={{ fontFamily: 'Arial, Helvetica, sans-serif', background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '28px', marginBottom: '16px' }}>
 

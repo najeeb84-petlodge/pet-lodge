@@ -3,6 +3,7 @@ import { dbQuery } from '../../../lib/supabase'
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, addWeeks, subWeeks, isToday } from 'date-fns'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import BookingModal from './BookingModal'
+import { joinPetNames } from '../../../lib/buildConfirmationEmail'
 
 const DAY_TYPE = {
   checkin:  { color: '#16a34a', bg: '#f0fdf4', label: 'Check-ins' },
@@ -68,9 +69,11 @@ function IconBadge({ title, color, bg, border, children }) {
 }
 
 function BookingCard({ b, onClick, dimmed }) {
-  const petNames = Array.isArray(b.pets_data)
-    ? b.pets_data.map(p => p?.name).filter(Boolean).join(', ')
-    : (b.pet_names || []).join(', ') || '—'
+  const petNames = joinPetNames(
+    Array.isArray(b.pets_data)
+      ? b.pets_data.map(p => p?.name).filter(Boolean)
+      : (b.pet_names || [])
+  )
   const ownerFirst  = b.customer_first_name || '—'
   const numPets     = b.num_pets || (Array.isArray(b.pets_data) ? b.pets_data.length : 1)
   const hasDog      = hasDogTypes(b)
