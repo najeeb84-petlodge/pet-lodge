@@ -886,7 +886,7 @@ function DayCampOptions({ form, onChange, prices, petsData, errors, profileHasAd
         infoNote="Pick-up & drop-off is complimentary for Day Camp"
         radioName={`daycamp-delivery-${form.petIndex}`} />
 
-      <BoardingGroomingSection form={form} onChange={onChange} prices={prices} petsData={petsData} petIndex={form.petIndex} nights={nights} />
+      <BoardingGroomingSection form={form} onChange={onChange} prices={prices} petsData={petsData} petIndex={form.petIndex} nights={0} />
       <BoardingTrainingSection form={form} onChange={onChange} prices={prices} petsData={petsData} petIndex={form.petIndex} />
     </div>
   )

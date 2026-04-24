@@ -31,14 +31,9 @@ export default function AdminDashboard() {
 
       <div className="max-w-[1400px] mx-auto px-4 py-6">
         {/* Page header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold" style={{ color:'var(--text)' }}>Pet Lodge Admin Dashboard</h1>
-            <p className="text-sm" style={{ color:'var(--muted)' }}>Manage bookings and view business analytics</p>
-          </div>
-          <button className="btn-primary flex items-center gap-2">
-            🔄 Initialize Services
-          </button>
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold" style={{ color:'var(--text)' }}>Pet Lodge Admin Dashboard</h1>
+          <p className="text-sm" style={{ color:'var(--muted)' }}>Manage bookings and view business analytics</p>
         </div>
 
         {/* Tab navigation */}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { dbQuery, dbUpdate } from '../../../lib/supabase'
 import { format, isAfter, isBefore, isEqual } from 'date-fns'
-import { Search, Eye, Loader2, SlidersHorizontal } from 'lucide-react'
+import { Search, Eye, Loader2, SlidersHorizontal, RefreshCw } from 'lucide-react'
 import BookingModal from './BookingModal'
 import { joinPetNames } from '../../../lib/buildConfirmationEmail'
 
@@ -108,12 +108,16 @@ export default function AllBookings({ isSuperAdmin }) {
   const [selected, setSelected]       = useState(null)
   const [stats, setStats]             = useState({ total: 0, pending: 0, cashReceived: 0, expectedThisMonth: 0, modRequests: 0 })
 
-  async function fetchAll() {
-    setLoading(true)
+  async function fetchAll(silent = false) {
+    if (!silent) setLoading(true)
     try {
       const now = new Date()
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
-      const monthEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10)
+      const y   = now.getFullYear()
+      const mo  = now.getMonth()           // 0-indexed
+      const moStr    = String(mo + 1).padStart(2, '0')
+      const monthStart = `${y}-${moStr}-01`
+      const lastDay    = new Date(y, mo + 1, 0).getDate()  // day 0 of next month = last day of this month
+      const monthEnd   = `${y}-${moStr}-${String(lastDay).padStart(2, '0')}`
 
       const [allBookings, pendingBookings, monthPayments, mods, allPayments] = await Promise.all([
         dbQuery('bookings', '?select=*&order=created_at.desc'),
@@ -157,7 +161,7 @@ export default function AllBookings({ isSuperAdmin }) {
         modRequests:       Array.isArray(mods) ? mods.length : 0,
       })
     } catch(e) { console.error(e) }
-    setLoading(false)
+    if (!silent) setLoading(false)
   }
 
   useEffect(() => { fetchAll() }, [])
@@ -165,6 +169,7 @@ export default function AllBookings({ isSuperAdmin }) {
   async function updateStatus(id, status) {
     await dbUpdate('bookings', id, { status })
     setBookings(prev => prev.map(b => b.id === id ? { ...b, status } : b))
+    fetchAll(true)  // silent refresh — updates stats without the loading spinner
   }
 
   function clearFilters() {
@@ -211,7 +216,7 @@ export default function AllBookings({ isSuperAdmin }) {
           { label:'Pending Bookings', value:stats.pending, icon:'🐾' },
           ...(isSuperAdmin ? [
             { label:'Cash Received This Month', value:`JD ${stats.cashReceived.toFixed(2)}`,      icon:'💵', green:true,  hint:'Sum of all payments recorded this calendar month' },
-            { label:'Expected This Month',      value:`JD ${stats.expectedThisMonth.toFixed(2)}`, icon:'📈', blue:true,   hint:'Total booking value for non-cancelled bookings checking out this month' },
+            { label:'Expected This Month',      value:`JD ${stats.expectedThisMonth.toFixed(2)}`, icon:'📈', blue:true,   hint:'Total booking value for non-cancelled bookings checking out this month', refresh:true },
           ] : []),
           { label:'Modification Requests', value:stats.modRequests, icon:'🔔', orange:true },
         ].map(s => (
@@ -224,6 +229,11 @@ export default function AllBookings({ isSuperAdmin }) {
               <p style={{ fontSize:'0.75rem', color:'var(--muted)', marginBottom:'0.25rem' }}>{s.label}</p>
               <p style={{ fontSize:'1.5rem', fontWeight:'700', color: s.orange ? '#ea580c' : s.green ? '#16a34a' : s.blue ? '#2563eb' : 'var(--text)' }}>{s.value}</p>
               {s.hint && <p style={{ fontSize:'0.65rem', color:'var(--muted)', marginTop:'0.2rem', lineHeight:'1.3' }}>{s.hint}</p>}
+              {s.refresh && (
+                <button onClick={() => fetchAll(true)} title="Refresh stat" style={{ marginTop:'0.3rem', display:'flex', alignItems:'center', gap:'3px', fontSize:'0.65rem', color:'#2563eb', background:'none', border:'none', cursor:'pointer', padding:0 }}>
+                  <RefreshCw size={10} /> Refresh
+                </button>
+              )}
             </div>
             <span style={{ fontSize:'1.5rem', opacity:0.5 }}>{s.icon}</span>
           </div>
