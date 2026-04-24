@@ -2,22 +2,6 @@ import { useEffect, useState } from 'react'
 import { SUPABASE_URL, SUPABASE_KEY, getAccessToken } from '../../../lib/supabase'
 import { Edit2, Save, X, Loader2, ToggleLeft, ToggleRight } from 'lucide-react'
 
-// ── Variant definitions for seeding ──────────────────────────────────────────
-// baseName = name of the base service in the DB (category/pet_type/unit are copied from it).
-// For rows without a DB base, provide a `fallback` object with explicit values.
-const VARIANT_DEFS = [
-  { baseName: 'Single Day Visit',         variantLabel: '2 dogs', price: 35   },
-  { baseName: 'Single Day Visit',         variantLabel: '3 dogs', price: 45   },
-  { baseName: 'Monthly (2x per week)',    variantLabel: '2 dogs', price: 224  },
-  { baseName: 'Monthly (2x per week)',    variantLabel: '3 dogs', price: 288  },
-  { baseName: 'Quarterly (2x per week)', variantLabel: '2 dogs', price: 630  },
-  { baseName: 'Quarterly (2x per week)', variantLabel: '3 dogs', price: 810  },
-  { baseName: 'Annually (2x per week)',  variantLabel: '2 dogs', price: 2310 },
-  { baseName: 'Annually (2x per week)',  variantLabel: '3 dogs', price: 2970 },
-  { baseName: 'Pets Boarding - Standard', variantLabel: '1 cat and 2 dogs', price: 21,  description: 'Separate accommodations for mixed pets', fallback: { category: 'Boarding', pet_type: 'All Pets', unit: 'day' } },
-  { baseName: 'Pets Boarding - Standard', variantLabel: '2 cats and 1 dog', price: 19,  description: 'Separate accommodations for mixed pets', fallback: { category: 'Boarding', pet_type: 'All Pets', unit: 'day' } },
-  { baseName: 'Pets Boarding - Standard', variantLabel: '2 cats and 2 dogs', price: 23, description: 'Separate accommodations for mixed pets', fallback: { category: 'Boarding', pet_type: 'All Pets', unit: 'day' } },
-]
 const DEACTIVATE_NAMES = ['Additional Dog (Day Camp)', 'Additional Dogs Daycamp']
 
 // Base names that get stacked Option C cards (key = normalised category)
@@ -52,25 +36,34 @@ function countPets(label) {
 // Build Option C groups for the given base names.
 // A service belongs to a group if its name equals baseName or starts with "baseName (" and ends with ")".
 // Within each group: base = lowest-pet-count row; variants = rest sorted ascending by pet count.
+// Longest base names are tried first to prevent a short prefix from stealing a longer match.
 function groupOptionC(services, baseNames) {
+  const norm = str => (str || '').replace(/\s+/g, ' ').trim()
+  // Sort longest-first so e.g. "Pets Boarding - Standard" is matched before a shorter prefix
+  const sortedNames = [...baseNames].sort((a, b) => b.length - a.length)
   const groups = {}
   baseNames.forEach(bn => { groups[bn] = { baseName: bn, allRows: [] } })
 
   services.forEach(s => {
-    for (const bn of baseNames) {
-      if (s.name === bn) {
+    const sn = norm(s.name)
+    for (const bn of sortedNames) {
+      const nbn = norm(bn)
+      if (sn === nbn) {
         groups[bn].allRows.push({ ...s, variantLabel: null })
         return
       }
-      if (s.name.startsWith(bn + ' (') && s.name.endsWith(')')) {
-        groups[bn].allRows.push({ ...s, variantLabel: s.name.slice(bn.length + 2, -1) })
+      if (sn.startsWith(nbn + ' (') && sn.endsWith(')')) {
+        groups[bn].allRows.push({ ...s, variantLabel: sn.slice(nbn.length + 2, -1) })
         return
       }
     }
   })
 
   Object.values(groups).forEach(g => {
-    g.allRows.sort((a, b) => countPets(a.variantLabel) - countPets(b.variantLabel))
+    g.allRows.sort((a, b) => {
+      const diff = countPets(a.variantLabel) - countPets(b.variantLabel)
+      return diff !== 0 ? diff : (a.variantLabel || '').localeCompare(b.variantLabel || '')
+    })
     g.base     = g.allRows[0] || null
     g.variants = g.allRows.slice(1)
   })
@@ -80,7 +73,12 @@ function groupOptionC(services, baseNames) {
 
 // Returns true if a service name belongs to any Option C group for the given category
 function isOptionC(name, baseNames) {
-  return baseNames.some(bn => name === bn || (name.startsWith(bn + ' (') && name.endsWith(')')))
+  const norm = str => (str || '').replace(/\s+/g, ' ').trim()
+  const n = norm(name)
+  return baseNames.some(bn => {
+    const nb = norm(bn)
+    return n === nb || (n.startsWith(nb + ' (') && n.endsWith(')'))
+  })
 }
 
 async function fetchRaw() {
@@ -119,69 +117,7 @@ export default function PricesMaster({ isSuperAdmin }) {
     setLoading(false)
   }
 
-  // Insert missing variant rows and deactivate old add-ons.
-  // Copies category/pet_type/unit from the base service in the DB; falls back to explicit values.
-  // Logs verification counts to DevTools console.
-  async function seedVariants() {
-    if (!isSuperAdmin) return
-    const token = getAccessToken()
-    const h = {
-      apikey:         SUPABASE_KEY,
-      Authorization:  `Bearer ${token || SUPABASE_KEY}`,
-      'Content-Type': 'application/json',
-    }
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/services?select=id,name,category,pet_type,unit,active`, { headers: h })
-    const all = res.ok ? await res.json() : []
-    const byName = {}
-    ;(all || []).forEach(s => { byName[s.name] = s })
-
-    const toInsert = []
-    for (const def of VARIANT_DEFS) {
-      const fullName = `${def.baseName} (${def.variantLabel})`
-      if (byName[fullName]) continue
-      const base = byName[def.baseName]
-      toInsert.push({
-        name:        fullName,
-        price:       def.price,
-        description: def.description || null,
-        active:      true,
-        category:    base?.category ?? def.fallback?.category ?? 'Boarding',
-        pet_type:    base?.pet_type ?? def.fallback?.pet_type ?? null,
-        unit:        base?.unit     ?? def.fallback?.unit     ?? 'day',
-      })
-    }
-    if (toInsert.length) {
-      await fetch(`${SUPABASE_URL}/rest/v1/services`, {
-        method: 'POST',
-        headers: { ...h, Prefer: 'return=minimal' },
-        body: JSON.stringify(toInsert),
-      })
-    }
-
-    // Deactivate old add-ons
-    for (const s of (all || []).filter(s => DEACTIVATE_NAMES.includes(s.name) && s.active !== false)) {
-      await fetch(`${SUPABASE_URL}/rest/v1/services?id=eq.${s.id}`, {
-        method: 'PATCH',
-        headers: { ...h, Prefer: 'return=minimal' },
-        body: JSON.stringify({ active: false }),
-      })
-    }
-
-    // Verify — fetch fresh list and log counts
-    const vRes  = await fetch(`${SUPABASE_URL}/rest/v1/services?select=name&order=name`, { headers: h })
-    const vAll  = vRes.ok ? await vRes.json() : []
-    const vSet  = new Set((vAll || []).map(s => s.name))
-    const dcDefs = VARIANT_DEFS.filter(d => !d.fallback)
-    const mbDefs = VARIANT_DEFS.filter(d =>  d.fallback)
-    console.log(`[PricesMaster] Day camp variants: ${dcDefs.filter(d => vSet.has(`${d.baseName} (${d.variantLabel})`)).length} found / ${dcDefs.length} expected`)
-    console.log(`[PricesMaster] Mixed-pet boarding variants: ${mbDefs.filter(d => vSet.has(`${d.baseName} (${d.variantLabel})`)).length} found / ${mbDefs.length} expected`)
-  }
-
-  // Initial load; re-seed when super_admin status is confirmed
   useEffect(() => { load() }, [])
-  useEffect(() => {
-    if (isSuperAdmin) seedVariants().then(load)
-  }, [isSuperAdmin])
 
   async function saveEdit() {
     setSaving(true)
