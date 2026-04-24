@@ -214,7 +214,7 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
     setPetsLoading(true)
     const token = getAccessToken()
     fetch(
-      `${SUPABASE_URL}/rest/v1/pets?owner_id=eq.${selectedCustomer.id}&select=id,name,type,breed,age,gender,color,medication_notes`,
+      `${SUPABASE_URL}/rest/v1/pets?owner_id=eq.${selectedCustomer.id}&select=*`,
       { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token || SUPABASE_KEY}` } }
     )
       .then(r => r.json())
@@ -641,42 +641,44 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
               <div style={{ display: 'flex', justifyContent: 'center', padding: '1rem' }}>
                 <Loader2 size={20} style={{ animation: 'spin 1s linear infinite', color: 'var(--accent)' }} />
               </div>
-            ) : customerPets.length === 0 ? (
-              <p style={{ fontSize: '0.8rem', color: 'var(--muted)', margin: 0 }}>No pets found for this customer.</p>
             ) : (
               <>
                 {errors.pets && <p style={{ fontSize: '0.7rem', color: '#dc2626', marginBottom: '0.5rem' }} data-field-error>{errors.pets}</p>}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.5rem' }}>
-                  {customerPets.map(pet => {
-                    const sel = selectedPetIds.includes(pet.id)
-                    return (
-                      <button key={pet.id} onClick={() => togglePet(pet.id)}
-                        style={{
-                          textAlign: 'left', padding: '10px 12px', borderRadius: '8px', cursor: 'pointer',
-                          border: `2px solid ${sel ? '#7aa63c' : 'var(--border)'}`,
-                          background: sel ? '#f0f7e6' : 'white',
-                          transition: 'all 0.12s',
-                        }}>
-                        <p style={{ margin: '0 0 2px', fontWeight: '700', fontSize: '0.875rem', color: 'var(--text)' }}>
-                          {sel && <Check size={13} style={{ color: '#5a7a2e', marginRight: '4px', verticalAlign: 'middle' }} />}
-                          {pet.name}
-                        </p>
-                        <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--muted)' }}>
-                          {[pet.type, pet.breed].filter(Boolean).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' · ')}
-                        </p>
-                        {(pet.age || pet.gender) && (
-                          <p style={{ margin: '2px 0 0', fontSize: '0.72rem', color: 'var(--muted)' }}>
-                            {[pet.age ? `${pet.age}y` : null, pet.gender].filter(Boolean).join(' · ')}
+                {customerPets.length === 0 ? (
+                  <p style={{ fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '0.75rem' }}>No pets on file for this customer.</p>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                    {customerPets.map(pet => {
+                      const sel = selectedPetIds.includes(pet.id)
+                      return (
+                        <button key={pet.id} onClick={() => togglePet(pet.id)}
+                          style={{
+                            textAlign: 'left', padding: '10px 12px', borderRadius: '8px', cursor: 'pointer',
+                            border: `2px solid ${sel ? '#7aa63c' : 'var(--border)'}`,
+                            background: sel ? '#f0f7e6' : 'white',
+                            transition: 'all 0.12s',
+                          }}>
+                          <p style={{ margin: '0 0 2px', fontWeight: '700', fontSize: '0.875rem', color: 'var(--text)' }}>
+                            {sel && <Check size={13} style={{ color: '#5a7a2e', marginRight: '4px', verticalAlign: 'middle' }} />}
+                            {pet.name}
                           </p>
-                        )}
-                      </button>
-                    )
-                  })}
-                </div>
-                {/* Disabled add-pet button */}
+                          <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--muted)' }}>
+                            {[pet.type, pet.breed].filter(Boolean).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' · ')}
+                          </p>
+                          {(pet.age || pet.gender) && (
+                            <p style={{ margin: '2px 0 0', fontSize: '0.72rem', color: 'var(--muted)' }}>
+                              {[pet.age ? `${pet.age}y` : null, pet.gender].filter(Boolean).join(' · ')}
+                            </p>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+                {/* Disabled add-pet button — always visible once a customer is selected */}
                 <button disabled title="Coming in next release"
-                  style={{ marginTop: '0.75rem', fontSize: '0.8rem', color: 'var(--muted)', background: 'none', border: '1px dashed var(--border)', borderRadius: '6px', padding: '6px 14px', cursor: 'not-allowed', opacity: 0.5 }}>
-                  + Add new pet (coming soon)
+                  style={{ fontSize: '0.8rem', color: 'var(--muted)', background: 'none', border: '1px dashed var(--border)', borderRadius: '6px', padding: '6px 14px', cursor: 'not-allowed', opacity: 0.5 }}>
+                  + Add new pet (coming in next release)
                 </button>
               </>
             )}
