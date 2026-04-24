@@ -16,7 +16,9 @@
  * @param {string} [data.serviceType]
  * @param {string[]} data.services    – e.g. ["Boarding — 7 nights", "Flea & Tick Protection"]
  * @param {number} [data.totalAmount]
- * @param {string} [data.specialNotes]
+ * @param {string|null} [data.additional_comments]
+ * @param {object[]} [data.pets_data]         – raw pets array (for per-pet medication notes)
+ * @param {object}   [data.service_details]   – booking service_details (for perPet food/walker/driver notes)
  * @param {boolean} [data.has_transport]
  * @param {string|null} [data.pickup_date]
  * @param {string|null} [data.pickup_time]

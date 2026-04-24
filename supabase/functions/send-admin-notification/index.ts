@@ -4,30 +4,44 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-const LOGO_URL   = 'https://pet-lodge.vercel.app/logo-email.jpg'
-const ADMIN_EMAIL = 'pet.lodge.jo@gmail.com'
-const DASHBOARD_BASE = 'https://booking.petlodgejo.com/admin/dashboard'
+const LOGO_URL        = 'https://pet-lodge.vercel.app/logo-email.jpg'
+const ADMIN_EMAIL     = 'pet.lodge.jo@gmail.com'
+const DASHBOARD_BASE  = 'https://booking.petlodgejo.com/admin/dashboard'
 
 interface AdminNotificationPayload {
-  bookingRef:        string
-  customerFirstName: string
-  customerLastName:  string
-  customerEmail:     string
-  customerPhone?:    string
-  customerWhatsapp?: string
-  petNames:          string[]
-  checkIn:           string
-  checkOut?:         string
-  nights?:           number
-  serviceType?:      string
-  services:          string[]
-  totalAmount?:      number
-  specialNotes?:     string
-  has_transport?:    boolean
-  pickup_date?:      string | null
-  pickup_time?:      string | null
-  dropoff_date?:     string | null
-  dropoff_time?:     string | null
+  bookingRef:          string
+  customerFirstName:   string
+  customerLastName:    string
+  customerEmail:       string
+  customerPhone?:      string
+  customerWhatsapp?:   string
+  petNames:            string[]
+  checkIn:             string
+  checkOut?:           string
+  nights?:             number
+  serviceType?:        string
+  services:            string[]
+  totalAmount?:        number
+  // Notes fields — mirrors what extractAllNotes reads in the admin dashboard
+  additional_comments?: string | null
+  special_food_req?:    string | null
+  driver_comments?:     string | null
+  medication_notes?:    string | null
+  // deno-lint-ignore no-explicit-any
+  pets_data?:           any[]
+  // deno-lint-ignore no-explicit-any
+  service_details?:     Record<string, any>
+  // Transport
+  has_transport?:       boolean
+  pickup_date?:         string | null
+  pickup_time?:         string | null
+  dropoff_date?:        string | null
+  dropoff_time?:        string | null
+}
+
+interface NoteEntry {
+  label: string
+  text:  string
 }
 
 function htmlEscape(str: string): string {
@@ -41,6 +55,45 @@ function joinPetNames(names: string[]): string {
   return `${names.slice(0, -1).join(', ')} & ${names[names.length - 1]}`
 }
 
+// Port of extractAllNotes from src/pages/admin/tabs/AllBookings.jsx
+// Produces the same { label, text }[] array used by the admin dashboard.
+function extractAllNotes(p: AdminNotificationPayload): NoteEntry[] {
+  const notes: NoteEntry[] = []
+
+  if (p.additional_comments) notes.push({ label: 'Notes',      text: p.additional_comments })
+  if (p.special_food_req)    notes.push({ label: 'Food',       text: p.special_food_req })
+  if (p.driver_comments)     notes.push({ label: 'Driver',     text: p.driver_comments })
+  if (p.medication_notes)    notes.push({ label: 'Medication', text: p.medication_notes })
+
+  if (Array.isArray(p.pets_data)) {
+    for (const pet of p.pets_data) {
+      if (pet?.medication_notes || pet?.medication) {
+        notes.push({
+          label: `Medication (${pet.name || 'pet'})`,
+          text:  pet.medication_notes || pet.medication,
+        })
+      }
+    }
+  }
+
+  const perPet = p.service_details?.perPet
+  if (Array.isArray(perPet)) {
+    for (const pf of perPet) {
+      const petName = pf.petName || 'pet'
+      if (pf.foodNotes)               notes.push({ label: `Food notes (${petName})`,     text: pf.foodNotes })
+      if (pf.walkerNotes)             notes.push({ label: `Walker notes (${petName})`,   text: pf.walkerNotes })
+      if (pf.trainingGoals)           notes.push({ label: `Training goals (${petName})`, text: pf.trainingGoals })
+      if (pf.address_driver_comments) notes.push({ label: `Driver notes (${petName})`,   text: pf.address_driver_comments })
+    }
+  }
+
+  const sd = p.service_details
+  if (sd?.preferredSchedule) notes.push({ label: 'Preferred schedule', text: sd.preferredSchedule })
+  if (sd?.trainingGoals)     notes.push({ label: 'Training goals',     text: sd.trainingGoals })
+
+  return notes
+}
+
 function buildHtml(p: AdminNotificationPayload): string {
   const customerName = `${p.customerFirstName} ${p.customerLastName}`.trim() || '—'
   const petsJoined   = joinPetNames(p.petNames)
@@ -52,12 +105,16 @@ function buildHtml(p: AdminNotificationPayload): string {
       ).join('')
     : `<tr><td style="padding:5px 0;font-size:13px;color:#9ca3af;">—</td></tr>`
 
-  const specialNotesBlock = p.specialNotes ? `
+  // Build notes block — all entries from extractAllNotes, rendered in amber box
+  const allNotes = extractAllNotes(p)
+  const notesBlock = allNotes.length > 0 ? `
     <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;border-collapse:collapse;">
       <tr>
         <td style="background:#fffbeb;border:1px solid #fcd34d;border-left:4px solid #f59e0b;border-radius:4px;padding:12px 14px;">
-          <p style="margin:0 0 4px;font-size:10px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:0.05em;">Special notes</p>
-          <p style="margin:0;font-size:13px;color:#78350f;">${htmlEscape(p.specialNotes)}</p>
+          <p style="margin:0 0 8px;font-size:10px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:0.05em;">Notes</p>
+          ${allNotes.map((n, i) =>
+            `<p style="margin:0${i < allNotes.length - 1 ? ' 0 5px' : ''};font-size:13px;color:#78350f;"><strong>${htmlEscape(n.label)}:</strong> ${htmlEscape(n.text)}</p>`
+          ).join('')}
         </td>
       </tr>
     </table>` : ''
@@ -121,7 +178,7 @@ function buildHtml(p: AdminNotificationPayload): string {
           </tr>
         </table>
 
-        ${specialNotesBlock}
+        ${notesBlock}
 
         <!-- Customer contact block -->
         <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:6px;border-collapse:separate;border-spacing:0;overflow:hidden;margin-bottom:20px;">
@@ -262,32 +319,37 @@ Deno.serve(async (req: Request) => {
 
   const notifPayload: AdminNotificationPayload = {
     bookingRef,
-    customerFirstName: payload.customerFirstName || '',
-    customerLastName:  payload.customerLastName  || '',
+    customerFirstName:   payload.customerFirstName   || '',
+    customerLastName:    payload.customerLastName    || '',
     customerEmail,
-    customerPhone:     payload.customerPhone     || '',
-    customerWhatsapp:  payload.customerWhatsapp  || '',
-    petNames:          payload.petNames          || [],
-    checkIn:           payload.checkIn           || '',
-    checkOut:          payload.checkOut          || '',
-    nights:            payload.nights            ?? 0,
-    serviceType:       payload.serviceType       || '',
-    services:          payload.services          || [],
-    totalAmount:       payload.totalAmount       ?? 0,
-    specialNotes:      payload.specialNotes      || '',
-    has_transport:     payload.has_transport     ?? false,
-    pickup_date:       payload.pickup_date       ?? null,
-    pickup_time:       payload.pickup_time       ?? null,
-    dropoff_date:      payload.dropoff_date      ?? null,
-    dropoff_time:      payload.dropoff_time      ?? null,
+    customerPhone:       payload.customerPhone       || '',
+    customerWhatsapp:    payload.customerWhatsapp    || '',
+    petNames:            payload.petNames            || [],
+    checkIn:             payload.checkIn             || '',
+    checkOut:            payload.checkOut            || '',
+    nights:              payload.nights              ?? 0,
+    serviceType:         payload.serviceType         || '',
+    services:            payload.services            || [],
+    totalAmount:         payload.totalAmount         ?? 0,
+    additional_comments: payload.additional_comments ?? null,
+    special_food_req:    payload.special_food_req    ?? null,
+    driver_comments:     payload.driver_comments     ?? null,
+    medication_notes:    payload.medication_notes    ?? null,
+    pets_data:           Array.isArray(payload.pets_data) ? payload.pets_data : [],
+    service_details:     payload.service_details     ?? {},
+    has_transport:       payload.has_transport       ?? false,
+    pickup_date:         payload.pickup_date         ?? null,
+    pickup_time:         payload.pickup_time         ?? null,
+    dropoff_date:        payload.dropoff_date        ?? null,
+    dropoff_time:        payload.dropoff_time        ?? null,
   }
 
-  const firstName   = notifPayload.customerFirstName
-  const lastName    = notifPayload.customerLastName
-  const petsJoined  = notifPayload.petNames.length > 0 ? notifPayload.petNames.join(' & ') : '—'
+  const firstName    = notifPayload.customerFirstName
+  const lastName     = notifPayload.customerLastName
+  const petsJoined   = notifPayload.petNames.length > 0 ? notifPayload.petNames.join(' & ') : '—'
   // checkInShort: "24 Apr 2026" → "24 Apr"
   const checkInShort = notifPayload.checkIn.split(' ').slice(0, 2).join(' ') || notifPayload.checkIn || '—'
-  const subject = `New booking — ${firstName} ${lastName} / ${petsJoined} — ${checkInShort}`
+  const subject      = `New booking — ${firstName} ${lastName} / ${petsJoined} — ${checkInShort}`
 
   const resendRes = await fetch('https://api.resend.com/emails', {
     method: 'POST',
