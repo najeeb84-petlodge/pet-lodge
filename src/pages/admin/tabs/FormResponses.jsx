@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 function ExpandableCell({ value }) {
   const [expanded, setExpanded] = useState(false)
@@ -257,11 +257,14 @@ function cellValue(b, key) {
   }
 }
 
-export default function FormResponses({ isSuperAdmin, isAdmin }) {
+export default function FormResponses({ isSuperAdmin, isAdmin, isOwner }) {
   const [bookings,  setBookings]  = useState([])
   const [loading,   setLoading]   = useState(true)
   const [error,     setError]     = useState(null)
   const [selected,  setSelected]  = useState(null)
+
+  const tableScrollRef = useRef(null)
+  const topScrollRef   = useRef(null)
 
   async function load() {
     setLoading(true); setError(null)
@@ -322,9 +325,26 @@ export default function FormResponses({ isSuperAdmin, isAdmin }) {
       {bookings.length === 0 ? (
         <div className="text-center py-16" style={{ color: 'var(--muted)' }}>No form responses yet.</div>
       ) : (
-        <div className="overflow-x-auto">
+        <>
+          {/* Mirrored top scrollbar — scrolls in sync with the table */}
+          <div
+            ref={topScrollRef}
+            style={{ overflowX: 'auto', overflowY: 'hidden', height: '12px' }}
+            onScroll={() => {
+              if (tableScrollRef.current) tableScrollRef.current.scrollLeft = topScrollRef.current.scrollLeft
+            }}
+          >
+            <div style={{ minWidth: '3200px', height: '1px' }} />
+          </div>
+          <div
+            ref={tableScrollRef}
+            className="overflow-x-auto"
+            onScroll={() => {
+              if (topScrollRef.current) topScrollRef.current.scrollLeft = tableScrollRef.current.scrollLeft
+            }}
+          >
           <table className="w-full text-xs" style={{ minWidth: '3200px' }}>
-            <thead style={{ background: 'var(--light)' }}>
+            <thead style={{ background: 'var(--light)', position: 'sticky', top: 0, zIndex: 10 }}>
               <tr>
                 {COLUMNS.map(col => (
                   <th key={col.key} className="px-3 py-2.5 text-left font-semibold whitespace-nowrap"
@@ -365,7 +385,8 @@ export default function FormResponses({ isSuperAdmin, isAdmin }) {
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       )}
 
       {selected && (
@@ -373,6 +394,7 @@ export default function FormResponses({ isSuperAdmin, isAdmin }) {
           booking={selected}
           onClose={() => setSelected(null)}
           onUpdated={() => { setSelected(null); load() }}
+          isOwner={isOwner}
         />
       )}
     </div>

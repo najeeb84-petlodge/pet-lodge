@@ -55,9 +55,9 @@ export default function AdminDashboard() {
         {/* Tab content */}
         {activeTab === 'bookings'  && <AllBookings  isSuperAdmin={isSuperAdmin} isAdmin={isAdmin} isOwner={isOwner}/>}
         {activeTab === 'mods'      && <ModificationRequests isOwner={isOwner}/>}
-        {activeTab === 'calendar'  && <WeeklyCalendar/>}
+        {activeTab === 'calendar'  && <WeeklyCalendar isOwner={isOwner}/>}
         {activeTab === 'prices'    && <PricesMaster isSuperAdmin={isSuperAdmin}/>}
-        {activeTab === 'responses' && <FormResponses isSuperAdmin={isSuperAdmin} isAdmin={isAdmin}/>}
+        {activeTab === 'responses' && <FormResponses isSuperAdmin={isSuperAdmin} isAdmin={isAdmin} isOwner={isOwner}/>}
         {activeTab === 'users'     && isSuperAdmin && <UserManagement isSuperAdmin={isSuperAdmin}/>}
       </div>
     </div>

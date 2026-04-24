@@ -478,15 +478,17 @@ We look forward to welcoming ${joinedPetNames}!`
                   <Edit2 size={13} /> Edit
                 </button>
               )}
-              <button onClick={() => {
-                setConfirmMethod('email')
-                setConfirmRecipient(b.customer_email || '')
-                setConfirmNote('')
-                setConfirmEmailResult(null)
-                setMode('confirm')
-              }} style={headerBtnStyle}>
-                <Mail size={13} /> Confirmation
-              </button>
+              {!isOwner && (
+                <button onClick={() => {
+                  setConfirmMethod('email')
+                  setConfirmRecipient(b.customer_email || '')
+                  setConfirmNote('')
+                  setConfirmEmailResult(null)
+                  setMode('confirm')
+                }} style={headerBtnStyle}>
+                  <Mail size={13} /> Confirmation
+                </button>
+              )}
               <button onClick={() => setMode('receipt')} style={headerBtnStyle}>
                 <FileText size={13} /> Receipt
               </button>

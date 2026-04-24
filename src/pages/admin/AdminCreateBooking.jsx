@@ -4,6 +4,7 @@ import { SUPABASE_URL, SUPABASE_KEY, getAccessToken } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { sendAdminNotification } from '../../utils/sendAdminNotification'
 import { sendBookingConfirmation } from '../../utils/sendBookingConfirmation'
+import { syncProfileFromBooking } from '../../utils/syncProfileFromBooking'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -473,6 +474,16 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
         }
       }
       if (!ref) throw new Error('Could not generate unique booking reference. Please try again.')
+
+      // Sync existing customer's profile (skip for guest / no account)
+      if (selectedCustomer?.id) {
+        syncProfileFromBooking(selectedCustomer.id, {
+          firstName: customerFields.first_name,
+          lastName:  customerFields.last_name,
+          phone:     customerFields.phone,
+          whatsapp:  customerFields.whatsapp_number,
+        }).catch(err => console.warn('[AdminCreate] profile sync failed:', err))
+      }
 
       setSuccess(true)
 

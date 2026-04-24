@@ -148,7 +148,7 @@ function BookingCard({ b, onClick, dimmed }) {
 
 // ── Main component ───────────────────────────────────────────────────────────
 
-export default function WeeklyCalendar() {
+export default function WeeklyCalendar({ isOwner }) {
   const [weekStart,    setWeekStart]    = useState(startOfWeek(new Date(), { weekStartsOn: 1 }))
   const [bookings,     setBookings]     = useState([])
   const [selected,     setSelected]     = useState(null)
@@ -398,6 +398,7 @@ export default function WeeklyCalendar() {
             dbQuery('bookings', `?start_date=lte.${end}&end_date=gte.${start}&status=neq.cancelled&select=*&order=start_date.asc`)
               .then(data => setBookings(Array.isArray(data) ? data : []))
           }}
+          isOwner={isOwner}
         />
       )}
     </div>

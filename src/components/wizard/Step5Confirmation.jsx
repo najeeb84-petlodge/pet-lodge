@@ -7,6 +7,7 @@ import { SUPABASE_URL, SUPABASE_KEY, getAccessToken } from '../../lib/supabase'
 import { computeLineItems } from '../../lib/bookingUtils'
 import { sendBookingConfirmation } from '../../utils/sendBookingConfirmation'
 import { sendAdminNotification } from '../../utils/sendAdminNotification'
+import { syncProfileFromBooking } from '../../utils/syncProfileFromBooking'
 
 // ── T&C text ──────────────────────────────────────────────────────────────────
 
@@ -225,6 +226,14 @@ export default function Step5Confirmation() {
 
       const { ref } = await insertBookingWithRetry(body, token)
       setSuccessData({ ref, total: freshTotal })
+
+      // Sync customer's profile fields (silent)
+      syncProfileFromBooking(profile?.id, {
+        firstName: customerInfo.first_name,
+        lastName:  customerInfo.last_name,
+        phone:     customerInfo.contact_number,
+        whatsapp:  customerInfo.whatsapp_number,
+      }).catch(err => console.warn('[Step5] profile sync failed:', err))
 
       // Fire confirmation email — non-blocking, failures are silent to the customer
       const formatDate = (iso) => {
