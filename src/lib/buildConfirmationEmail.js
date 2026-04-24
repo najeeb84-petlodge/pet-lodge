@@ -1,6 +1,6 @@
 // Shared confirmation email HTML builder.
-// Used by BookingModal.jsx (preview + send payload) and referenced by the
-// send-confirmation Edge Function (which accepts a pre-built `html` field).
+// Used by BookingModal.jsx (preview + send payload) and the send-confirmation
+// Edge Function (which accepts a pre-built `html` + `subject` field).
 // Keeping the builder here ensures the preview is byte-identical to what Resend delivers.
 
 const LOGO_URL = 'https://pet-lodge.vercel.app/logo-email.jpg'
@@ -13,9 +13,39 @@ function htmlEscape(str) {
     .replace(/"/g, '&quot;')
 }
 
+// ── Grammar helpers ───────────────────────────────────────────────────────────
+
+/**
+ * Join pet names with natural-language grammar.
+ *   1 pet  → "Cruise"
+ *   2 pets → "Cruise & Max"
+ *   3+pets → "Cruise, Max & Luna"
+ * @param {string[]} names
+ * @returns {string}
+ */
+export function joinPetNames(names) {
+  if (!names || names.length === 0) return '—'
+  if (names.length === 1) return names[0]
+  if (names.length === 2) return `${names[0]} & ${names[1]}`
+  return `${names.slice(0, -1).join(', ')} & ${names[names.length - 1]}`
+}
+
+/**
+ * Return the correct verb for a list of pets.
+ *   1 pet  → "is"
+ *   2+pets → "are"
+ * @param {string[]} names
+ * @returns {'is'|'are'}
+ */
+export function petVerb(names) {
+  return names && names.length > 1 ? 'are' : 'is'
+}
+
+// ── HTML builder ──────────────────────────────────────────────────────────────
+
 /**
  * Build the confirmation email HTML.
- * @param {object} p
+ * @param {object}   p
  * @param {string}   p.bookingRef
  * @param {string}   p.customerName
  * @param {string[]} p.petNames
@@ -32,8 +62,10 @@ function htmlEscape(str) {
  * @returns {string} Full HTML document
  */
 export function buildConfirmationEmail(p) {
-  const pets      = p.petNames.length ? p.petNames.join(', ') : '—'
-  const petName   = p.petNames[0] || pets
+  const names     = p.petNames || []
+  const pets      = joinPetNames(names)          // "Cruise & Max"
+  const verb      = petVerb(names)               // "is" | "are"
+  const lifeWord  = names.length > 1 ? 'lives' : 'life'
   const firstName = (p.customerName || '').split(' ')[0] || 'there'
 
   const pills = (p.services || []).map(s =>
@@ -93,7 +125,7 @@ export function buildConfirmationEmail(p) {
         <table width="100%" cellpadding="0" cellspacing="0" style="background:#eef4e2;border-radius:8px;margin-bottom:20px;">
           <tr>
             <td style="padding:14px 18px;vertical-align:middle;">
-              <p style="margin:0 0 3px;font-size:15px;font-weight:700;color:#2d3a1e;">${pets} is officially booked in.</p>
+              <p style="margin:0 0 3px;font-size:15px;font-weight:700;color:#2d3a1e;">${pets} ${verb} officially booked in.</p>
               <p style="margin:0;font-size:12px;color:#5a7a2e;">Your booking is confirmed. We'll take great care of them.</p>
             </td>
             <td style="padding:14px 18px;text-align:right;white-space:nowrap;vertical-align:middle;">
@@ -144,7 +176,7 @@ export function buildConfirmationEmail(p) {
         </table>
 
         <p style="margin:16px 0 0;font-size:13px;color:#6b7280;font-style:italic;">
-          Don't forget to follow us on <a href="https://www.instagram.com/pet.lodge.jo/" style="color:#5a7a2e;font-weight:bold;">Instagram</a> — you just might catch ${petName} living their absolute best life.
+          Don't forget to follow us on <a href="https://www.instagram.com/pet.lodge.jo/" style="color:#5a7a2e;font-weight:bold;">Instagram</a> — you just might catch ${pets} living their absolute best ${lifeWord}.
         </p>
 
         <p style="margin:20px 0 0;font-size:14px;color:#374151;">Kind regards,<br><strong>Pet Lodge Customer Care</strong></p>
@@ -174,14 +206,18 @@ export function buildConfirmationEmail(p) {
 </html>`
 }
 
+// ── Subject builder ───────────────────────────────────────────────────────────
+
 /**
- * Build the email subject line (same format as the Edge Function).
+ * Build the email subject line.
+ * Format: "Booking Confirmation - First Last (Cruise & Max) - PL-XXXXXXXX"
+ * @param {object} p
+ * @returns {string}
  */
 export function buildEmailSubject(p) {
-  const nameParts    = (p.customerName || '').split(' ')
-  const first        = nameParts[0] || ''
-  const last         = nameParts.slice(1).join(' ') || ''
-  const petsJoined   = (p.petNames || []).join(', ')
-  const serviceType  = ((p.services || [])[0] || '').replace(/\s*[×x]\s*\d+.*/i, '').trim() || (p.services || [])[0] || '—'
-  return `Booking Confirmation (${serviceType}) - ${first} ${last} (${petsJoined}) - ${p.bookingRef}`
+  const nameParts  = (p.customerName || '').split(' ')
+  const first      = nameParts[0] || ''
+  const last       = nameParts.slice(1).join(' ') || ''
+  const petsJoined = joinPetNames(p.petNames || [])
+  return `Booking Confirmation - ${first} ${last} (${petsJoined}) - ${p.bookingRef}`
 }

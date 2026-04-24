@@ -8,7 +8,7 @@ import {
 import { jsPDF } from 'jspdf'
 import html2canvas from 'html2canvas'
 import { dbQuery, dbUpdate, SUPABASE_URL, SUPABASE_KEY, getAccessToken } from '../../../lib/supabase'
-import { buildConfirmationEmail, buildEmailSubject } from '../../../lib/buildConfirmationEmail'
+import { buildConfirmationEmail, buildEmailSubject, joinPetNames } from '../../../lib/buildConfirmationEmail'
 
 const PAYMENT_METHODS = ['cash', 'card', 'bank_transfer', 'online']
 const METHOD_LABEL = { cash: 'Cash', card: 'Card', bank_transfer: 'Bank Transfer', online: 'Online' }
@@ -369,7 +369,8 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
       }
       const payload = {
         ...emailPayloadObj,
-        html: buildConfirmationEmail(emailPayloadObj),
+        html:    buildConfirmationEmail(emailPayloadObj),
+        subject: buildEmailSubject(emailPayloadObj),
       }
       const res = await fetch(
         `${SUPABASE_URL}/functions/v1/send-confirmation`,
@@ -394,10 +395,12 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
     b.customer_last_name  || b.profiles?.last_name,
   ].filter(Boolean).join(' ') || '—'
 
-  const firstPet    = Array.isArray(b.pets_data) && b.pets_data.length ? b.pets_data[0] : null
-  const allPetNames = Array.isArray(b.pets_data)
-    ? b.pets_data.map(p => p?.name).filter(Boolean).join(', ')
-    : (b.pet_names || []).join(', ') || '—'
+  const firstPet     = Array.isArray(b.pets_data) && b.pets_data.length ? b.pets_data[0] : null
+  const petNamesArr  = Array.isArray(b.pets_data)
+    ? b.pets_data.map(p => p?.name).filter(Boolean)
+    : (b.pet_names || [])
+  const allPetNames  = petNamesArr.join(', ') || '—'
+  const joinedPetNames = joinPetNames(petNamesArr.length ? petNamesArr : ['—'])
 
   const SERVICE_LABELS_MAP = {
     boarding: 'Boarding', day_camp: 'Doggy Day Camp', dog_walking: 'Dog Walking',
@@ -416,62 +419,6 @@ export default function BookingModal({ booking, onClose, onUpdated }) {
   const fmtDate = d => { try { return d ? format(new Date(d), 'EEE, MMM d, yyyy') : null } catch { return null } }
   const fmtTs   = d => { try { return d ? format(new Date(d), 'MMM d, yyyy · h:mm a') : null } catch { return null } }
 
-  // ── email / WA templates ─────────────────────────────────────────────────────
-  const confirmBody = `Dear ${b.customer_first_name || b.profiles?.first_name || 'Customer'},
-
-We are delighted to confirm your booking at Pet Lodge!
-
-Booking Reference: ${b.booking_ref || b.id?.slice(0, 8)}
-Pet: ${allPetNames}
-Service: ${serviceLabel}
-Check-in:  ${b.start_date ? format(new Date(b.start_date), 'EEEE, MMMM d, yyyy') : '—'}
-Check-out: ${b.end_date   ? format(new Date(b.end_date),   'EEEE, MMMM d, yyyy') : '—'}
-Duration:  ${b.total_days || '—'} days
-Total:     JD ${gross.toFixed(2)}
-${amountDue > 0 ? `Amount Due: JD ${amountDue.toFixed(2)}` : 'Fully paid — thank you!'}
-
-If you have any questions, please don't hesitate to contact us.
-
-Warm regards,
-Pet Lodge Team`
-
-  const receiptBody = `PET LODGE — RECEIPT
-=============================
-Booking Ref : ${b.booking_ref || b.id?.slice(0, 8)}
-Date        : ${format(new Date(), 'dd/MM/yyyy')}
-
-Customer    : ${ownerName}
-Pet         : ${allPetNames}
-Service     : ${serviceLabel}
-
-Check-in    : ${b.start_date ? format(new Date(b.start_date), 'dd/MM/yyyy') : '—'}
-Check-out   : ${b.end_date   ? format(new Date(b.end_date),   'dd/MM/yyyy') : '—'}
-Days        : ${b.total_days || '—'}
-
-Subtotal    : JD ${gross.toFixed(2)}
-Discount    : JD ${discount.toFixed(2)}
-Prepaid     : JD ${prepaid.toFixed(2)}
-Paid        : JD ${totalPaid.toFixed(2)}
-=============================
-Amount Due  : JD ${amountDue.toFixed(2)}
-=============================`
-
-  const waMessage = `Hello ${b.customer_first_name || b.profiles?.first_name || ''}! 🐾
-
-Your booking at *Pet Lodge* is confirmed.
-
-📋 *Ref:*      ${b.booking_ref || b.id?.slice(0, 8)}
-🐕 *Pet:*      ${allPetNames}
-🏠 *Service:*  ${serviceLabel}
-📅 *Check-in:* ${b.start_date ? format(new Date(b.start_date), 'EEE, MMM d') : '—'}
-📅 *Check-out:*${b.end_date   ? format(new Date(b.end_date),   'EEE, MMM d') : '—'}
-💰 *Total:*    JD ${gross.toFixed(2)}${amountDue > 0 ? `\n💳 *Due:*      JD ${amountDue.toFixed(2)}` : ''}
-
-We look forward to welcoming ${allPetNames}! 🐾`
-
-  const waPhone = (b.customer_whatsapp || b.customer_phone || '').replace(/\D/g, '')
-  const waLink  = `https://wa.me/${waPhone}?text=${encodeURIComponent(waMessage)}`
-
   function buildWaConfirmMessage(note) {
     const firstName = b.customer_first_name || b.profiles?.first_name || ''
     const ref  = b.booking_ref || b.id?.slice(0, 8)
@@ -481,12 +428,12 @@ We look forward to welcoming ${allPetNames}! 🐾`
     return `Hello ${firstName}!${notePart}Your booking at *Pet Lodge* is confirmed.
 
 *Ref:* ${ref}
-*Pet:* ${allPetNames}
+*Pet:* ${joinedPetNames}
 *Service:* ${serviceLabel}
 *Check-in:* ${cin}
 *Check-out:* ${cout}
 
-We look forward to welcoming ${allPetNames}!`
+We look forward to welcoming ${joinedPetNames}!`
   }
 
   // ── loading splash ───────────────────────────────────────────────────────────

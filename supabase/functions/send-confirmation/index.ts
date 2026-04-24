@@ -21,17 +21,26 @@ interface EmailPayload {
   dropoff_date?:   string | null
   dropoff_time?:   string | null
   custom_message?: string
-  // Pre-built HTML from the frontend — used directly when present, skipping buildHtml()
-  html?:           string
+  // Pre-built HTML + subject from the frontend — used directly when present, skipping local builders
+  html?:    string
+  subject?: string
 }
 
 function htmlEscape(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
+function joinPetNames(names: string[]): string {
+  if (!names || names.length === 0) return '—'
+  if (names.length === 1) return names[0]
+  if (names.length === 2) return `${names[0]} & ${names[1]}`
+  return `${names.slice(0, -1).join(', ')} & ${names[names.length - 1]}`
+}
+
 function buildHtml(p: EmailPayload): string {
-  const pets      = p.petNames.length ? p.petNames.join(', ') : '—'
-  const petName   = p.petNames[0] || pets
+  const pets      = joinPetNames(p.petNames)
+  const verb      = p.petNames.length > 1 ? 'are' : 'is'
+  const lifeWord  = p.petNames.length > 1 ? 'lives' : 'life'
   const firstName = p.customerName.split(' ')[0] || 'there'
 
   const pills = p.services.map(s =>
@@ -87,7 +96,7 @@ function buildHtml(p: EmailPayload): string {
         <table width="100%" cellpadding="0" cellspacing="0" style="background:#eef4e2;border-radius:8px;margin-bottom:20px;">
           <tr>
             <td style="padding:14px 18px;vertical-align:middle;">
-              <p style="margin:0 0 3px;font-size:15px;font-weight:700;color:#2d3a1e;">${pets} is officially booked in.</p>
+              <p style="margin:0 0 3px;font-size:15px;font-weight:700;color:#2d3a1e;">${pets} ${verb} officially booked in.</p>
               <p style="margin:0;font-size:12px;color:#5a7a2e;">Your booking is confirmed. We'll take great care of them.</p>
             </td>
             <td style="padding:14px 18px;text-align:right;white-space:nowrap;vertical-align:middle;">
@@ -138,7 +147,7 @@ function buildHtml(p: EmailPayload): string {
         </table>
 
         <p style="margin:16px 0 0;font-size:13px;color:#6b7280;font-style:italic;">
-          Don't forget to follow us on <a href="https://www.instagram.com/pet.lodge.jo/" style="color:#5a7a2e;font-weight:bold;">Instagram</a> — you just might catch ${petName} living their absolute best life.
+          Don't forget to follow us on <a href="https://www.instagram.com/pet.lodge.jo/" style="color:#5a7a2e;font-weight:bold;">Instagram</a> — you just might catch ${pets} living their absolute best ${lifeWord}.
         </p>
 
         <p style="margin:20px 0 0;font-size:14px;color:#374151;">Kind regards,<br><strong>Pet Lodge Customer Care</strong></p>
@@ -232,12 +241,17 @@ Deno.serve(async (req: Request) => {
     custom_message: payload.custom_message || undefined,
   }
 
-  // Build subject: Booking Confirmation (Service) - First Last (Pet1, Pet2) - REF
-  const nameParts    = emailPayload.customerName.split(' ')
-  const subjectFirst = nameParts[0] || ''
-  const subjectLast  = nameParts.slice(1).join(' ') || ''
-  const petsJoined   = emailPayload.petNames.join(', ')
-  const serviceType  = (emailPayload.services[0] || '').replace(/\s*[×x]\s*\d+.*/i, '').trim() || emailPayload.services[0] || '—'
+  // Build subject — use pre-built subject from frontend if present, else compute here
+  let emailSubject: string
+  if (payload.subject) {
+    emailSubject = payload.subject
+  } else {
+    const nameParts    = emailPayload.customerName.split(' ')
+    const subjectFirst = nameParts[0] || ''
+    const subjectLast  = nameParts.slice(1).join(' ') || ''
+    const petsJoined   = joinPetNames(emailPayload.petNames)
+    emailSubject = `Booking Confirmation - ${subjectFirst} ${subjectLast} (${petsJoined}) - ${bookingRef}`
+  }
 
   const resendRes = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -249,7 +263,7 @@ Deno.serve(async (req: Request) => {
       from:     'Pet Lodge Jordan <booking@petlodgejo.com>',
       to:       [customerEmail],
       reply_to: 'info@petlodgejo.com',
-      subject:  `Booking Confirmation (${serviceType}) - ${subjectFirst} ${subjectLast} (${petsJoined}) - ${bookingRef}`,
+      subject:  emailSubject,
       html:     payload.html || buildHtml(emailPayload),
       headers: {
         'X-Entity-Ref-ID': bookingRef,
