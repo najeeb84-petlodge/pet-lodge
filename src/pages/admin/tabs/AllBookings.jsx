@@ -4,6 +4,7 @@ import { format, isAfter, isBefore, isEqual } from 'date-fns'
 import { Search, Eye, Loader2, SlidersHorizontal, RefreshCw } from 'lucide-react'
 import BookingModal from './BookingModal'
 import { joinPetNames } from '../../../lib/buildConfirmationEmail'
+import AdminCreateBooking from '../AdminCreateBooking'
 
 const STATUS_OPTIONS  = ['pending','confirmed','completed','cancelled']
 const STATUS_CLASS    = { pending:'badge-pending', confirmed:'badge-confirmed', completed:'badge-completed', cancelled:'badge-cancelled' }
@@ -107,6 +108,8 @@ export default function AllBookings({ isSuperAdmin, isOwner }) {
   const [dateTo, setDateTo]           = useState('')
   const [selected, setSelected]       = useState(null)
   const [stats, setStats]             = useState({ total: 0, pending: 0, cashReceived: 0, expectedThisMonth: 0, modRequests: 0 })
+  const [showCreate,    setShowCreate]    = useState(false)
+  const [successToast,  setSuccessToast]  = useState('')
 
   async function fetchAll(silent = false) {
     if (!silent) setLoading(true)
@@ -166,6 +169,13 @@ export default function AllBookings({ isSuperAdmin, isOwner }) {
 
   useEffect(() => { fetchAll() }, [])
 
+  // Auto-dismiss success toast after 4 s
+  useEffect(() => {
+    if (!successToast) return
+    const t = setTimeout(() => setSuccessToast(''), 4000)
+    return () => clearTimeout(t)
+  }, [successToast])
+
   // Deep-link: open booking modal when ?booking=<ref> is in the URL
   useEffect(() => {
     if (!bookings.length) return
@@ -221,6 +231,23 @@ export default function AllBookings({ isSuperAdmin, isOwner }) {
 
   return (
     <div>
+      {/* Toast notification */}
+      {successToast && (
+        <div style={{ position:'fixed', top:'1rem', right:'1rem', zIndex:9999, background:'#16a34a', color:'white', padding:'12px 20px', borderRadius:'8px', fontWeight:'600', fontSize:'0.875rem', boxShadow:'0 4px 16px rgba(0,0,0,0.18)', display:'flex', alignItems:'center', gap:'8px' }}>
+          ✓ {successToast}
+        </div>
+      )}
+
+      {/* Header row with New Booking button */}
+      {!isOwner && (
+        <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:'1rem' }}>
+          <button onClick={() => setShowCreate(true)}
+            style={{ background:'#5a7a2e', color:'white', border:'none', borderRadius:'6px', padding:'8px 16px', cursor:'pointer', fontWeight:'600', fontSize:'0.875rem', display:'flex', alignItems:'center', gap:'6px' }}>
+            + New Booking
+          </button>
+        </div>
+      )}
+
       {/* Stats */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))', gap:'0.75rem', marginBottom:'1.5rem' }}>
         {[
@@ -372,6 +399,18 @@ export default function AllBookings({ isSuperAdmin, isOwner }) {
           onClose={() => setSelected(null)}
           onUpdated={fetchAll}
           isOwner={isOwner}
+        />
+      )}
+
+      {/* Create booking modal */}
+      {showCreate && (
+        <AdminCreateBooking
+          onClose={() => setShowCreate(false)}
+          onCreated={(customerName) => {
+            setShowCreate(false)
+            fetchAll()
+            setSuccessToast(`Booking created for ${customerName}`)
+          }}
         />
       )}
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>

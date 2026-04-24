@@ -27,6 +27,7 @@ interface AdminNotificationPayload {
   special_food_req?:    string | null
   driver_comments?:     string | null
   medication_notes?:    string | null
+  admin_notes?:         string | null
   // deno-lint-ignore no-explicit-any
   pets_data?:           any[]
   // deno-lint-ignore no-explicit-any
@@ -105,6 +106,17 @@ function buildHtml(p: AdminNotificationPayload): string {
       ).join('')
     : `<tr><td style="padding:5px 0;font-size:13px;color:#9ca3af;">—</td></tr>`
 
+  // Internal note block — staff-only, rendered above the regular notes with red styling
+  const internalBlock = p.admin_notes ? `
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px;border-collapse:collapse;">
+      <tr>
+        <td style="background:#fef2f2;border:1px solid #fecaca;border-left:4px solid #ef4444;border-radius:4px;padding:10px 14px;">
+          <p style="margin:0 0 4px;font-size:10px;font-weight:700;color:#991b1b;text-transform:uppercase;letter-spacing:0.05em;">🔒 Internal (staff only)</p>
+          <p style="margin:0;font-size:13px;color:#7f1d1d;">${htmlEscape(p.admin_notes)}</p>
+        </td>
+      </tr>
+    </table>` : ''
+
   // Build notes block — all entries from extractAllNotes, rendered in amber box
   const allNotes = extractAllNotes(p)
   const notesBlock = allNotes.length > 0 ? `
@@ -178,6 +190,7 @@ function buildHtml(p: AdminNotificationPayload): string {
           </tr>
         </table>
 
+        ${internalBlock}
         ${notesBlock}
 
         <!-- Customer contact block -->
@@ -335,6 +348,7 @@ Deno.serve(async (req: Request) => {
     special_food_req:    payload.special_food_req    ?? null,
     driver_comments:     payload.driver_comments     ?? null,
     medication_notes:    payload.medication_notes    ?? null,
+    admin_notes:         payload.admin_notes         ?? null,
     pets_data:           Array.isArray(payload.pets_data) ? payload.pets_data : [],
     service_details:     payload.service_details     ?? {},
     has_transport:       payload.has_transport       ?? false,
