@@ -166,6 +166,18 @@ export default function AllBookings({ isSuperAdmin, isOwner }) {
 
   useEffect(() => { fetchAll() }, [])
 
+  // Deep-link: open booking modal when ?booking=<ref> is in the URL
+  useEffect(() => {
+    if (!bookings.length) return
+    const ref = new URLSearchParams(window.location.search).get('booking')
+    if (!ref) return
+    const match = bookings.find(b => b.booking_ref === ref)
+    if (match) {
+      setSelected(match)
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [bookings])
+
   async function updateStatus(id, status) {
     await dbUpdate('bookings', id, { status })
     setBookings(prev => prev.map(b => b.id === id ? { ...b, status } : b))

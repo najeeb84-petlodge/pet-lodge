@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { SUPABASE_URL, SUPABASE_KEY, getAccessToken } from '../../lib/supabase'
 import { computeLineItems } from '../../lib/bookingUtils'
 import { sendBookingConfirmation } from '../../utils/sendBookingConfirmation'
+import { sendAdminNotification } from '../../utils/sendAdminNotification'
 
 // ── T&C text ──────────────────────────────────────────────────────────────────
 
@@ -232,17 +233,44 @@ export default function Step5Confirmation() {
         const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
         return `${parseInt(d, 10)} ${months[parseInt(m, 10) - 1]} ${y}`
       }
+      const petNames  = safePets.map(p => p.name).filter(Boolean)
+      const services  = freshLineItems.map(i => i.label).filter(Boolean)
+      const checkIn   = formatDate(startDate || '')
+      const checkOut  = formatDate(endDate || '')
+
       sendBookingConfirmation({
         bookingRef:    ref,
         customerName:  `${customerInfo.first_name} ${customerInfo.last_name}`.trim(),
         customerEmail: customerInfo.email,
-        petNames:      safePets.map(p => p.name).filter(Boolean),
-        checkIn:       formatDate(startDate || ''),
-        checkOut:      formatDate(endDate || ''),
+        petNames,
+        checkIn,
+        checkOut,
         nights:        totalDays ?? 0,
-        services:      freshLineItems.map(i => i.label).filter(Boolean),
+        services,
         totalPrice:    freshTotal,
       }).catch(err => console.warn('[Step5] email send failed:', err))
+
+      sendAdminNotification({
+        bookingRef:        ref,
+        customerFirstName: customerInfo.first_name,
+        customerLastName:  customerInfo.last_name,
+        customerEmail:     customerInfo.email,
+        customerPhone:     customerInfo.contact_number || '',
+        customerWhatsapp:  customerInfo.whatsapp_number || customerInfo.contact_number || '',
+        petNames,
+        checkIn,
+        checkOut,
+        nights:            totalDays ?? 0,
+        serviceType,
+        services,
+        totalAmount:       freshTotal,
+        specialNotes:      additionalComments || '',
+        has_transport:     !!(serviceOptions?.transport?.enabled || serviceOptions?.hasTransport),
+        pickup_date:       serviceOptions?.transport?.pickupDate  || serviceOptions?.pickupDate  || null,
+        pickup_time:       serviceOptions?.transport?.pickupTime  || serviceOptions?.pickupTime  || null,
+        dropoff_date:      serviceOptions?.transport?.dropoffDate || serviceOptions?.dropoffDate || null,
+        dropoff_time:      serviceOptions?.transport?.dropoffTime || serviceOptions?.dropoffTime || null,
+      }).catch(err => console.warn('[Step5] admin notification failed:', err))
     } catch (err) {
       setSubmitError(err.message || 'Something went wrong. Please try again.')
     } finally {
