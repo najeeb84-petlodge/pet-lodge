@@ -214,7 +214,7 @@ export default function AllBookings({ isSuperAdmin, isOwner }) {
         {[
           { label:'Total Bookings',   value:stats.total,   icon:'📅' },
           { label:'Pending Bookings', value:stats.pending, icon:'🐾' },
-          ...(isSuperAdmin ? [
+          ...((isSuperAdmin || isOwner) ? [
             { label:'Cash Received This Month', value:`JD ${stats.cashReceived.toFixed(2)}`,      icon:'💵', green:true,  hint:'Sum of all payments recorded this calendar month' },
             { label:'Expected This Month',      value:`JD ${stats.expectedThisMonth.toFixed(2)}`, icon:'📈', blue:true,   hint:'Total booking value for non-cancelled bookings checking out this month', refresh:true },
           ] : []),
