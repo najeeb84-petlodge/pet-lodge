@@ -818,21 +818,39 @@ function BoardingOptions({ form, onChange, petsData, prices, errors, profileHasA
   )
 }
 
+// Returns the subset of day camp packages appropriate for the given dog count.
+// - dogCount 1 (or 0): packages without a "(N dogs)" suffix (1-dog base)
+// - dogCount 2/3:      packages with "(N dogs)" matching that count
+// - dogCount > 3:      falls back to 1-dog base (no variant exists beyond 3)
+function findBestDayCampVariant(allPackages, dogCount) {
+  if (dogCount >= 2) {
+    const tagged = allPackages.filter(p =>
+      new RegExp(`\\(${dogCount} dogs?\\)`, 'i').test(p.name)
+    )
+    if (tagged.length > 0) return tagged
+  }
+  // 1 dog or no matching variant — return base (1-dog) packages
+  return allPackages.filter(p => !/\([23] dogs?\)/i.test(p.name))
+}
+
 function DayCampOptions({ form, onChange, prices, petsData, errors, profileHasAddress, serviceOptions, setServiceOptions }) {
-  const packages = (prices.day_camp || [])
-    .filter(p => !p.name.toLowerCase().includes('additional'))
+  const dogCount = (petsData || []).filter(p => (p.type || '').toLowerCase() === 'dog').length
+
+  const ORDER = ['single', 'monthly', 'quarterly', 'annually']
+  const allActive = (prices.day_camp || []).filter(p => !p.name.toLowerCase().includes('additional'))
+  const packages = findBestDayCampVariant(allActive, dogCount)
     .sort((a, b) => {
-      const ORDER = ['single', 'monthly', 'quarterly', 'annually']
       const rank = name => ORDER.findIndex(k => name.toLowerCase().includes(k))
       return rank(a.name) - rank(b.name)
     })
     .map(p => {
       const isRecurring = /monthly|quarterly|annually/i.test(p.name)
+      const cleanName   = p.name.replace(/\s*\([23] dogs?\)\s*/i, '').trim()
       return {
         value: p.id,
         label: isRecurring
-          ? p.name.replace(/\(2x per week\)/i, '').trim() + ' — 2 visits per week'
-          : p.name,
+          ? cleanName.replace(/\(2x per week\)/i, '').trim() + ' — 2 visits per week'
+          : cleanName,
         sublabel: `JD ${parseFloat(p.price || 0).toFixed(0)}`,
       }
     })
