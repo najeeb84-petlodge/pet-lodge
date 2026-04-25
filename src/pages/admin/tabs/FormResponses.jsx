@@ -338,17 +338,24 @@ export default function FormResponses({ isSuperAdmin, isAdmin, isOwner }) {
           </div>
           <div
             ref={tableScrollRef}
-            className="overflow-x-auto"
+            style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 280px)' }}
             onScroll={() => {
               if (topScrollRef.current) topScrollRef.current.scrollLeft = tableScrollRef.current.scrollLeft
             }}
           >
           <table className="w-full text-xs" style={{ minWidth: '3200px' }}>
-            <thead style={{ background: 'var(--light)', position: 'sticky', top: 0, zIndex: 10 }}>
+            <thead>
               <tr>
                 {COLUMNS.map(col => (
                   <th key={col.key} className="px-3 py-2.5 text-left font-semibold whitespace-nowrap"
-                    style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                    style={{
+                      color: 'var(--muted)',
+                      borderBottom: '1px solid var(--border)',
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 10,
+                      background: 'var(--light)',
+                    }}>
                     {col.label}
                   </th>
                 ))}
