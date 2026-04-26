@@ -99,6 +99,8 @@ Deno.serve(async (req: Request) => {
   }
 
   // ── Create auth user ─────────────────────────────────────────────────────────
+  // first_name/last_name in user_metadata are read by the on_auth_user_created
+  // trigger (handle_new_user) which immediately inserts a partial profiles row.
   const { data: authData, error: createError } = await supabaseAdmin.auth.admin.createUser({
     email: emailNorm,
     email_confirm: true,          // skip email verification — admin vouches for them
@@ -116,25 +118,26 @@ Deno.serve(async (req: Request) => {
 
   const newUserId = authData.user.id
 
-  // ── Insert profiles row (matches existing signup pattern exactly) ────────────
-  const { error: profileError } = await supabaseAdmin
+  // ── Update profiles row ──────────────────────────────────────────────────────
+  // The on_auth_user_created trigger already inserted a partial row (id, email,
+  // first_name, last_name). UPDATE fills in the remaining fields.
+  const { error: updateError } = await supabaseAdmin
     .from('profiles')
-    .insert({
-      id:              newUserId,
-      email:           emailNorm,
-      first_name:      first_name.trim(),
-      last_name:       last_name.trim(),
+    .update({
       phone:           phone.trim(),
       whatsapp_number: whatsapp_number?.trim() || null,
       role:            'customer',
     })
+    .eq('id', newUserId)
 
-  if (profileError) {
-    console.error('create-customer: profiles insert failed', profileError)
-    // Best-effort cleanup: delete the orphaned auth user before returning error
+  if (updateError) {
+    console.error('create-customer: profiles update failed', updateError)
+    // Best-effort cleanup: remove partial profile then auth user
+    await supabaseAdmin.from('profiles').delete().eq('id', newUserId)
+      .catch(e => console.error('create-customer: cleanup profile delete failed', e))
     await supabaseAdmin.auth.admin.deleteUser(newUserId)
       .catch(e => console.error('create-customer: cleanup deleteUser failed', e))
-    return json({ error: 'Failed to create customer profile: ' + profileError.message }, 500)
+    return json({ error: 'Failed to update customer profile: ' + updateError.message }, 500)
   }
 
   // ── Generate password-setup link (recovery type) ─────────────────────────────
