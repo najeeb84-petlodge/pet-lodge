@@ -7,20 +7,23 @@ const CORS_HEADERS = {
 const LOGO_URL = 'https://pet-lodge.vercel.app/logo-email.jpg'
 
 interface EmailPayload {
-  bookingRef:      string
-  customerName:    string
-  customerEmail:   string
-  petNames:        string[]
-  checkIn:         string
-  checkOut:        string
-  nights:          number
-  services:        string[]
-  has_transport?:  boolean
-  pickup_date?:    string | null
-  pickup_time?:    string | null
-  dropoff_date?:   string | null
-  dropoff_time?:   string | null
-  custom_message?: string
+  bookingRef:           string
+  customerName:         string
+  customerEmail:        string
+  petNames:             string[]
+  checkIn:              string
+  checkOut:             string
+  nights:               number
+  services:             string[]
+  has_transport?:       boolean
+  pickup_date?:         string | null
+  pickup_time?:         string | null
+  dropoff_date?:        string | null
+  dropoff_time?:        string | null
+  custom_message?:      string
+  is_new_account?:      boolean
+  invite_link?:         string | null
+  customer_first_name?: string
   // Pre-built HTML + subject from the frontend — used directly when present, skipping local builders
   html?:    string
   subject?: string
@@ -42,6 +45,20 @@ function buildHtml(p: EmailPayload): string {
   const verb      = p.petNames.length > 1 ? 'are' : 'is'
   const lifeWord  = p.petNames.length > 1 ? 'lives' : 'life'
   const firstName = p.customerName.split(' ')[0] || 'there'
+
+  const welcomeBlock = (p.is_new_account && p.invite_link) ? `
+        <!-- Welcome / set-password block -->
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f7e6;border:1px solid #a3d977;border-radius:8px;margin:0 0 20px;border-collapse:collapse;">
+          <tr>
+            <td style="padding:16px 18px;">
+              <p style="margin:0 0 2px;font-size:20px;">&#x1F511;</p>
+              <p style="margin:0 0 8px;font-size:15px;font-weight:700;color:#2d3a1e;">Welcome to Pet Lodge, ${htmlEscape(p.customer_first_name || firstName)}!</p>
+              <p style="margin:0 0 14px;font-size:13px;color:#374151;line-height:1.5;">Your account has been created. Set your password to manage bookings and view your pet&apos;s profile online.</p>
+              <a href="${htmlEscape(p.invite_link)}" style="display:inline-block;background:#5a7a2e;color:#ffffff;text-decoration:none;padding:10px 22px;border-radius:6px;font-size:13px;font-weight:700;">Set my password</a>
+              <p style="margin:12px 0 0;font-size:11px;color:#6b7280;font-style:italic;">This link expires in 24 hours. If it has expired, contact us and we&apos;ll send a new one.</p>
+            </td>
+          </tr>
+        </table>` : ''
 
   const pills = p.services.map(s =>
     `<span style="display:inline-block;background:#eef4e2;color:#3B6D11;border-radius:20px;padding:3px 10px;margin:2px;font-size:12px;">${s}</span>`
@@ -87,6 +104,8 @@ function buildHtml(p: EmailPayload): string {
     <!-- Row 2: Body -->
     <tr>
       <td style="background:#ffffff;padding:28px 32px;border-left:1px solid #e5e7eb;border-right:1px solid #e5e7eb;">
+
+        ${welcomeBlock}
 
         <p style="margin:0 0 16px;font-size:15px;color:#374151;">Hi ${firstName},</p>
 
@@ -225,20 +244,23 @@ Deno.serve(async (req: Request) => {
   }
 
   const emailPayload: EmailPayload = {
-    bookingRef:     bookingRef,
-    customerName:   payload.customerName   || '',
-    customerEmail:  customerEmail,
-    petNames:       payload.petNames       || [],
-    checkIn:        payload.checkIn        || '',
-    checkOut:       payload.checkOut       || '',
-    nights:         payload.nights         ?? 0,
-    services:       payload.services       || [],
-    has_transport:  payload.has_transport  ?? false,
-    pickup_date:    payload.pickup_date    ?? null,
-    pickup_time:    payload.pickup_time    ?? null,
-    dropoff_date:   payload.dropoff_date   ?? null,
-    dropoff_time:   payload.dropoff_time   ?? null,
-    custom_message: payload.custom_message || undefined,
+    bookingRef:           bookingRef,
+    customerName:         payload.customerName         || '',
+    customerEmail:        customerEmail,
+    petNames:             payload.petNames             || [],
+    checkIn:              payload.checkIn              || '',
+    checkOut:             payload.checkOut             || '',
+    nights:               payload.nights               ?? 0,
+    services:             payload.services             || [],
+    has_transport:        payload.has_transport        ?? false,
+    pickup_date:          payload.pickup_date          ?? null,
+    pickup_time:          payload.pickup_time          ?? null,
+    dropoff_date:         payload.dropoff_date         ?? null,
+    dropoff_time:         payload.dropoff_time         ?? null,
+    custom_message:       payload.custom_message       || undefined,
+    is_new_account:       payload.is_new_account       ?? false,
+    invite_link:          payload.invite_link          ?? null,
+    customer_first_name:  payload.customer_first_name  || undefined,
   }
 
   // Build subject — use pre-built subject from frontend if present, else compute here

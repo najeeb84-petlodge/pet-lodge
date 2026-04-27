@@ -6,6 +6,7 @@ import Login           from './pages/auth/Login'
 import Signup          from './pages/auth/Signup'
 import AuthCallback    from './pages/auth/AuthCallback'
 import Unauthorized    from './pages/auth/Unauthorized'
+import SetPassword     from './pages/auth/SetPassword'
 import AdminDashboard  from './pages/admin/AdminDashboard'
 import CustomerDashboard from './pages/customer/CustomerDashboard'
 import MyPets          from './pages/customer/MyPets'
@@ -20,8 +21,9 @@ export default function App() {
         <Routes>
           <Route path="/login"         element={<Login />} />
           <Route path="/signup"        element={<Signup />} />
-          <Route path="/auth/callback" element={<AuthCallback />} />
-          <Route path="/unauthorized"  element={<Unauthorized />} />
+          <Route path="/auth/callback"     element={<AuthCallback />} />
+          <Route path="/auth/set-password" element={<SetPassword />} />
+          <Route path="/unauthorized"      element={<Unauthorized />} />
 
           <Route path="/admin/dashboard" element={
             <ProtectedRoute requireStaff>

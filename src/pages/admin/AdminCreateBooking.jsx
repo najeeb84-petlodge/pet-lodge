@@ -175,6 +175,21 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
   const [submitError, setSubmitError] = useState('')
   const [success,     setSuccess]     = useState(false)
 
+  // ── New customer inline form ──────────────────────────────────────────────────
+  const [newCustomerPanelOpen,  setNewCustomerPanelOpen]  = useState(false)
+  const [newCustomerForm,       setNewCustomerForm]       = useState({ first_name: '', last_name: '', email: '', phone: '', whatsapp_number: '' })
+  const [newCustomerErrors,     setNewCustomerErrors]     = useState({})
+  const [creatingCustomer,      setCreatingCustomer]      = useState(false)
+  const [createCustomerError,   setCreateCustomerError]   = useState('')
+  const [inviteLink,            setInviteLink]            = useState(null)
+  const [isNewCustomer,         setIsNewCustomer]         = useState(false)
+
+  // ── New pet inline form ────────────────────────────────────────────────────────
+  const [newPetPanelOpen, setNewPetPanelOpen] = useState(false)
+  const [newPetForm,      setNewPetForm]      = useState({ name: '', type: 'dog', breed: '', age: '', colour: '', gender: 'male', desexed: false, vet_name: '', vet_phone: '', medication_notes: '' })
+  const [newPetErrors,    setNewPetErrors]    = useState({})
+  const [creatingPet,     setCreatingPet]     = useState(false)
+
   // ── Fetch services on mount ──────────────────────────────────────────────────
   useEffect(() => {
     const token = getAccessToken()
@@ -190,7 +205,7 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
   // ── Debounced customer search ─────────────────────────────────────────────────
   useEffect(() => {
     const q = searchQuery.trim()
-    if (!q) { setSearchResults([]); setShowDropdown(false); return }
+    if (q.length < 3) { setSearchResults([]); setShowDropdown(false); return }
     if (searchTimeout.current) clearTimeout(searchTimeout.current)
     searchTimeout.current = setTimeout(async () => {
       setSearching(true)
@@ -294,6 +309,10 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
     return () => document.removeEventListener('mousedown', handle)
   }, [])
 
+  useEffect(() => {
+    if (!showDropdown) setNewCustomerPanelOpen(false)
+  }, [showDropdown])
+
   // ── Derived values ────────────────────────────────────────────────────────────
   const nights    = computeNights(checkIn, checkOut)
   const subtotal  = lineItems.reduce((s, i) => s + (i.amount || 0), 0)
@@ -325,6 +344,8 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
     setSearchQuery(`${c.first_name || ''} ${c.last_name || ''}`.trim())
     setShowDropdown(false)
     setSearchResults([])
+    setIsNewCustomer(false)
+    setInviteLink(null)
   }
 
   function setField(key, val) {
@@ -343,6 +364,117 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
 
   function setPetNote(petId, key, val) {
     setPerPetNotes(prev => ({ ...prev, [petId]: { ...(prev[petId] || {}), [key]: val } }))
+  }
+
+  async function handleCreateCustomer() {
+    const e = {}
+    if (!newCustomerForm.first_name.trim()) e.first_name = 'Required'
+    if (!newCustomerForm.last_name.trim())  e.last_name  = 'Required'
+    if (!newCustomerForm.email.trim())      e.email      = 'Required'
+    if (!newCustomerForm.phone.trim())      e.phone      = 'Required'
+    setNewCustomerErrors(e)
+    if (Object.keys(e).length > 0) return
+
+    setCreatingCustomer(true)
+    setCreateCustomerError('')
+    try {
+      const token = getAccessToken()
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/create-customer`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          apikey: SUPABASE_KEY,
+        },
+        body: JSON.stringify({
+          first_name:      newCustomerForm.first_name.trim(),
+          last_name:       newCustomerForm.last_name.trim(),
+          email:           newCustomerForm.email.trim(),
+          phone:           newCustomerForm.phone.trim(),
+          whatsapp_number: newCustomerForm.whatsapp_number.trim() || undefined,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setCreateCustomerError(
+          res.status === 409
+            ? 'A customer with this email already exists. Search for them above.'
+            : data?.error || `Failed to create customer (${res.status})`
+        )
+        return
+      }
+      const newCustomer = {
+        id:              data.user_id,
+        first_name:      newCustomerForm.first_name.trim(),
+        last_name:       newCustomerForm.last_name.trim(),
+        email:           newCustomerForm.email.trim().toLowerCase(),
+        phone:           newCustomerForm.phone.trim(),
+        whatsapp_number: newCustomerForm.whatsapp_number.trim() || null,
+      }
+      selectCustomer(newCustomer)
+      setIsNewCustomer(true)
+      setInviteLink(data.invite_link || null)
+    } catch (err) {
+      setCreateCustomerError(err?.message || 'Network error')
+    } finally {
+      setCreatingCustomer(false)
+    }
+  }
+
+  async function handleCreatePet() {
+    const e = {}
+    for (const k of ['name', 'type', 'breed', 'age', 'colour', 'gender', 'vet_name', 'vet_phone']) {
+      if (!String(newPetForm[k] ?? '').trim()) e[k] = 'Required'
+    }
+    setNewPetErrors(e)
+    if (Object.keys(e).length > 0) return
+    if (!selectedCustomer?.id) return
+
+    setCreatingPet(true)
+    try {
+      const token = getAccessToken()
+      const body = {
+        name:             newPetForm.name.trim(),
+        type:             newPetForm.type,
+        breed:            newPetForm.breed.trim(),
+        age:              Number(newPetForm.age),
+        colour:           newPetForm.colour.trim(),
+        gender:           newPetForm.gender,
+        desexed:          Boolean(newPetForm.desexed),
+        vet_name:         newPetForm.vet_name.trim(),
+        vet_phone:        newPetForm.vet_phone.trim(),
+        medication_notes: newPetForm.medication_notes.trim(),
+        owner_id:         selectedCustomer.id,
+      }
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/pets`, {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${token || SUPABASE_KEY}`,
+          'Content-Type': 'application/json',
+          Prefer: 'return=representation',
+        },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        setNewPetErrors({ _submit: err?.message || `Save failed (${res.status})` })
+        return
+      }
+      const created = await res.json().catch(() => [])
+      const newPet  = Array.isArray(created) ? created[0] : created
+      if (newPet?.id) {
+        setCustomerPets(prev => [...prev, newPet])
+        setSelectedPetIds(prev => [...prev, newPet.id])
+      }
+      setNewPetPanelOpen(false)
+      setNewPetForm({ name: '', type: 'dog', breed: '', age: '', colour: '', gender: 'male', desexed: false, vet_name: '', vet_phone: '', medication_notes: '' })
+      setNewPetErrors({})
+    } catch (err) {
+      setNewPetErrors({ _submit: err?.message || 'Network error' })
+    } finally {
+      setCreatingPet(false)
+    }
   }
 
   function validate() {
@@ -475,8 +607,8 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
       }
       if (!ref) throw new Error('Could not generate unique booking reference. Please try again.')
 
-      // Sync existing customer's profile (skip for guest / no account)
-      if (selectedCustomer?.id) {
+      // Sync existing customer's profile — skip for new accounts (profile already fully created by edge function)
+      if (selectedCustomer?.id && !isNewCustomer) {
         syncProfileFromBooking(selectedCustomer.id, {
           firstName: customerFields.first_name,
           lastName:  customerFields.last_name,
@@ -528,6 +660,11 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
           nights,
           services:      lineItems.map(i => i.label).filter(Boolean),
           totalPrice:    finalTotal,
+          ...(isNewCustomer ? {
+            is_new_account:      true,
+            invite_link:         inviteLink || undefined,
+            customer_first_name: customerFields.first_name,
+          } : {}),
         }).catch(err => console.warn('[AdminCreate] customer email failed:', err))
       }
 
@@ -587,8 +724,13 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
               </FieldWrap>
 
               {/* Dropdown results */}
-              {showDropdown && searchResults.length > 0 && (
-                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100, background: 'white', border: '1px solid var(--border)', borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', overflow: 'hidden', marginTop: '-0.5rem' }}>
+              {showDropdown && (
+                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100, background: 'white', border: '1px solid var(--border)', borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', marginTop: '-0.5rem', maxHeight: '480px', overflowY: 'auto' }}>
+                  {searchResults.length === 0 && !searching && (
+                    <p style={{ margin: 0, padding: '10px 14px', fontSize: '0.8rem', color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                      No matching customers found.
+                    </p>
+                  )}
                   {searchResults.map(c => (
                     <button key={c.id} onClick={() => selectCustomer(c)}
                       style={{ width: '100%', display: 'block', padding: '10px 14px', background: 'none', border: 'none', borderBottom: '1px solid var(--border)', cursor: 'pointer', textAlign: 'left' }}
@@ -602,10 +744,80 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
                       </p>
                     </button>
                   ))}
-                  {/* Disabled new customer option */}
-                  <div title="Coming in next release"
-                    style={{ padding: '10px 14px', opacity: 0.4, cursor: 'not-allowed', borderTop: '1px solid var(--border)' }}>
-                    <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--muted)' }}>+ Create new customer <span style={{ fontSize: '0.7rem' }}>(coming soon)</span></p>
+                  {/* Divider + Create new customer */}
+                  <div style={{ borderTop: searchResults.length > 0 ? '1px solid var(--border)' : 'none' }}>
+                    {newCustomerPanelOpen ? (
+                      <div style={{ padding: '12px 14px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                          <p style={{ margin: 0, fontWeight: '700', fontSize: '0.875rem', color: 'var(--text)' }}>New customer</p>
+                          <button onClick={() => setNewCustomerPanelOpen(false)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.75rem', color: 'var(--muted)', padding: '2px 6px' }}>
+                            ← Back
+                          </button>
+                        </div>
+                        {createCustomerError && (
+                          <p style={{ margin: '0 0 8px', fontSize: '0.75rem', color: '#dc2626', padding: '6px 8px', background: '#fee2e2', borderRadius: '4px' }}>
+                            {createCustomerError}
+                          </p>
+                        )}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 8px' }}>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '600', color: 'var(--muted)', marginBottom: '2px' }}>First name <span style={{ color: '#ef4444' }}>*</span></label>
+                            <input style={inp} value={newCustomerForm.first_name}
+                              onChange={e => setNewCustomerForm(f => ({ ...f, first_name: e.target.value }))} />
+                            {newCustomerErrors.first_name && <p style={{ fontSize: '0.65rem', color: '#dc2626', margin: '2px 0 0' }}>{newCustomerErrors.first_name}</p>}
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '600', color: 'var(--muted)', marginBottom: '2px' }}>Last name <span style={{ color: '#ef4444' }}>*</span></label>
+                            <input style={inp} value={newCustomerForm.last_name}
+                              onChange={e => setNewCustomerForm(f => ({ ...f, last_name: e.target.value }))} />
+                            {newCustomerErrors.last_name && <p style={{ fontSize: '0.65rem', color: '#dc2626', margin: '2px 0 0' }}>{newCustomerErrors.last_name}</p>}
+                          </div>
+                          <div style={{ gridColumn: '1 / -1' }}>
+                            <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '600', color: 'var(--muted)', marginBottom: '2px' }}>Email <span style={{ color: '#ef4444' }}>*</span></label>
+                            <input style={inp} type="email" value={newCustomerForm.email}
+                              onChange={e => setNewCustomerForm(f => ({ ...f, email: e.target.value }))} />
+                            {newCustomerErrors.email && <p style={{ fontSize: '0.65rem', color: '#dc2626', margin: '2px 0 0' }}>{newCustomerErrors.email}</p>}
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '600', color: 'var(--muted)', marginBottom: '2px' }}>Phone <span style={{ color: '#ef4444' }}>*</span></label>
+                            <input style={inp} type="tel" value={newCustomerForm.phone}
+                              onChange={e => setNewCustomerForm(f => ({ ...f, phone: e.target.value }))} />
+                            {newCustomerErrors.phone && <p style={{ fontSize: '0.65rem', color: '#dc2626', margin: '2px 0 0' }}>{newCustomerErrors.phone}</p>}
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '600', color: 'var(--muted)', marginBottom: '2px' }}>WhatsApp</label>
+                            <input style={inp} type="tel" value={newCustomerForm.whatsapp_number}
+                              onChange={e => setNewCustomerForm(f => ({ ...f, whatsapp_number: e.target.value }))} />
+                          </div>
+                        </div>
+                        <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
+                          <button onClick={() => setNewCustomerPanelOpen(false)}
+                            style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid var(--border)', background: 'white', fontSize: '0.8rem', cursor: 'pointer', color: 'var(--text)' }}>
+                            Cancel
+                          </button>
+                          <button onClick={handleCreateCustomer} disabled={creatingCustomer}
+                            style={{ padding: '6px 14px', borderRadius: '6px', border: 'none', background: creatingCustomer ? '#9db899' : '#5a7a2e', color: 'white', fontSize: '0.8rem', cursor: creatingCustomer ? 'default' : 'pointer', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            {creatingCustomer && <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} />}
+                            Create customer
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          const q = searchQuery.trim()
+                          setNewCustomerForm({ first_name: q.includes('@') ? '' : q, last_name: '', email: q.includes('@') ? q : '', phone: '', whatsapp_number: '' })
+                          setCreateCustomerError('')
+                          setNewCustomerErrors({})
+                          setNewCustomerPanelOpen(true)
+                        }}
+                        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: '0.875rem', color: '#5a7a2e', fontWeight: '600' }}
+                        onMouseEnter={e => e.currentTarget.style.background = '#f0f7e6'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                        + Create new customer
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
@@ -686,11 +898,95 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
                     })}
                   </div>
                 )}
-                {/* Disabled add-pet button — always visible once a customer is selected */}
-                <button disabled title="Coming in next release"
-                  style={{ fontSize: '0.8rem', color: 'var(--muted)', background: 'none', border: '1px dashed var(--border)', borderRadius: '6px', padding: '6px 14px', cursor: 'not-allowed', opacity: 0.5 }}>
-                  + Add new pet (coming in next release)
-                </button>
+                {/* Add new pet — inline form or button */}
+                {newPetPanelOpen ? (
+                  <div style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '12px', marginTop: '0.5rem', background: '#fafaf8' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                      <p style={{ margin: 0, fontWeight: '700', fontSize: '0.875rem', color: 'var(--text)' }}>Add new pet</p>
+                      <button onClick={() => { setNewPetPanelOpen(false); setNewPetErrors({}) }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '1rem', lineHeight: 1 }}>✕</button>
+                    </div>
+                    {newPetErrors._submit && (
+                      <p style={{ margin: '0 0 8px', fontSize: '0.75rem', color: '#dc2626', padding: '6px 8px', background: '#fee2e2', borderRadius: '4px' }}>
+                        {newPetErrors._submit}
+                      </p>
+                    )}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 0.75rem' }}>
+                      <div style={{ gridColumn: '1 / -1', marginBottom: '0.5rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '600', color: 'var(--muted)', marginBottom: '0.25rem' }}>Pet name <span style={{ color: '#ef4444' }}>*</span></label>
+                        <input style={inp} value={newPetForm.name} onChange={e => setNewPetForm(f => ({ ...f, name: e.target.value }))} />
+                        {newPetErrors.name && <p style={{ fontSize: '0.7rem', color: '#dc2626', marginTop: '3px' }}>{newPetErrors.name}</p>}
+                      </div>
+                      <div style={{ marginBottom: '0.5rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '600', color: 'var(--muted)', marginBottom: '0.25rem' }}>Type <span style={{ color: '#ef4444' }}>*</span></label>
+                        <select style={sel} value={newPetForm.type} onChange={e => setNewPetForm(f => ({ ...f, type: e.target.value }))}>
+                          <option value="dog">Dog</option>
+                          <option value="cat">Cat</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </div>
+                      <div style={{ marginBottom: '0.5rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '600', color: 'var(--muted)', marginBottom: '0.25rem' }}>Gender <span style={{ color: '#ef4444' }}>*</span></label>
+                        <select style={sel} value={newPetForm.gender} onChange={e => setNewPetForm(f => ({ ...f, gender: e.target.value }))}>
+                          <option value="male">Male</option>
+                          <option value="female">Female</option>
+                        </select>
+                      </div>
+                      <div style={{ marginBottom: '0.5rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '600', color: 'var(--muted)', marginBottom: '0.25rem' }}>Breed <span style={{ color: '#ef4444' }}>*</span></label>
+                        <input style={inp} value={newPetForm.breed} onChange={e => setNewPetForm(f => ({ ...f, breed: e.target.value }))} />
+                        {newPetErrors.breed && <p style={{ fontSize: '0.7rem', color: '#dc2626', marginTop: '3px' }}>{newPetErrors.breed}</p>}
+                      </div>
+                      <div style={{ marginBottom: '0.5rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '600', color: 'var(--muted)', marginBottom: '0.25rem' }}>Age (years) <span style={{ color: '#ef4444' }}>*</span></label>
+                        <input style={inp} type="number" min="0" step="0.5" value={newPetForm.age} onChange={e => setNewPetForm(f => ({ ...f, age: e.target.value }))} />
+                        {newPetErrors.age && <p style={{ fontSize: '0.7rem', color: '#dc2626', marginTop: '3px' }}>{newPetErrors.age}</p>}
+                      </div>
+                      <div style={{ marginBottom: '0.5rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '600', color: 'var(--muted)', marginBottom: '0.25rem' }}>Colour <span style={{ color: '#ef4444' }}>*</span></label>
+                        <input style={inp} value={newPetForm.colour} onChange={e => setNewPetForm(f => ({ ...f, colour: e.target.value }))} placeholder="e.g. Black and white" />
+                        {newPetErrors.colour && <p style={{ fontSize: '0.7rem', color: '#dc2626', marginTop: '3px' }}>{newPetErrors.colour}</p>}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.5rem', paddingTop: '0.35rem' }}>
+                        <input type="checkbox" id="npf-desexed" checked={newPetForm.desexed} onChange={e => setNewPetForm(f => ({ ...f, desexed: e.target.checked }))}
+                          style={{ width: '14px', height: '14px', accentColor: '#7aa63c', flexShrink: 0 }} />
+                        <label htmlFor="npf-desexed" style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--muted)', cursor: 'pointer' }}>Desexed</label>
+                      </div>
+                      <div style={{ marginBottom: '0.5rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '600', color: 'var(--muted)', marginBottom: '0.25rem' }}>Vet name <span style={{ color: '#ef4444' }}>*</span></label>
+                        <input style={inp} value={newPetForm.vet_name} onChange={e => setNewPetForm(f => ({ ...f, vet_name: e.target.value }))} />
+                        {newPetErrors.vet_name && <p style={{ fontSize: '0.7rem', color: '#dc2626', marginTop: '3px' }}>{newPetErrors.vet_name}</p>}
+                      </div>
+                      <div style={{ marginBottom: '0.5rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '600', color: 'var(--muted)', marginBottom: '0.25rem' }}>Vet phone <span style={{ color: '#ef4444' }}>*</span></label>
+                        <input style={inp} type="tel" value={newPetForm.vet_phone} onChange={e => setNewPetForm(f => ({ ...f, vet_phone: e.target.value }))} />
+                        {newPetErrors.vet_phone && <p style={{ fontSize: '0.7rem', color: '#dc2626', marginTop: '3px' }}>{newPetErrors.vet_phone}</p>}
+                      </div>
+                      <div style={{ gridColumn: '1 / -1', marginBottom: '0.5rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '600', color: 'var(--muted)', marginBottom: '0.25rem' }}>Medication notes</label>
+                        <textarea style={{ ...inp, resize: 'vertical' }} rows={2} value={newPetForm.medication_notes}
+                          onChange={e => setNewPetForm(f => ({ ...f, medication_notes: e.target.value }))} placeholder="Any medication or health notes..." />
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
+                      <button onClick={() => { setNewPetPanelOpen(false); setNewPetErrors({}) }}
+                        style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid var(--border)', background: 'white', fontSize: '0.8rem', cursor: 'pointer', color: 'var(--text)' }}>
+                        Cancel
+                      </button>
+                      <button onClick={handleCreatePet} disabled={creatingPet}
+                        style={{ padding: '6px 14px', borderRadius: '6px', border: 'none', background: creatingPet ? '#9db899' : '#5a7a2e', color: 'white', fontSize: '0.8rem', cursor: creatingPet ? 'default' : 'pointer', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        {creatingPet && <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} />}
+                        Add pet
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => { setNewPetForm({ name: '', type: 'dog', breed: '', age: '', colour: '', gender: 'male', desexed: false, vet_name: '', vet_phone: '', medication_notes: '' }); setNewPetErrors({}); setNewPetPanelOpen(true) }}
+                    style={{ fontSize: '0.8rem', color: '#5a7a2e', background: 'none', border: '1px dashed #7aa63c', borderRadius: '6px', padding: '6px 14px', cursor: 'pointer', fontWeight: '600' }}>
+                    + Add new pet
+                  </button>
+                )}
               </>
             )}
           </SectionBox>
