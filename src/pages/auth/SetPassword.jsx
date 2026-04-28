@@ -2,16 +2,20 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { SUPABASE_URL, SUPABASE_KEY } from '../../lib/supabase'
 
+const LS_KEY = 'sb-qcwbkpcwtxpokgseethp-auth-token'
+
 export default function SetPassword() {
   const navigate = useNavigate()
 
-  const [accessToken, setAccessToken] = useState(null)
-  const [tokenValid,  setTokenValid]  = useState(null) // null=loading, true=valid, false=invalid
-  const [password,    setPassword]    = useState('')
-  const [confirm,     setConfirm]     = useState('')
-  const [saving,      setSaving]      = useState(false)
-  const [error,       setError]       = useState('')
-  const [done,        setDone]        = useState(false)
+  const [accessToken,  setAccessToken]  = useState(null)
+  const [refreshToken, setRefreshToken] = useState(null)
+  const [expiresIn,    setExpiresIn]    = useState('3600')
+  const [tokenValid,   setTokenValid]   = useState(null) // null=loading, true=valid, false=invalid
+  const [password,     setPassword]     = useState('')
+  const [confirm,      setConfirm]      = useState('')
+  const [saving,       setSaving]       = useState(false)
+  const [error,        setError]        = useState('')
+  const [done,         setDone]         = useState(false)
 
   useEffect(() => {
     const hash   = window.location.hash.slice(1)
@@ -20,6 +24,8 @@ export default function SetPassword() {
     const type   = params.get('type')
     if (token && type === 'recovery') {
       setAccessToken(token)
+      setRefreshToken(params.get('refresh_token') || null)
+      setExpiresIn(params.get('expires_in') || '3600')
       setTokenValid(true)
     } else {
       setTokenValid(false)
@@ -53,8 +59,32 @@ export default function SetPassword() {
         setError(body?.message || `Failed to set password (${res.status}). The link may have expired.`)
         return
       }
+
+      // Fetch full user object so we have user_metadata (role etc.) for ProtectedRoute
+      try {
+        const userRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+          headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${accessToken}` },
+        })
+        if (userRes.ok) {
+          const userData = await userRes.json()
+          if (userData?.id) {
+            localStorage.setItem(LS_KEY, JSON.stringify({
+              access_token:  accessToken,
+              refresh_token: refreshToken,
+              expires_in:    parseInt(expiresIn, 10),
+              token_type:    'bearer',
+              user: {
+                id:            userData.id,
+                email:         userData.email,
+                user_metadata: userData.user_metadata ?? null,
+              },
+            }))
+          }
+        }
+      } catch { /* non-fatal — user lands on login if session wasn't stored */ }
+
       setDone(true)
-      setTimeout(() => navigate('/login'), 3000)
+      setTimeout(() => navigate('/dashboard'), 1000)
     } catch (err) {
       setError(err?.message || 'Network error. Please try again.')
     } finally {
@@ -141,7 +171,7 @@ export default function SetPassword() {
             Password set!
           </h1>
           <p style={{ margin: 0, fontSize: '0.875rem', color: '#6b7280', textAlign: 'center' }}>
-            Redirecting to login…
+            Redirecting to your dashboard…
           </p>
         </div>
       </div>
