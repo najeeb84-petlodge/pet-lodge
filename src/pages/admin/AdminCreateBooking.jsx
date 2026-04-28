@@ -128,8 +128,9 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
   const [customerFields, setCustomerFields] = useState({
     first_name: '', last_name: '', email: '', phone: '', whatsapp_number: '',
   })
-  const searchTimeout = useRef(null)
-  const dropdownRef   = useRef(null)
+  const searchTimeout       = useRef(null)
+  const dropdownRef         = useRef(null)
+  const newCustomerBtnsRef  = useRef(null)
 
   // ── 2. Pets ─────────────────────────────────────────────────────────────────
   const [customerPets,   setCustomerPets]   = useState([])
@@ -312,6 +313,15 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
   useEffect(() => {
     if (!showDropdown) setNewCustomerPanelOpen(false)
   }, [showDropdown])
+
+  useEffect(() => {
+    if (newCustomerPanelOpen) {
+      // Give React one frame to render the form, then scroll the action buttons into view
+      requestAnimationFrame(() => {
+        newCustomerBtnsRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' })
+      })
+    }
+  }, [newCustomerPanelOpen])
 
   // ── Derived values ────────────────────────────────────────────────────────────
   const nights    = computeNights(checkIn, checkOut)
@@ -791,7 +801,7 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
                               onChange={e => setNewCustomerForm(f => ({ ...f, whatsapp_number: e.target.value }))} />
                           </div>
                         </div>
-                        <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
+                        <div ref={newCustomerBtnsRef} style={{ marginTop: '10px', display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
                           <button onClick={() => setNewCustomerPanelOpen(false)}
                             style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid var(--border)', background: 'white', fontSize: '0.8rem', cursor: 'pointer', color: 'var(--text)' }}>
                             Cancel
