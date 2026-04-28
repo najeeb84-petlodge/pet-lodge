@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
-const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
+import { SUPABASE_URL, SUPABASE_KEY } from '../../lib/supabase'
 
 export default function SetPassword() {
   const navigate = useNavigate()
@@ -16,21 +14,6 @@ export default function SetPassword() {
   const [done,        setDone]        = useState(false)
 
   useEffect(() => {
-    // ── DIAGNOSTIC ───────────────────────────────────────────────────────────
-    console.group('[SetPassword] mount diagnostics')
-    console.log('pathname  :', window.location.pathname)
-    console.log('search    :', window.location.search)
-    console.log('hash raw  :', window.location.hash)
-    const hashParams   = new URLSearchParams(window.location.hash.slice(1))
-    const searchParams = new URLSearchParams(window.location.search.slice(1))
-    console.log('hash params:',   Object.fromEntries(hashParams.entries()))
-    console.log('search params:', Object.fromEntries(searchParams.entries()))
-    const storedSession = localStorage.getItem('sb-qcwbkpcwtxpokgseethp-auth-token')
-    try { console.log('localStorage session:', JSON.parse(storedSession)) }
-    catch { console.log('localStorage session (raw):', storedSession) }
-    console.groupEnd()
-    // ── END DIAGNOSTIC ───────────────────────────────────────────────────────
-
     const hash   = window.location.hash.slice(1)
     const params = new URLSearchParams(hash)
     const token  = params.get('access_token')
@@ -56,26 +39,8 @@ export default function SetPassword() {
     }
     setSaving(true)
     try {
-      const reqUrl     = `${SUPABASE_URL}/auth/v1/user`
-      const reqMethod  = 'PATCH'
-      const reqHeaders = {
-        apikey:          SUPABASE_KEY,
-        Authorization:   `Bearer ${accessToken?.slice(0, 20)}...`,
-        'Content-Type':  'application/json',
-      }
-      const reqBody = { password: '(redacted)' }
-
-      // ── DIAGNOSTIC ─────────────────────────────────────────────────────────
-      console.group('[SetPassword] PATCH /auth/v1/user')
-      console.log('url    :', reqUrl)
-      console.log('method :', reqMethod)
-      console.log('headers:', reqHeaders)
-      console.log('body   :', reqBody)
-      console.groupEnd()
-      // ── END DIAGNOSTIC ─────────────────────────────────────────────────────
-
-      const res = await fetch(reqUrl, {
-        method: reqMethod,
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+        method: 'PUT',
         headers: {
           apikey:          SUPABASE_KEY,
           Authorization:   `Bearer ${accessToken}`,
@@ -83,14 +48,8 @@ export default function SetPassword() {
         },
         body: JSON.stringify({ password }),
       })
-      const body = await res.json().catch(() => ({}))
-
-      // ── DIAGNOSTIC ─────────────────────────────────────────────────────────
-      console.log('[SetPassword] response status:', res.status)
-      console.log('[SetPassword] response body  :', body)
-      // ── END DIAGNOSTIC ─────────────────────────────────────────────────────
-
       if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
         setError(body?.message || `Failed to set password (${res.status}). The link may have expired.`)
         return
       }
