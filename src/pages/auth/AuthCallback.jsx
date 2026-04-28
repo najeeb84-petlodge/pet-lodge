@@ -36,8 +36,9 @@ export default function AuthCallback() {
       }
 
       // Verify the token and get the confirmed user object from Supabase
-      let userId    = null
-      let userEmail = null
+      let userId       = null
+      let userEmail    = null
+      let userMetadata = null
       try {
         const userRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
           headers: {
@@ -47,8 +48,9 @@ export default function AuthCallback() {
         })
         if (userRes.ok) {
           const userData = await userRes.json()
-          userId    = userData.id
-          userEmail = userData.email
+          userId       = userData.id
+          userEmail    = userData.email
+          userMetadata = userData.user_metadata ?? null
         }
       } catch { /* fall back to JWT decode below */ }
 
@@ -56,18 +58,20 @@ export default function AuthCallback() {
       if (!userId) {
         try {
           const payload = JSON.parse(atob(accessToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
-          userId    = payload.sub
-          userEmail = payload.email
+          userId       = payload.sub
+          userEmail    = payload.email
+          userMetadata = payload.user_metadata ?? null
         } catch { /* non-fatal */ }
       }
 
       // Store session in localStorage — exact format expected by Supabase JS client + getAccessToken()
+      // user_metadata must be included so ProtectedRoute can read role synchronously on first render
       const session = {
         access_token:  accessToken,
         refresh_token: refreshToken,
         expires_in:    parseInt(expiresIn || '3600', 10),
         token_type:    'bearer',
-        user:          { id: userId, email: userEmail },
+        user:          { id: userId, email: userEmail, user_metadata: userMetadata },
       }
       localStorage.setItem(LS_KEY, JSON.stringify(session))
       console.log('[AuthCallback] session stored:', session)
