@@ -100,6 +100,7 @@ function defaultTransport() {
 function defaultTraining() {
   return {
     sessionCount: 1, preferredSchedule: '', trainingGoals: '',
+    trainingId: null,
     transport: '',
     address_flat: '', address_street: '', address_neighbourhood: '',
     address_whatsapp_location: '', pickupTime: '', dropoffTime: '', saveAddressToProfile: false,
@@ -165,7 +166,7 @@ function validateForm(serviceType, perPetForms, flatForm, serviceOptions) {
   }
 
   if (serviceType === 'transport' && !flatForm.dateTime) errs.dateTime = true
-  if (serviceType === 'training'  && !(flatForm.sessionCount >= 1)) errs.sessionCount = true
+  if (serviceType === 'training'  && !(flatForm.sessionCount >= 1) && !flatForm.trainingId) errs.sessionCount = true
   if (serviceType === 'international' && !flatForm.requirementsText?.trim()) errs.requirementsText = true
 
   return errs
@@ -1005,32 +1006,71 @@ function TransportOptions({ form, onChange, errors, profileHasAddress }) {
   )
 }
 
-function TrainingOptions({ form, onChange, errors, profileHasAddress }) {
+function TrainingOptions({ form, onChange, prices, errors, profileHasAddress }) {
   const [scheduleOpen, setScheduleOpen] = useState(false)
+
+  const filteredRows = (prices.training || []).filter(r =>
+    !r.pet_type || r.pet_type === 'dog' || r.pet_type === 'all'
+  )
+  const multipleRows = filteredRows.length > 1
+  const selectedRow = filteredRows.find(r => r.id === form.trainingId)
+    || (filteredRows.length === 1 ? filteredRows[0] : null)
+  const isBundle = selectedRow ? (selectedRow.name || '').toLowerCase().includes('bundle') : false
+  const sessionPrice = selectedRow ? parseFloat(selectedRow.price || 50).toFixed(0) : '50'
+  const count = form.sessionCount || 1
+
   return (
     <div>
       <InfoNote>
         Free assessment included. Your dog's ego is not. Our team will contact you to arrange the right number of sessions.
       </InfoNote>
 
-      <div className="mt-5" data-error={errors?.sessionCount ? 'true' : undefined}>
-        <SectionHeading>Estimated Number of Sessions</SectionHeading>
-        <div className="flex items-center gap-3">
-          <button type="button" onClick={() => onChange({ sessionCount: Math.max(1, (form.sessionCount || 1) - 1) })}
-            className="w-9 h-9 rounded-lg border flex items-center justify-center text-lg font-bold"
-            style={{ borderColor: 'var(--border)', color: 'var(--primary)' }}>−</button>
-          <span className="text-2xl font-bold w-8 text-center" style={{ color: 'var(--text)' }}>
-            {form.sessionCount || 1}
-          </span>
-          <button type="button" onClick={() => onChange({ sessionCount: Math.min(10, (form.sessionCount || 1) + 1) })}
-            className="w-9 h-9 rounded-lg border flex items-center justify-center text-lg font-bold"
-            style={{ borderColor: 'var(--border)', color: 'var(--primary)' }}>+</button>
-          <span className="text-sm" style={{ color: 'var(--muted)' }}>
-            × JD 50 = <strong>JD {((form.sessionCount || 1) * 50).toFixed(2)}</strong> <span className="font-normal">(estimate)</span>
-          </span>
+      {multipleRows && (
+        <div className="mt-4 space-y-2">
+          {filteredRows.map(row => {
+            const checked = form.trainingId === row.id
+            const price = parseFloat(row.price || 0)
+            const sublabel = (row.name || '').toLowerCase().includes('bundle')
+              ? `JD ${price.toFixed(0)}`
+              : `JD ${price.toFixed(0)} / session`
+            return (
+              <label key={row.id}
+                className="flex items-start gap-3 cursor-pointer p-2.5 rounded-lg transition-colors"
+                style={{ border: `1px solid ${checked ? '#7aa63c' : 'var(--border)'}`, background: checked ? '#eef4e2' : 'white' }}>
+                <input type="radio" name="training-row"
+                  className="mt-0.5 w-4 h-4 accent-[#7aa63c] flex-shrink-0"
+                  checked={checked}
+                  onChange={() => onChange({ trainingId: row.id, sessionCount: (row.name || '').toLowerCase().includes('bundle') ? 0 : count })} />
+                <div>
+                  <span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>{row.name}</span>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>{sublabel}</p>
+                </div>
+              </label>
+            )
+          })}
         </div>
-        {errors?.sessionCount && <p className="text-xs text-red-500 mt-1">Required</p>}
-      </div>
+      )}
+
+      {(!multipleRows || (selectedRow && !isBundle)) && (
+        <div className="mt-5" data-error={errors?.sessionCount ? 'true' : undefined}>
+          <SectionHeading>Estimated Number of Sessions</SectionHeading>
+          <div className="flex items-center gap-3">
+            <button type="button" onClick={() => onChange({ sessionCount: Math.max(1, count - 1) })}
+              className="w-9 h-9 rounded-lg border flex items-center justify-center text-lg font-bold"
+              style={{ borderColor: 'var(--border)', color: 'var(--primary)' }}>−</button>
+            <span className="text-2xl font-bold w-8 text-center" style={{ color: 'var(--text)' }}>
+              {count}
+            </span>
+            <button type="button" onClick={() => onChange({ sessionCount: Math.min(10, count + 1) })}
+              className="w-9 h-9 rounded-lg border flex items-center justify-center text-lg font-bold"
+              style={{ borderColor: 'var(--border)', color: 'var(--primary)' }}>+</button>
+            <span className="text-sm" style={{ color: 'var(--muted)' }}>
+              × JD {sessionPrice} = <strong>JD {(count * parseFloat(sessionPrice)).toFixed(2)}</strong>
+            </span>
+          </div>
+          {errors?.sessionCount && <p className="text-xs text-red-500 mt-1">Required</p>}
+        </div>
+      )}
 
       <div className="mt-5">
         <button type="button" onClick={() => setScheduleOpen(v => !v)}
@@ -1112,12 +1152,11 @@ const VALUE_ANCHORS = {
   international: null,
 }
 
-function PriceSummaryPanel({ lineItems, serviceType, sessionCount }) {
+function PriceSummaryPanel({ lineItems, serviceType }) {
   const [expanded, setExpanded] = useState(true)
-  const isIntl     = serviceType === 'international'
-  const isTraining = serviceType === 'training'
-  const total      = lineItems.reduce((s, i) => s + (i.amount || 0), 0)
-  const anchor     = VALUE_ANCHORS[serviceType]
+  const isIntl  = serviceType === 'international'
+  const total   = lineItems.reduce((s, i) => s + (i.amount || 0), 0)
+  const anchor  = VALUE_ANCHORS[serviceType]
 
   return (
     <div className="rounded-xl mt-6" style={{ border: '2px solid #c6dba0', background: '#f7faf1' }}>
@@ -1127,7 +1166,7 @@ function PriceSummaryPanel({ lineItems, serviceType, sessionCount }) {
         <div className="flex items-center gap-3">
           {!isIntl && (
             <span className="font-bold text-base" style={{ color: 'var(--accent)' }}>
-              {isTraining ? `JD ${(sessionCount * 50).toFixed(2)} (est.)` : `JD ${total.toFixed(2)}`}
+              JD {total.toFixed(2)}
             </span>
           )}
           {expanded ? <ChevronUp size={16} style={{ color: 'var(--muted)' }} />
@@ -1139,11 +1178,6 @@ function PriceSummaryPanel({ lineItems, serviceType, sessionCount }) {
         <div className="px-4 pb-4">
           {isIntl ? (
             <p className="text-sm" style={{ color: 'var(--muted)' }}>Pricing to be confirmed by our team.</p>
-          ) : isTraining ? (
-            <p className="text-sm" style={{ color: 'var(--muted)' }}>
-              {sessionCount} session{sessionCount !== 1 ? 's' : ''} × JD 50 = <strong>JD {(sessionCount * 50).toFixed(2)}</strong>
-              <span className="ml-1" style={{ color: 'var(--muted)' }}>(estimate — confirmed after assessment)</span>
-            </p>
           ) : (
             <>
               <div className="space-y-1.5 mb-3">
@@ -1198,7 +1232,10 @@ export default function Step4ServiceOptions() {
   })
   const [flatForm, setFlatForm] = useState(() => {
     const saved = serviceOptionDetails?.[serviceType]
-    if (saved && !isPerPetService) return saved
+    if (saved && !isPerPetService) {
+      if (serviceType === 'training' && saved.perPet?.[0]) return saved.perPet[0]
+      return saved
+    }
     if (serviceType === 'transport')     return defaultTransport()
     if (serviceType === 'training')      return defaultTraining()
     if (serviceType === 'international') return defaultInternational()
@@ -1348,6 +1385,8 @@ export default function Step4ServiceOptions() {
 
     const details = isPerPetService
       ? { applyToAllPets: applyToAll, perPet: perPetForms }
+      : serviceType === 'training'
+      ? { perPet: [flatForm] }
       : flatForm
     setServiceOptionDetails({ [serviceType]: details })
     setConfirmationData({ lineItems, total: lineItems.reduce((s, i) => s + (i.amount || 0), 0) })
@@ -1362,8 +1401,8 @@ export default function Step4ServiceOptions() {
   }
 
   const lineItems = useMemo(() =>
-    computeLineItems(serviceType, perPetForms, serviceOptions, prices, safePets),
-    [serviceType, perPetForms, serviceOptions, prices, safePets]
+    computeLineItems(serviceType, serviceType === 'training' ? [flatForm] : perPetForms, serviceOptions, prices, safePets),
+    [serviceType, perPetForms, flatForm, serviceOptions, prices, safePets]
   )
 
   const SERVICE_LABELS = {
@@ -1439,7 +1478,7 @@ export default function Step4ServiceOptions() {
       )}
       {serviceType === 'training' && (
         <div className="rounded-xl p-5 mb-4" style={{ border: '1px solid var(--border)', background: '#fafaf9' }}>
-          <TrainingOptions form={flatForm} onChange={patch => setFlatForm(f => ({ ...f, ...patch }))} errors={errors} profileHasAddress={profileHasAddress} />
+          <TrainingOptions form={flatForm} onChange={patch => setFlatForm(f => ({ ...f, ...patch }))} prices={prices} errors={errors} profileHasAddress={profileHasAddress} />
         </div>
       )}
       {serviceType === 'international' && (
@@ -1449,7 +1488,7 @@ export default function Step4ServiceOptions() {
       )}
 
       {/* Price summary */}
-      <PriceSummaryPanel lineItems={lineItems} serviceType={serviceType} sessionCount={flatForm.sessionCount || 1} />
+      <PriceSummaryPanel lineItems={lineItems} serviceType={serviceType} />
 
       {/* Navigation */}
       <div className="flex justify-between mt-8">

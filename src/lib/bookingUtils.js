@@ -174,6 +174,23 @@ export function computeLineItems(serviceType, perPetForms, serviceOptions, price
     }
 
     case 'training': {
+      if (!perPetForms.length) return []
+      const pf = perPetForms[0]
+      const allTRows = prices.training || []
+      const trainingId = pf.trainingId
+      const selectedRow = allTRows.find(r => r.id === trainingId)
+        || (pf.sessionCount > 0 ? allTRows[0] : null)
+      if (!selectedRow) return []
+      const isBundle = (selectedRow.name || '').toLowerCase().includes('bundle')
+      const goalsNote = pf.trainingGoals ? ` — "${pf.trainingGoals.slice(0, 40)}"` : ''
+      if (isBundle && trainingId) {
+        const price = parseFloat(selectedRow.price || 0)
+        return [{ label: `Training (${selectedRow.name})${goalsNote}`, amount: price, unit: 'service', unit_price: price, quantity: 1 }]
+      } else if (!isBundle && pf.sessionCount > 0) {
+        const price = parseFloat(selectedRow.price || 50)
+        const a = price * pf.sessionCount
+        return [{ label: `Training (${pf.sessionCount} session${pf.sessionCount > 1 ? 's' : ''})${goalsNote}`, amount: a, unit: 'service', unit_price: price, quantity: pf.sessionCount }]
+      }
       return []
     }
 
