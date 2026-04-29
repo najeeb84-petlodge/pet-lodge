@@ -163,7 +163,7 @@ export default function Step5Confirmation() {
       let freshLineItems = confirmationData?.lineItems ?? []
       try {
         const pricesRes = await fetch(
-          `${SUPABASE_URL}/rest/v1/services?active=eq.true&select=id,name,price,category,unit&order=name`,
+          `${SUPABASE_URL}/rest/v1/services?active=eq.true&select=id,name,price,category,unit,pet_type&order=name`,
           { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token || SUPABASE_KEY}` } }
         )
         const pricesData = await pricesRes.json()
