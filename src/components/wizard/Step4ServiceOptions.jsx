@@ -585,7 +585,7 @@ function BoardingTrainingSection({ form, onChange, prices, petsData, petIndex })
         {open ? <ChevronUp size={14} className="ml-auto" /> : <ChevronDown size={14} className="ml-auto" />}
       </button>
       <InfoNote>
-        Free assessment included. Your dog's ego is not. Our team will contact you to arrange the right number of sessions.
+        Free assessment included. Your dog's ego is not. Our team can advise on the number of sessions after the assessment.
       </InfoNote>
       {open && (
         <div className="mt-3 space-y-3">
@@ -1022,7 +1022,7 @@ function TrainingOptions({ form, onChange, prices, errors, profileHasAddress }) 
   return (
     <div>
       <InfoNote>
-        Free assessment included. Your dog's ego is not. Our team will contact you to arrange the right number of sessions.
+        Free assessment included. Your dog's ego is not. Our team can advise on the number of sessions after the assessment.
       </InfoNote>
 
       {multipleRows && (

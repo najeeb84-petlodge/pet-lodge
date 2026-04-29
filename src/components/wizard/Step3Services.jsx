@@ -509,7 +509,8 @@ export default function Step3Services() {
             <>
               <p className="text-sm font-bold mb-3" style={{ color: 'var(--primary)' }}>Training Request</p>
               <div className="rounded-lg p-3 mb-4 text-sm" style={{ background: '#eef4e2', border: '1px solid #c6dba0', color: '#2d3a1e' }}>
-                We will contact you to discuss options and pricing.
+                <p>Free assessment included. Your dog's ego is not. Our team can advise on the number of sessions after the assessment.</p>
+                <p className="mt-2">You'll choose your training options and goals in the next step.</p>
               </div>
               <SingleDate val={startDate} onChange={setStartDate} label="Preferred Start Date" error={errors.start} />
             </>
