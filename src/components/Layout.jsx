@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar'
+import Footer from './Footer'
 import { Bell } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -25,6 +26,7 @@ export default function Layout() {
         <main className="flex-1 p-6 bg-gray-50">
           <Outlet />
         </main>
+        <Footer />
       </div>
     </div>
   )

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Mail, Lock, Loader2, ArrowRight } from 'lucide-react'
+import Footer from '../../components/Footer'
 
 const SUPABASE_URL = 'https://qcwbkpcwtxpokgseethp.supabase.co'
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjd2JrcGN3dHhwb2tnc2VldGhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzNDA1MDMsImV4cCI6MjA4OTkxNjUwM30.8kV-I-9skyBk8wlELT3Ft6j2iBCOtKuoYF7wXbcMZFU'
@@ -100,7 +101,8 @@ export default function Login() {
   }
 
   return (
-    <div style={{ minHeight:'100vh', display:'flex' }}>
+    <div style={{ minHeight:'100vh', display:'flex', flexDirection:'column' }}>
+      <div style={{ flex:1, display:'flex' }}>
       {/* Left panel */}
       <div style={{
         display: 'none',
@@ -311,6 +313,8 @@ export default function Login() {
         @keyframes spin { to { transform: rotate(360deg); } }
         @media (min-width: 1024px) { .lg-panel { display: flex !important; } }
       `}</style>
+      </div>
+      <Footer />
     </div>
   )
 }
