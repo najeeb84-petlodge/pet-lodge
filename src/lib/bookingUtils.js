@@ -61,9 +61,13 @@ export function computeLineItems(serviceType, perPetForms, serviceOptions, price
           const trainingAddonId = pf.trainingAddonId
           const selectedRow = allTRows.find(r => r.id === trainingAddonId)
             || (pf.trainingSessions > 0 ? allTRows[0] : null)
+          console.log('[bookingUtils boarding-training] pf:', { petName: pf.petName, trainingSessions: pf.trainingSessions, trainingAddonId: pf.trainingAddonId })
+          console.log('[bookingUtils boarding-training] prices.training_addon length:', allTRows.length, 'rows:', allTRows.map(r => ({ id: r.id, name: r.name, unit: r.unit, price: r.price })))
+          console.log('[bookingUtils boarding-training] selectedRow:', selectedRow ? { id: selectedRow.id, name: selectedRow.name, unit: selectedRow.unit, price: selectedRow.price } : null)
           if (selectedRow) {
             const isBundle = selectedRow.unit !== 'session'
             const goalsNote = pf.trainingGoals ? ` — "${pf.trainingGoals.slice(0, 40)}"` : ''
+            console.log('[bookingUtils boarding-training] isBundle:', isBundle, '| will push?', isBundle ? (!!trainingAddonId ? 'bundle' : 'NO — trainingAddonId is null') : (pf.trainingSessions > 0 ? 'session' : 'NO — sessions=0'))
             if (isBundle && trainingAddonId) {
               const price = parseFloat(selectedRow.price || 0)
               items.push({ label: `Training (${selectedRow.name}) for ${pf.petName}${goalsNote}`, amount: price, unit: 'service', unit_price: price, quantity: 1 })
@@ -72,6 +76,8 @@ export function computeLineItems(serviceType, perPetForms, serviceOptions, price
               const a = price * pf.trainingSessions
               items.push({ label: `Training (${pf.trainingSessions} session${pf.trainingSessions > 1 ? 's' : ''}) for ${pf.petName}${goalsNote}`, amount: a, unit: 'service', unit_price: price, quantity: pf.trainingSessions })
             }
+          } else {
+            console.log('[bookingUtils boarding-training] selectedRow is null — no line item added')
           }
         }
       })
@@ -109,9 +115,13 @@ export function computeLineItems(serviceType, perPetForms, serviceOptions, price
           const trainingAddonId = pf.trainingAddonId
           const selectedRow = allTRows.find(r => r.id === trainingAddonId)
             || (pf.trainingSessions > 0 ? allTRows[0] : null)
+          console.log('[bookingUtils daycamp-training] pf:', { petName: pf.petName, trainingSessions: pf.trainingSessions, trainingAddonId: pf.trainingAddonId })
+          console.log('[bookingUtils daycamp-training] prices.training_addon length:', allTRows.length, 'rows:', allTRows.map(r => ({ id: r.id, name: r.name, unit: r.unit, price: r.price })))
+          console.log('[bookingUtils daycamp-training] selectedRow:', selectedRow ? { id: selectedRow.id, name: selectedRow.name, unit: selectedRow.unit, price: selectedRow.price } : null)
           if (selectedRow) {
             const isBundle = selectedRow.unit !== 'session'
             const goalsNote = pf.trainingGoals ? ` — "${pf.trainingGoals.slice(0, 40)}"` : ''
+            console.log('[bookingUtils daycamp-training] isBundle:', isBundle, '| will push?', isBundle ? (!!trainingAddonId ? 'bundle' : 'NO — trainingAddonId is null') : (pf.trainingSessions > 0 ? 'session' : 'NO — sessions=0'))
             if (isBundle && trainingAddonId) {
               const price = parseFloat(selectedRow.price || 0)
               items.push({ label: `Training (${selectedRow.name}) for ${pf.petName}${goalsNote}`, amount: price, unit: 'service', unit_price: price, quantity: 1 })
@@ -120,6 +130,8 @@ export function computeLineItems(serviceType, perPetForms, serviceOptions, price
               const a = price * pf.trainingSessions
               items.push({ label: `Training (${pf.trainingSessions} session${pf.trainingSessions > 1 ? 's' : ''}) for ${pf.petName}${goalsNote}`, amount: a, unit: 'service', unit_price: price, quantity: pf.trainingSessions })
             }
+          } else {
+            console.log('[bookingUtils daycamp-training] selectedRow is null — no line item added')
           }
         }
       })
