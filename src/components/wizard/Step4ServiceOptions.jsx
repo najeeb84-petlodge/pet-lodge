@@ -43,7 +43,7 @@ function defaultBoardingPet(pet, idx) {
   return {
     petIndex: idx, petName: pet.name || `Pet ${idx + 1}`,
     foodChoice: 'owner_provided', foodNotes: '',
-    fleaTick: 'lodge_applies', groomingAddOns: [],
+    fleaTick: 'lodge_applies',
     groomingPackageId: null,
     groomingAddOns: [],
     trainingSessions: 0,

@@ -13,6 +13,8 @@ import MyPets          from './pages/customer/MyPets'
 import MyBookings      from './pages/customer/MyBookings'
 import BookingWizard   from './pages/BookingWizard'
 import { WizardProvider } from './contexts/WizardContext'
+import PrivacyPolicy   from './pages/PrivacyPolicy'
+import TermsOfService  from './pages/TermsOfService'
 
 export default function App() {
   return (
@@ -24,6 +26,8 @@ export default function App() {
           <Route path="/auth/callback"     element={<AuthCallback />} />
           <Route path="/auth/set-password" element={<SetPassword />} />
           <Route path="/unauthorized"      element={<Unauthorized />} />
+          <Route path="/privacy"           element={<PrivacyPolicy />} />
+          <Route path="/terms"             element={<TermsOfService />} />
 
           <Route path="/admin/dashboard" element={
             <ProtectedRoute requireStaff>
