@@ -10,15 +10,34 @@ const OPTION_C_NAMES = {
   boarding: ['Cat Boarding - Standard', 'Dog Boarding - Standard', 'Pets Boarding - Standard'],
 }
 
-const CAT_ORDER  = ['boarding', 'day_camp', 'grooming', 'dog_walking', 'transport', 'training', 'other']
+const CAT_ORDER = [
+  'boarding',
+  'day_camp',
+  'grooming',
+  'grooming_standalone',
+  'grooming_addon',
+  'dog_walking',
+  'transport',
+  'training',
+  'training_addon',
+  'flea_tick_addon',
+  'food_addon',
+  'other',
+]
+
 const CAT_LABELS = {
-  boarding:    'Boarding Services',
-  day_camp:    'Day Camp Services',
-  grooming:    'Grooming Services',
-  dog_walking: 'Dog Walking Services',
-  transport:   'Transportation Services',
-  training:    'Training Services',
-  other:       'Other Services',
+  boarding:            'Boarding Services',
+  day_camp:            'Day Camp Services',
+  grooming:            'Grooming Packages (Standalone)',
+  grooming_standalone: 'Grooming Items (Standalone)',
+  grooming_addon:      'Grooming Add-ons (Boarding & Day Camp)',
+  dog_walking:         'Dog Walking Services',
+  transport:           'Transportation Services',
+  training:            'Training Services',
+  training_addon:      'Training Add-ons',
+  flea_tick_addon:     'Flea & Tick Add-ons',
+  food_addon:          'Food Add-ons',
+  other:               'Other Services',
 }
 function catLabel(cat) {
   return CAT_LABELS[cat] || cat.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) + ' Services'

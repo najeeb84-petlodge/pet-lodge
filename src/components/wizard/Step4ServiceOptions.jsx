@@ -514,6 +514,10 @@ function BoardingGroomingSection({ form, onChange, prices, petsData, petIndex, n
 
   const individualItems = (prices.grooming_addon || [])
     .filter(p => !p.name.toLowerCase().includes('package'))
+    .filter(p => {
+      const rowType = (p.pet_type || 'all').toLowerCase()
+      return rowType === 'all' || rowType === petType
+    })
     .map(p => ({ value: p.id, label: `${p.name} — JD ${parseFloat(p.price || 0).toFixed(0)}` }))
 
   return (
