@@ -571,7 +571,7 @@ function BoardingTrainingSection({ form, onChange, prices, petsData, petIndex })
   const multipleRows = filteredRows.length > 1
   const selectedRow = filteredRows.find(r => r.id === form.trainingAddonId)
     || (filteredRows.length === 1 ? filteredRows[0] : null)
-  const isBundle = selectedRow ? selectedRow.unit !== 'session' : false
+  const isBundle = selectedRow ? (selectedRow.name || '').toLowerCase().includes('bundle') : false
   const sessionPrice = selectedRow ? parseFloat(selectedRow.price || 35).toFixed(0) : '35'
   const count = form.trainingSessions || 0
 
@@ -593,9 +593,9 @@ function BoardingTrainingSection({ form, onChange, prices, petsData, petIndex })
               {filteredRows.map(row => {
                 const checked = form.trainingAddonId === row.id
                 const price = parseFloat(row.price || 0)
-                const sublabel = row.unit === 'session'
-                  ? `JD ${price.toFixed(0)} / session`
-                  : `JD ${price.toFixed(0)}`
+                const sublabel = (row.name || '').toLowerCase().includes('bundle')
+                  ? `JD ${price.toFixed(0)}`
+                  : `JD ${price.toFixed(0)} / session`
                 return (
                   <label key={row.id}
                     className="flex items-start gap-3 cursor-pointer p-2.5 rounded-lg transition-colors"
@@ -603,7 +603,7 @@ function BoardingTrainingSection({ form, onChange, prices, petsData, petIndex })
                     <input type="radio" name={`training-addon-${petIndex}`}
                       className="mt-0.5 w-4 h-4 accent-[#7aa63c] flex-shrink-0"
                       checked={checked}
-                      onChange={() => onChange({ trainingAddonId: row.id, trainingSessions: row.unit !== 'session' ? 0 : count })} />
+                      onChange={() => onChange({ trainingAddonId: row.id, trainingSessions: (row.name || '').toLowerCase().includes('bundle') ? 0 : count })} />
                     <div>
                       <span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>{row.name}</span>
                       <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>{sublabel}</p>
