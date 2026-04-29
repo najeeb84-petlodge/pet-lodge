@@ -254,12 +254,8 @@ export default function Step3Services() {
       .finally(() => setLoading(false))
   }, [])
 
-  // All boarding options excluding food / flea / tick add-ons (those belong in Step 4)
-  const EXCLUDE_KEYWORDS = ['food', 'flea', 'tick']
-  const allBoarding = prices.boarding || []
-  const boardingOptions = allBoarding.filter(p =>
-    !EXCLUDE_KEYWORDS.some(kw => (p.name || '').toLowerCase().includes(kw))
-  )
+  // Boarding options for pricing panel — food/flea/tick now live in their own categories
+  const boardingOptions = prices.boarding || []
 
   // The single best-fit option for the pets selected in Step 2
   const bestMatch = findBestBoardingMatch(boardingOptions, dogCount, catCount)

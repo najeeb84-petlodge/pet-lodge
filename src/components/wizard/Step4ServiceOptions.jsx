@@ -482,19 +482,20 @@ function DeliverySection({ form, onChange, profileHasAddress, infoNote, radioNam
 
 // ── Flea & Tick radio (reused in Boarding + Day Camp) ─────────────────────────
 
-const FLEA_TICK_OPTIONS = [
-  { value: 'covered',       label: 'I already have it covered', sublabel: 'No charge' },
-  { value: 'lodge_applies', label: 'Pet Lodge applies it',       sublabel: 'Dog: JD 35 · Cat: JD 25' },
-]
-
-function FleaTickSection({ value, onChange, error }) {
+function FleaTickSection({ value, onChange, error, prices }) {
+  const dogFleaTick = (prices?.flea_tick_addon || []).find(r => r.pet_type === 'dog')?.price ?? 35
+  const catFleaTick = (prices?.flea_tick_addon || []).find(r => r.pet_type === 'cat')?.price ?? 25
+  const fleaTickOptions = [
+    { value: 'covered',       label: 'I already have it covered', sublabel: 'No charge' },
+    { value: 'lodge_applies', label: 'Pet Lodge applies it',       sublabel: `Dog: JD ${dogFleaTick} · Cat: JD ${catFleaTick}` },
+  ]
   return (
     <div className="mt-5">
       <SectionHeading>Flea &amp; Tick Protection <span className="text-red-500">*</span></SectionHeading>
       <p className="text-xs mb-2" style={{ color: 'var(--muted)' }}>
         Mandatory for the safety and health of all pets in our care.
       </p>
-      <RadioGroup name="flea_tick" options={FLEA_TICK_OPTIONS} value={value} onChange={onChange} error={error} />
+      <RadioGroup name="flea_tick" options={fleaTickOptions} value={value} onChange={onChange} error={error} />
     </div>
   )
 }
@@ -652,14 +653,21 @@ function BoardingOptions({ form, onChange, petsData, prices, errors, profileHasA
   const petType = (petsData[form.petIndex]?.type || '').toLowerCase()
 
   // For cats, hide the large-dog food option
+  const smallFoodPrice = (prices?.food_addon || []).find(r => {
+    const n = (r.name || '').toLowerCase()
+    return n.includes('small') || n.includes('cat')
+  })?.price ?? 2
+  const largeFoodPrice = (prices?.food_addon || []).find(r =>
+    (r.name || '').toLowerCase().includes('large')
+  )?.price ?? 4
   const foodOptions = petType === 'cat'
     ? [
-        { value: 'lodge_small',    label: 'Pet Lodge Food — Small dogs & Cats', sublabel: 'JD 2 / day' },
+        { value: 'lodge_small',    label: 'Pet Lodge Food — Small dogs & Cats', sublabel: `JD ${smallFoodPrice} / day` },
         { value: 'owner_provided', label: 'Owner provided',                      sublabel: 'No charge' },
       ]
     : [
-        { value: 'lodge_small',    label: 'Pet Lodge Food — Small dogs & Cats',    sublabel: 'JD 2 / day' },
-        { value: 'lodge_large',    label: 'Pet Lodge Food — Medium & Large dogs',  sublabel: 'JD 4 / day' },
+        { value: 'lodge_small',    label: 'Pet Lodge Food — Small dogs & Cats',    sublabel: `JD ${smallFoodPrice} / day` },
+        { value: 'lodge_large',    label: 'Pet Lodge Food — Medium & Large dogs',  sublabel: `JD ${largeFoodPrice} / day` },
         { value: 'owner_provided', label: 'Owner provided',                         sublabel: 'No charge' },
       ]
 
@@ -679,7 +687,7 @@ function BoardingOptions({ form, onChange, petsData, prices, errors, profileHasA
       </div>
 
       {/* Flea & Tick */}
-      <FleaTickSection value={form.fleaTick} onChange={v => onChange({ fleaTick: v })} error={errors?.fleaTick} />
+      <FleaTickSection value={form.fleaTick} onChange={v => onChange({ fleaTick: v })} error={errors?.fleaTick} prices={prices} />
 
       {/* Transport */}
       <div className="mt-5" data-error={errors?.transport ? 'true' : undefined}>
@@ -764,7 +772,7 @@ function DayCampOptions({ form, onChange, prices, petsData, errors, profileHasAd
           onChange={v => onChange({ preferredDays: v })} error={errors?.preferredDays} />
       </div>
 
-      <FleaTickSection value={form.fleaTick} onChange={v => onChange({ fleaTick: v })} error={errors?.fleaTick} />
+      <FleaTickSection value={form.fleaTick} onChange={v => onChange({ fleaTick: v })} error={errors?.fleaTick} prices={prices} />
 
       <DeliverySection form={form} onChange={onChange} profileHasAddress={profileHasAddress}
         infoNote="Pick-up & drop-off is complimentary for Day Camp"
@@ -847,11 +855,19 @@ function GroomingOptions({ form, onChange, prices, petsData, errors, profileHasA
     popular: p.is_most_popular === true,
   }))
 
-  const standaloneItems = [
-    { value: 'hair_trim', label: 'Hair Trim — JD 20' },
-    { value: 'nail_clip', label: 'Nail Clip — JD 10' },
-    { value: 'bathing',   label: petType === 'cat' ? 'Bathing — JD 15' : 'Bathing — JD 10' },
+  const STANDALONE_DEFS = [
+    { slug: 'hair_trim', name: 'Hair Trim', dogPrice: 20, catPrice: 20 },
+    { slug: 'nail_clip', name: 'Nail Clip', dogPrice: 10, catPrice: 15 },
+    { slug: 'bathing',   name: 'Bathing',   dogPrice: 10, catPrice: 15 },
   ]
+  const slugify = (n) => (n || '').toLowerCase().replace(/\s+/g, '_')
+  const standaloneItems = STANDALONE_DEFS.map(def => {
+    const row = (prices?.grooming_standalone || []).find(r =>
+      slugify(r.name) === def.slug && (r.pet_type === petType || r.pet_type === 'all')
+    )
+    const price = row?.price ?? (petType === 'cat' ? def.catPrice : def.dogPrice)
+    return { value: def.slug, label: `${def.name} — JD ${price}` }
+  })
 
   return (
     <div>
