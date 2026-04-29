@@ -56,12 +56,23 @@ export function computeLineItems(serviceType, perPetForms, serviceOptions, price
             items.push({ label: `${addon.name} for ${pf.petName}`, amount: a, unit: 'service', unit_price: a, quantity: 1 })
           }
         })
-        if (pf.trainingSessions > 0) {
-          const sessionPkg = (prices.training_addon || [])[0]
-          const price = parseFloat(sessionPkg?.price || 35)
-          const goalsNote = pf.trainingGoals ? ` — "${pf.trainingGoals.slice(0, 40)}"` : ''
-          const a = price * pf.trainingSessions
-          items.push({ label: `Training (${pf.trainingSessions} session${pf.trainingSessions > 1 ? 's' : ''}) for ${pf.petName}${goalsNote}`, amount: a, unit: 'service', unit_price: price, quantity: pf.trainingSessions })
+        {
+          const allTRows = prices.training_addon || []
+          const trainingAddonId = pf.trainingAddonId
+          const selectedRow = allTRows.find(r => r.id === trainingAddonId)
+            || (pf.trainingSessions > 0 ? allTRows[0] : null)
+          if (selectedRow) {
+            const isBundle = selectedRow.unit !== 'session'
+            const goalsNote = pf.trainingGoals ? ` — "${pf.trainingGoals.slice(0, 40)}"` : ''
+            if (isBundle && trainingAddonId) {
+              const price = parseFloat(selectedRow.price || 0)
+              items.push({ label: `Training (${selectedRow.name}) for ${pf.petName}${goalsNote}`, amount: price, unit: 'service', unit_price: price, quantity: 1 })
+            } else if (!isBundle && pf.trainingSessions > 0) {
+              const price = parseFloat(selectedRow.price || 35)
+              const a = price * pf.trainingSessions
+              items.push({ label: `Training (${pf.trainingSessions} session${pf.trainingSessions > 1 ? 's' : ''}) for ${pf.petName}${goalsNote}`, amount: a, unit: 'service', unit_price: price, quantity: pf.trainingSessions })
+            }
+          }
         }
       })
       return items
@@ -93,12 +104,23 @@ export function computeLineItems(serviceType, perPetForms, serviceOptions, price
             items.push({ label: `${addon.name} for ${pf.petName}`, amount: a, unit: 'service', unit_price: a, quantity: 1 })
           }
         })
-        if (pf.trainingSessions > 0) {
-          const sessionPkg = (prices.training_addon || [])[0]
-          const price = parseFloat(sessionPkg?.price || 35)
-          const goalsNote = pf.trainingGoals ? ` — "${pf.trainingGoals.slice(0, 40)}"` : ''
-          const a = price * pf.trainingSessions
-          items.push({ label: `Training (${pf.trainingSessions} session${pf.trainingSessions > 1 ? 's' : ''}) for ${pf.petName}${goalsNote}`, amount: a, unit: 'service', unit_price: price, quantity: pf.trainingSessions })
+        {
+          const allTRows = prices.training_addon || []
+          const trainingAddonId = pf.trainingAddonId
+          const selectedRow = allTRows.find(r => r.id === trainingAddonId)
+            || (pf.trainingSessions > 0 ? allTRows[0] : null)
+          if (selectedRow) {
+            const isBundle = selectedRow.unit !== 'session'
+            const goalsNote = pf.trainingGoals ? ` — "${pf.trainingGoals.slice(0, 40)}"` : ''
+            if (isBundle && trainingAddonId) {
+              const price = parseFloat(selectedRow.price || 0)
+              items.push({ label: `Training (${selectedRow.name}) for ${pf.petName}${goalsNote}`, amount: price, unit: 'service', unit_price: price, quantity: 1 })
+            } else if (!isBundle && pf.trainingSessions > 0) {
+              const price = parseFloat(selectedRow.price || 35)
+              const a = price * pf.trainingSessions
+              items.push({ label: `Training (${pf.trainingSessions} session${pf.trainingSessions > 1 ? 's' : ''}) for ${pf.petName}${goalsNote}`, amount: a, unit: 'service', unit_price: price, quantity: pf.trainingSessions })
+            }
+          }
         }
       })
       items.push({ label: 'Pick up & drop off', amount: 0, note: 'Complimentary' })

@@ -48,6 +48,7 @@ function defaultBoardingPet(pet, idx) {
     groomingAddOns: [],
     trainingSessions: 0,
     trainingGoals: '',
+    trainingAddonId: null,
     transport: '',
     address_flat: '', address_street: '', address_neighbourhood: '',
     address_whatsapp_location: '', address_driver_comments: '',
@@ -64,6 +65,7 @@ function defaultDayCampPet(pet, idx) {
     groomingAddOns: [],
     trainingSessions: 0,
     trainingGoals: '',
+    trainingAddonId: null,
     address_flat: '', address_street: '', address_neighbourhood: '',
     address_whatsapp_location: '', pickupTime: '', dropoffTime: '', saveAddressToProfile: false,
   }
@@ -563,8 +565,14 @@ function BoardingTrainingSection({ form, onChange, prices, petsData, petIndex })
   const petType = (petsData[petIndex]?.type || '').toLowerCase()
   if (petType === 'cat') return null
 
-  const sessionPkg = (prices.training_addon || [])[0]
-  const sessionPrice = sessionPkg ? parseFloat(sessionPkg.price || 35).toFixed(0) : '35'
+  const filteredRows = (prices.training_addon || []).filter(r =>
+    !r.pet_type || r.pet_type === petType || r.pet_type === 'all'
+  )
+  const multipleRows = filteredRows.length > 1
+  const selectedRow = filteredRows.find(r => r.id === form.trainingAddonId)
+    || (filteredRows.length === 1 ? filteredRows[0] : null)
+  const isBundle = selectedRow ? selectedRow.unit !== 'session' : false
+  const sessionPrice = selectedRow ? parseFloat(selectedRow.price || 35).toFixed(0) : '35'
   const count = form.trainingSessions || 0
 
   return (
@@ -580,23 +588,50 @@ function BoardingTrainingSection({ form, onChange, prices, petsData, petIndex })
       </InfoNote>
       {open && (
         <div className="mt-3 space-y-3">
-          <div className="flex items-center gap-3">
-            <button type="button"
-              onClick={() => onChange({ trainingSessions: Math.max(0, count - 1) })}
-              className="w-8 h-8 rounded-lg border flex items-center justify-center text-lg font-bold"
-              style={{ borderColor: 'var(--border)', color: 'var(--primary)' }}>−</button>
-            <span className="text-xl font-bold w-7 text-center" style={{ color: 'var(--text)' }}>{count}</span>
-            <button type="button"
-              onClick={() => onChange({ trainingSessions: Math.min(10, count + 1) })}
-              className="w-8 h-8 rounded-lg border flex items-center justify-center text-lg font-bold"
-              style={{ borderColor: 'var(--border)', color: 'var(--primary)' }}>+</button>
-            {count > 0 && (
-              <span className="text-sm" style={{ color: 'var(--muted)' }}>
-                × JD {sessionPrice} = <strong>JD {(count * parseFloat(sessionPrice)).toFixed(2)}</strong>
-                <span className="ml-1 font-normal">(est.)</span>
-              </span>
-            )}
-          </div>
+          {multipleRows && (
+            <div className="space-y-2">
+              {filteredRows.map(row => {
+                const checked = form.trainingAddonId === row.id
+                const price = parseFloat(row.price || 0)
+                const sublabel = row.unit === 'session'
+                  ? `JD ${price.toFixed(0)} / session`
+                  : `JD ${price.toFixed(0)}`
+                return (
+                  <label key={row.id}
+                    className="flex items-start gap-3 cursor-pointer p-2.5 rounded-lg transition-colors"
+                    style={{ border: `1px solid ${checked ? '#7aa63c' : 'var(--border)'}`, background: checked ? '#eef4e2' : 'white' }}>
+                    <input type="radio" name={`training-addon-${petIndex}`}
+                      className="mt-0.5 w-4 h-4 accent-[#7aa63c] flex-shrink-0"
+                      checked={checked}
+                      onChange={() => onChange({ trainingAddonId: row.id, trainingSessions: row.unit !== 'session' ? 0 : count })} />
+                    <div>
+                      <span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>{row.name}</span>
+                      <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>{sublabel}</p>
+                    </div>
+                  </label>
+                )
+              })}
+            </div>
+          )}
+          {(!multipleRows || (selectedRow && !isBundle)) && (
+            <div className="flex items-center gap-3">
+              <button type="button"
+                onClick={() => onChange({ trainingSessions: Math.max(0, count - 1) })}
+                className="w-8 h-8 rounded-lg border flex items-center justify-center text-lg font-bold"
+                style={{ borderColor: 'var(--border)', color: 'var(--primary)' }}>−</button>
+              <span className="text-xl font-bold w-7 text-center" style={{ color: 'var(--text)' }}>{count}</span>
+              <button type="button"
+                onClick={() => onChange({ trainingSessions: Math.min(10, count + 1) })}
+                className="w-8 h-8 rounded-lg border flex items-center justify-center text-lg font-bold"
+                style={{ borderColor: 'var(--border)', color: 'var(--primary)' }}>+</button>
+              {count > 0 && (
+                <span className="text-sm" style={{ color: 'var(--muted)' }}>
+                  × JD {sessionPrice} = <strong>JD {(count * parseFloat(sessionPrice)).toFixed(2)}</strong>
+                  <span className="ml-1 font-normal">(est.)</span>
+                </span>
+              )}
+            </div>
+          )}
           <div>
             <label className="block text-xs font-medium mb-1" style={{ color: 'var(--muted)' }}>
               Training goals <span className="font-normal">(optional)</span>
