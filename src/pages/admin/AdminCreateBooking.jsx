@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { sendAdminNotification } from '../../utils/sendAdminNotification'
 import { sendBookingConfirmation } from '../../utils/sendBookingConfirmation'
 import { syncProfileFromBooking } from '../../utils/syncProfileFromBooking'
+import { computeLineItems } from '../../lib/bookingUtils'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -40,6 +41,78 @@ function normCat(c) {
   if (s === 'daycamp') return 'day_camp'
   if (s === 'walking') return 'dog_walking'
   return s
+}
+
+// ── Pricing helpers (computeLineItems adapter) ───────────────────────────────
+
+const PRICE_ALIASES = { daycamp: 'day_camp', walking: 'dog_walking', grooming_addon: 'grooming_addon', training_addon: 'training_addon' }
+
+function groupPrices(services) {
+  const grouped = {}
+  services.forEach(row => {
+    let cat = (row.category || 'other').toLowerCase().replace(/[\s-]+/g, '_')
+    cat = PRICE_ALIASES[cat] || cat
+    if (!grouped[cat]) grouped[cat] = []
+    grouped[cat].push(row)
+  })
+  return grouped
+}
+
+function buildPerPetForms(selectedPets, perPetExtras, transportType, servicePackageId, allServices, serviceType) {
+  const pkg = allServices.find(s => s.id === servicePackageId)
+  const packagePrice = parseFloat(pkg?.price || 0)
+  const isBundle = pkg ? (pkg.name || '').toLowerCase().includes('bundle') : false
+  const foodMap = { none: 'owner_provided', small: 'lodge_small', large: 'lodge_large' }
+  return selectedPets.map((pet, i) => {
+    const extras = perPetExtras[pet.id] || {}
+    const base = { petIndex: i, petName: pet.name || `Pet ${i + 1}` }
+    if (serviceType === 'boarding') {
+      return {
+        ...base,
+        foodChoice:        foodMap[extras.food] || 'owner_provided',
+        fleaTick:          extras.fleaTick ? 'lodge_applies' : 'covered',
+        transport:         i === 0 ? (transportType || 'self') : 'self',
+        groomingPackageId: null,
+        groomingAddOns:    [],
+        trainingAddonId:   null,
+        trainingSessions:  0,
+        trainingGoals:     '',
+      }
+    }
+    if (serviceType === 'day_camp') {
+      return {
+        ...base,
+        packageId:         servicePackageId,
+        packagePrice,
+        fleaTick:          extras.fleaTick ? 'lodge_applies' : 'covered',
+        groomingPackageId: null,
+        groomingAddOns:    [],
+        trainingAddonId:   null,
+        trainingSessions:  0,
+        trainingGoals:     '',
+      }
+    }
+    if (serviceType === 'dog_walking') {
+      return { ...base, packageId: servicePackageId, packagePrice }
+    }
+    if (serviceType === 'grooming') {
+      return {
+        ...base,
+        selectionMode: 'package',
+        packageId:     servicePackageId,
+        transport:     i === 0 ? (transportType || 'self') : 'self',
+      }
+    }
+    if (serviceType === 'training') {
+      return {
+        ...base,
+        trainingId:    servicePackageId,
+        sessionCount:  isBundle ? 0 : 1,
+        trainingGoals: '',
+      }
+    }
+    return base
+  })
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -242,61 +315,26 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
 
   // ── Auto-compute line items ───────────────────────────────────────────────────
   useEffect(() => {
-    const items = []
-    const nights = computeNights(checkIn, checkOut)
+    if (!serviceType || !allServices.length) { setLineItems([]); return }
     const selectedPets = customerPets.filter(p => selectedPetIds.includes(p.id))
 
-    // Primary service package
-    if (servicePackageId && allServices.length > 0) {
-      const pkg = allServices.find(s => s.id === servicePackageId)
-      if (pkg) {
-        const isPerNight = ['boarding', 'day_camp'].includes(serviceType)
-        if (isPerNight && nights > 0) {
-          items.push({
-            label: `${pkg.name} × ${nights} night${nights !== 1 ? 's' : ''}`,
-            unit_price: parseFloat(pkg.price || 0),
-            quantity: nights,
-            amount: parseFloat(pkg.price || 0) * nights,
-            unit: 'night',
-          })
-        } else {
-          items.push({
-            label: pkg.name,
-            unit_price: parseFloat(pkg.price || 0),
-            quantity: 1,
-            amount: parseFloat(pkg.price || 0),
-            unit: 'service',
-          })
+    if (serviceType === 'international') {
+      if (servicePackageId) {
+        const pkg = allServices.find(s => s.id === servicePackageId)
+        if (pkg) {
+          const a = parseFloat(pkg.price || 0)
+          setLineItems([{ label: pkg.name, unit_price: a, quantity: 1, amount: a, unit: 'service' }])
+          return
         }
       }
+      setLineItems([])
+      return
     }
 
-    // Per-pet food & flea/tick extras (boarding + day_camp)
-    if (['boarding', 'day_camp'].includes(serviceType)) {
-      const nights_ = Math.max(1, computeNights(checkIn, checkOut))
-      selectedPets.forEach(pet => {
-        const ext = perPetExtras[pet.id] || {}
-        if (ext.food === 'small') {
-          items.push({ label: `Food (small/cat) for ${pet.name}`, unit_price: 2, quantity: nights_, amount: 2 * nights_, unit: 'night' })
-        } else if (ext.food === 'large') {
-          items.push({ label: `Food (medium/large) for ${pet.name}`, unit_price: 4, quantity: nights_, amount: 4 * nights_, unit: 'night' })
-        }
-        if (ext.fleaTick) {
-          const price = (pet.type || '').toLowerCase() === 'cat' ? 25 : 35
-          items.push({ label: `Flea & tick for ${pet.name}`, unit_price: price, quantity: 1, amount: price, unit: 'service' })
-        }
-      })
-    }
-
-    // Transport
-    if (transportType && transportType !== 'self') {
-      const tc = TRANSPORT_OPTIONS.find(o => o.value === transportType)
-      if (tc && tc.price > 0) {
-        items.push({ label: tc.label, unit_price: tc.price, quantity: 1, amount: tc.price, unit: 'service' })
-      }
-    }
-
-    setLineItems(items)
+    const groupedPrices = groupPrices(allServices)
+    const perPetForms   = buildPerPetForms(selectedPets, perPetExtras, transportType, servicePackageId, allServices, serviceType)
+    const serviceOpts   = { option: servicePackageId, startDate: checkIn, endDate: checkOut }
+    setLineItems(computeLineItems(serviceType, perPetForms, serviceOpts, groupedPrices, selectedPets))
   }, [servicePackageId, serviceType, checkIn, checkOut, selectedPetIds, customerPets, perPetExtras, transportType, allServices])
 
   // ── Click-outside closes dropdown ────────────────────────────────────────────
