@@ -626,9 +626,10 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
           dropoffTime: dropoffTime || null,
         },
         perPet:       perPetForm,
-        line_items:   lineItems,
-        total_amount: finalTotal,
-        ...(discountAmt > 0 ? { discount_amount: discountAmt, discount_type: discountType } : {}),
+        line_items:      lineItems,
+        total_amount:    finalTotal,
+        discount_amount: discountAmt,
+        discount_type:   discountAmt > 0 ? discountType : null,
       }
 
       const body = {
@@ -651,6 +652,7 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
         status:              'pending',
         payment_status:      'unpaid',
         subtotal:            subtotal,
+        discount:            discountAmt,
         total_amount:        finalTotal,
         is_guest:            false,
         is_staff_booking:    true,
