@@ -174,7 +174,7 @@ function validateForm(serviceType, perPetForms, flatForm, serviceOptions) {
 
 // ── Shared UI primitives ──────────────────────────────────────────────────────
 
-function SectionHeading({ children }) {
+export function SectionHeading({ children }) {
   return <p className="text-sm font-bold mb-3" style={{ color: 'var(--primary)' }}>{children}</p>
 }
 
@@ -235,7 +235,7 @@ function PopularBadge() {
   )
 }
 
-function InfoNote({ children }) {
+export function InfoNote({ children }) {
   return (
     <div className="rounded-lg p-3 text-sm" style={{ background: '#eef4e2', border: '1px solid #c6dba0', color: '#2d3a1e' }}>
       {children}
@@ -502,7 +502,7 @@ function FleaTickSection({ value, onChange, error, prices }) {
 
 // ── Per-service panels ────────────────────────────────────────────────────────
 
-function BoardingGroomingSection({ form, onChange, prices, petsData, petIndex, nights = 0 }) {
+export function BoardingGroomingSection({ form, onChange, prices, petsData, petIndex, nights = 0 }) {
   const petType = (petsData[petIndex]?.type || '').toLowerCase()
 
   const allPkgs = (prices.grooming_addon || []).filter(p => p.name.toLowerCase().includes('package'))
@@ -566,7 +566,7 @@ function BoardingGroomingSection({ form, onChange, prices, petsData, petIndex, n
   )
 }
 
-function BoardingTrainingSection({ form, onChange, prices, petsData, petIndex }) {
+export function BoardingTrainingSection({ form, onChange, prices, petsData, petIndex }) {
   const [open, setOpen] = useState(false)
   const petType = (petsData[petIndex]?.type || '').toLowerCase()
   if (petType === 'cat') return null

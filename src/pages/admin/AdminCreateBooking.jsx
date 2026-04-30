@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { X, ChevronDown, ChevronUp, Loader2, Check } from 'lucide-react'
 import { SUPABASE_URL, SUPABASE_KEY, getAccessToken } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
@@ -6,6 +6,7 @@ import { sendAdminNotification } from '../../utils/sendAdminNotification'
 import { sendBookingConfirmation } from '../../utils/sendBookingConfirmation'
 import { syncProfileFromBooking } from '../../utils/syncProfileFromBooking'
 import { computeLineItems } from '../../lib/bookingUtils'
+import { BoardingGroomingSection, BoardingTrainingSection } from '../../components/wizard/Step4ServiceOptions'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -72,11 +73,11 @@ function buildPerPetForms(selectedPets, perPetExtras, transportType, servicePack
         foodChoice:        foodMap[extras.food] || 'owner_provided',
         fleaTick:          extras.fleaTick ? 'lodge_applies' : 'covered',
         transport:         i === 0 ? (transportType || 'self') : 'self',
-        groomingPackageId: null,
-        groomingAddOns:    [],
-        trainingAddonId:   null,
-        trainingSessions:  0,
-        trainingGoals:     '',
+        groomingPackageId: extras.groomingPackageId ?? null,
+        groomingAddOns:    extras.groomingAddOns    ?? [],
+        trainingAddonId:   extras.trainingAddonId   ?? null,
+        trainingSessions:  extras.trainingSessions  ?? 0,
+        trainingGoals:     extras.trainingGoals     ?? '',
       }
     }
     if (serviceType === 'day_camp') {
@@ -85,11 +86,11 @@ function buildPerPetForms(selectedPets, perPetExtras, transportType, servicePack
         packageId:         servicePackageId,
         packagePrice,
         fleaTick:          extras.fleaTick ? 'lodge_applies' : 'covered',
-        groomingPackageId: null,
-        groomingAddOns:    [],
-        trainingAddonId:   null,
-        trainingSessions:  0,
-        trainingGoals:     '',
+        groomingPackageId: extras.groomingPackageId ?? null,
+        groomingAddOns:    extras.groomingAddOns    ?? [],
+        trainingAddonId:   extras.trainingAddonId   ?? null,
+        trainingSessions:  extras.trainingSessions  ?? 0,
+        trainingGoals:     extras.trainingGoals     ?? '',
       }
     }
     if (serviceType === 'dog_walking') {
@@ -331,11 +332,10 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
       return
     }
 
-    const groupedPrices = groupPrices(allServices)
-    const perPetForms   = buildPerPetForms(selectedPets, perPetExtras, transportType, servicePackageId, allServices, serviceType)
-    const serviceOpts   = { option: servicePackageId, startDate: checkIn, endDate: checkOut }
+    const perPetForms = buildPerPetForms(selectedPets, perPetExtras, transportType, servicePackageId, allServices, serviceType)
+    const serviceOpts = { option: servicePackageId, startDate: checkIn, endDate: checkOut }
     setLineItems(computeLineItems(serviceType, perPetForms, serviceOpts, groupedPrices, selectedPets))
-  }, [servicePackageId, serviceType, checkIn, checkOut, selectedPetIds, customerPets, perPetExtras, transportType, allServices])
+  }, [servicePackageId, serviceType, checkIn, checkOut, selectedPetIds, customerPets, perPetExtras, transportType, groupedPrices])
 
   // ── Click-outside closes dropdown ────────────────────────────────────────────
   useEffect(() => {
@@ -362,13 +362,14 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
   }, [newCustomerPanelOpen])
 
   // ── Derived values ────────────────────────────────────────────────────────────
-  const nights    = computeNights(checkIn, checkOut)
-  const subtotal  = lineItems.reduce((s, i) => s + (i.amount || 0), 0)
-  const discountAmt = discountType === 'jd'
+  const nights        = computeNights(checkIn, checkOut)
+  const subtotal      = lineItems.reduce((s, i) => s + (i.amount || 0), 0)
+  const discountAmt   = discountType === 'jd'
     ? parseFloat(discountValue) || 0
     : subtotal * ((parseFloat(discountValue) || 0) / 100)
   const finalTotal    = Math.max(0, subtotal - discountAmt)
   const selectedPets  = customerPets.filter(p => selectedPetIds.includes(p.id))
+  const groupedPrices = useMemo(() => groupPrices(allServices), [allServices])
 
   // Packages for selected service type (exclude add-on categories)
   const ADDON_CATS = ['grooming_addon', 'training_addon']
@@ -408,6 +409,10 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
 
   function setExtra(petId, key, val) {
     setPerPetExtras(prev => ({ ...prev, [petId]: { ...(prev[petId] || {}), [key]: val } }))
+  }
+
+  function handlePetPatch(petId, patch) {
+    setPerPetExtras(prev => ({ ...prev, [petId]: { ...(prev[petId] || {}), ...patch } }))
   }
 
   function setPetNote(petId, key, val) {
@@ -1083,7 +1088,7 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
             {['boarding', 'day_camp'].includes(serviceType) && selectedPetIds.length > 0 && (
               <div style={{ marginTop: '0.5rem' }}>
                 <p style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--muted)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Extras per pet</p>
-                {selectedPets.map(pet => (
+                {selectedPets.map((pet, petIdx) => (
                   <div key={pet.id} style={{ marginBottom: '0.75rem' }}>
                     <p style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text)', marginBottom: '0.35rem' }}>{pet.name}</p>
                     <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
@@ -1109,6 +1114,21 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
                         )
                       })()}
                     </div>
+                    <BoardingGroomingSection
+                      form={perPetExtras[pet.id] || {}}
+                      onChange={patch => handlePetPatch(pet.id, patch)}
+                      prices={groupedPrices}
+                      petsData={selectedPets}
+                      petIndex={petIdx}
+                      nights={nights}
+                    />
+                    <BoardingTrainingSection
+                      form={perPetExtras[pet.id] || {}}
+                      onChange={patch => handlePetPatch(pet.id, patch)}
+                      prices={groupedPrices}
+                      petsData={selectedPets}
+                      petIndex={petIdx}
+                    />
                   </div>
                 ))}
               </div>
