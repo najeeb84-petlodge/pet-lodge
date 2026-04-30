@@ -244,11 +244,19 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
   // ── 8. Email ─────────────────────────────────────────────────────────────────
   const [sendEmail, setSendEmail] = useState(true)
 
+  // ── 9. Initial payment recording ─────────────────────────────────────────────
+  const [recordPayment,    setRecordPayment]    = useState(false)
+  const [paymentAmount,    setPaymentAmount]    = useState('')
+  const [paymentMethod,    setPaymentMethod]    = useState('cash')
+  const [paymentReference, setPaymentReference] = useState('')
+  const [paymentNotes,     setPaymentNotes]     = useState('')
+
   // ── Form state ───────────────────────────────────────────────────────────────
   const [errors,      setErrors]      = useState({})
   const [submitting,  setSubmitting]  = useState(false)
   const [submitError, setSubmitError] = useState('')
   const [success,     setSuccess]     = useState(false)
+  const [successMsg,  setSuccessMsg]  = useState('')
 
   // ── New customer inline form ──────────────────────────────────────────────────
   const [newCustomerPanelOpen,  setNewCustomerPanelOpen]  = useState(false)
@@ -558,6 +566,11 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
     if (!checkOut)                         e.checkOut   = 'Required'
     if (!source)                           e.source     = 'Required'
     if (checkOut && checkIn && checkOut < checkIn) e.checkOut = 'Must be after check-in'
+    if (recordPayment) {
+      const amt = parseFloat(paymentAmount)
+      if (!paymentAmount || isNaN(amt) || amt <= 0) e.paymentAmount = 'Amount must be greater than 0'
+      if (!paymentMethod) e.paymentMethod = 'Required'
+    }
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -652,8 +665,9 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
         terms_accepted:      null,
       }
 
-      // INSERT with collision retry (same pattern as Step5Confirmation)
+      // INSERT with collision retry — return=representation to capture booking id for payment
       let ref = null
+      let newBookingId = null
       for (let attempt = 0; attempt < 3; attempt++) {
         const bookingRef = generateBookingRef()
         const res = await fetch(`${SUPABASE_URL}/rest/v1/bookings`, {
@@ -662,11 +676,16 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
             apikey:         SUPABASE_KEY,
             Authorization:  `Bearer ${token || SUPABASE_KEY}`,
             'Content-Type': 'application/json',
-            Prefer:         'return=minimal',
+            Prefer:         'return=representation',
           },
           body: JSON.stringify({ ...body, booking_ref: bookingRef }),
         })
-        if (res.ok) { ref = bookingRef; break }
+        if (res.ok) {
+          const rows = await res.json().catch(() => [])
+          newBookingId = Array.isArray(rows) ? rows[0]?.id : null
+          ref = bookingRef
+          break
+        }
         const err = await res.json().catch(() => ({}))
         const msg = JSON.stringify(err)
         if (!msg.includes('unique') && !msg.includes('duplicate')) {
@@ -674,6 +693,39 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
         }
       }
       if (!ref) throw new Error('Could not generate unique booking reference. Please try again.')
+
+      // Optional initial payment recording — never rolls back the booking on failure
+      let paymentSucceeded = false
+      let paymentErrMsg = null
+      if (recordPayment && newBookingId) {
+        try {
+          const payRes = await fetch(`${SUPABASE_URL}/rest/v1/payments`, {
+            method: 'POST',
+            headers: {
+              apikey:         SUPABASE_KEY,
+              Authorization:  `Bearer ${token || SUPABASE_KEY}`,
+              'Content-Type': 'application/json',
+              Prefer:         'return=minimal',
+            },
+            body: JSON.stringify({
+              booking_id:  newBookingId,
+              amount:      parseFloat(paymentAmount),
+              method:      paymentMethod,
+              reference:   paymentReference.trim() || null,
+              notes:       paymentNotes.trim() || null,
+              recorded_by: profile?.id || null,
+            }),
+          })
+          if (payRes.ok) {
+            paymentSucceeded = true
+          } else {
+            const payErr = await payRes.json().catch(() => ({}))
+            paymentErrMsg = payErr.message || payErr.error_description || `HTTP ${payRes.status}`
+          }
+        } catch (err) {
+          paymentErrMsg = err.message || 'Unexpected error'
+        }
+      }
 
       // Sync existing customer's profile — skip for new accounts (profile already fully created by edge function)
       if (selectedCustomer?.id && !isNewCustomer) {
@@ -686,6 +738,14 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
       }
 
       setSuccess(true)
+      if (recordPayment && paymentSucceeded) {
+        setSuccessMsg(`Booking created and payment of JD ${parseFloat(paymentAmount).toFixed(2)} recorded.`)
+      } else if (recordPayment && paymentErrMsg) {
+        setSuccessMsg('Booking created successfully!')
+        setSubmitError(`Booking created (#${ref}) but payment recording failed: ${paymentErrMsg}. You can record the payment from the booking detail view.`)
+      } else {
+        setSuccessMsg('Booking created successfully!')
+      }
 
       const customerName = `${customerFields.first_name} ${customerFields.last_name}`.trim()
       const petNames     = selectedPets.map(p => p.name)
@@ -1311,7 +1371,60 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
             )}
           </SectionBox>
 
-          {/* ══ Section 8: Email behaviour ══ */}
+          {/* ══ Section 8: Record initial payment (optional) ══ */}
+          <div style={{ border: '1px solid var(--border)', borderRadius: '0.75rem', marginBottom: '1rem', overflow: 'hidden' }}>
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer', padding: '0.875rem 1rem', background: recordPayment ? '#eef4e2' : 'white' }}>
+              <input type="checkbox" checked={recordPayment}
+                onChange={e => {
+                  setRecordPayment(e.target.checked)
+                  if (!e.target.checked) {
+                    setPaymentAmount(''); setPaymentMethod('cash')
+                    setPaymentReference(''); setPaymentNotes('')
+                    setErrors(prev => {
+                      const n = { ...prev }; delete n.paymentAmount; delete n.paymentMethod; return n
+                    })
+                  }
+                }}
+                style={{ width: '16px', height: '16px', accentColor: '#7aa63c', marginTop: '2px', flexShrink: 0 }} />
+              <div>
+                <p style={{ margin: 0, fontWeight: '600', fontSize: '0.875rem', color: 'var(--text)' }}>Record initial payment</p>
+                <p style={{ margin: '2px 0 0', fontSize: '0.72rem', color: 'var(--muted)' }}>Optionally log a payment received at the time of booking</p>
+              </div>
+            </label>
+
+            {recordPayment && (
+              <div style={{ padding: '0.75rem 1rem', borderTop: '1px solid var(--border)', background: '#fafaf8' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 0.75rem' }}>
+                  <FieldWrap label="Amount (JD)" required error={errors.paymentAmount}>
+                    <input style={inp} type="number" min="0" step="0.5" placeholder="0.00"
+                      value={paymentAmount}
+                      onChange={e => { setPaymentAmount(e.target.value); clearError('paymentAmount') }} />
+                  </FieldWrap>
+                  <FieldWrap label="Method" required error={errors.paymentMethod}>
+                    <select style={sel} value={paymentMethod}
+                      onChange={e => { setPaymentMethod(e.target.value); clearError('paymentMethod') }}>
+                      <option value="cash">Cash</option>
+                      <option value="card">Card</option>
+                      <option value="cliq">Cliq</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </FieldWrap>
+                  <FieldWrap label="Reference">
+                    <input style={inp} type="text" placeholder="e.g. cliq transaction ID, card receipt #"
+                      value={paymentReference}
+                      onChange={e => setPaymentReference(e.target.value)} />
+                  </FieldWrap>
+                  <FieldWrap label="Notes">
+                    <input style={inp} type="text" placeholder="Optional payment note"
+                      value={paymentNotes}
+                      onChange={e => setPaymentNotes(e.target.value)} />
+                  </FieldWrap>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ══ Section 9: Email behaviour ══ */}
           <div style={{ background: '#f0f7e6', border: '1px solid #a3d977', borderRadius: '0.75rem', padding: '0.875rem 1rem', marginBottom: '1rem' }}>
             <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
               <input type="checkbox" checked={sendEmail} onChange={e => setSendEmail(e.target.checked)}
@@ -1333,7 +1446,7 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
           {/* Success flash */}
           {success && (
             <div style={{ background: '#f0fdf4', border: '1px solid #86efac', color: '#166534', padding: '0.75rem', borderRadius: '0.5rem', fontSize: '0.875rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Check size={16} /> Booking created successfully!
+              <Check size={16} /> {successMsg || 'Booking created successfully!'}
             </div>
           )}
         </div>
