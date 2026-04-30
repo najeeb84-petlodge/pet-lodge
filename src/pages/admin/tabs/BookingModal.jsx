@@ -410,11 +410,23 @@ export default function BookingModal({ booking, onClose, onUpdated, isOwner }) {
   const serviceLabel = SERVICE_LABELS_MAP[b.service_type] || b.service_type || '—'
   const howHeardStr  = Array.isArray(b.how_heard) ? b.how_heard.join(', ') : (b.how_heard || '—')
 
-  const totalPaid  = payments.reduce((s, p) => s + parseFloat(p.amount || 0), 0)
-  const gross      = parseFloat(b.total_amount ?? b.total_price ?? 0)
-  const discount   = parseFloat(b.discount || 0)
-  const prepaid    = parseFloat(b.prepaid_amount || 0)
-  const amountDue  = Math.max(0, gross - discount - prepaid - totalPaid)
+  // Pricing surfaces — all three (ViewMode, ReceiptMode, email PDF) share these
+  // b.total_amount = post-discount; b.discount is not a real DB column.
+  // Correct source: service_details.line_items (pre-discount sum) and
+  // service_details.discount_amount / discount_type (stored as JD value + type tag).
+  const totalPaid      = payments.reduce((s, p) => s + parseFloat(p.amount || 0), 0)
+  const sdLineItems    = b.service_details?.line_items || []
+  const gross          = sdLineItems.length > 0
+    ? sdLineItems.reduce((s, li) => s + (parseFloat(li.amount) || 0), 0)
+    : parseFloat(b.total_amount ?? b.total_price ?? 0)
+  const sdDiscountAmt  = parseFloat(b.service_details?.discount_amount || 0)
+  const sdDiscountType = b.service_details?.discount_type || null  // 'jd' | 'pct' | null
+  const discount       = sdDiscountAmt
+  const discountLabel  = sdDiscountType === 'pct' && gross > 0
+    ? `Discount (${Math.round(sdDiscountAmt / gross * 100)}%)`
+    : 'Discount'
+  const prepaid        = parseFloat(b.prepaid_amount || 0)
+  const amountDue      = Math.max(0, gross - discount - prepaid - totalPaid)
 
   const fmtDate = d => { try { return d ? format(new Date(d), 'EEE, MMM d, yyyy') : null } catch { return null } }
   const fmtTs   = d => { try { return d ? format(new Date(d), 'MMM d, yyyy · h:mm a') : null } catch { return null } }
@@ -556,7 +568,7 @@ We look forward to welcoming ${joinedPetNames}!`
             </div>
             {discount > 0 && (
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', marginBottom: '0.3rem', color: '#dc2626' }}>
-                <span>Discount</span>
+                <span>{discountLabel}</span>
                 <span>− JD {discount.toFixed(2)}</span>
               </div>
             )}
@@ -1213,7 +1225,11 @@ We look forward to welcoming ${joinedPetNames}!`
     const receiptSubtotal = (Array.isArray(b.service_details?.line_items) && b.service_details.line_items.length > 0)
       ? b.service_details.line_items.reduce((s, li) => s + (parseFloat(li.amount) || 0), 0)
       : total
-    const receiptDiscount = parseFloat(b.discount || 0)
+    // discount_amount is stored as a JD value (not percentage) regardless of discount_type
+    const receiptDiscount      = sdDiscountAmt
+    const receiptDiscountLabel = sdDiscountType === 'pct' && receiptSubtotal > 0
+      ? `Discount (${Math.round(sdDiscountAmt / receiptSubtotal * 100)}%)`
+      : 'Discount'
     // Sum all recorded payments (payments table has no status column — count every record)
     const receiptTotalPaid = payments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0)
                            + parseFloat(b.prepaid_amount || 0)
@@ -1362,7 +1378,7 @@ We look forward to welcoming ${joinedPetNames}!`
             </div>
             {receiptDiscount > 0 && (
               <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '4px 0' }}>
-                <span style={{ fontSize: '13px', color: '#dc2626', marginRight: '24px' }}>Discount</span>
+                <span style={{ fontSize: '13px', color: '#dc2626', marginRight: '24px' }}>{receiptDiscountLabel}</span>
                 <span style={{ fontSize: '13px', color: '#dc2626', minWidth: '80px', textAlign: 'right' }}>– JD {fmtAmt(receiptDiscount)}</span>
               </div>
             )}
