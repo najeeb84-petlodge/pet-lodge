@@ -37,7 +37,7 @@ function getGroomingStandalonePrice(prices, slug, petType) {
   const slugify = (n) => (n || '').toLowerCase().replace(/\s+/g, '_')
   const matches = rows.filter(r => slugify(r.name) === slug)
   const exact = matches.find(r => r.pet_type === petType) || matches.find(r => r.pet_type === 'all')
-  return parseFloat((exact || matches[0])?.price ?? GROOMING_STANDALONE_FALLBACKS[slug]?.[petType] ?? 0)
+  return parseFloat(exact?.price ?? GROOMING_STANDALONE_FALLBACKS[slug]?.[petType] ?? 0)
 }
 
 const TRANSPORT_OPTIONS = [
@@ -103,7 +103,9 @@ export function computeLineItems(serviceType, perPetForms, serviceOptions, price
           const allTRows = prices.training_addon || []
           const trainingAddonId = pf.trainingAddonId
           const selectedRow = allTRows.find(r => r.id === trainingAddonId)
-            || (pf.trainingSessions > 0 ? allTRows[0] : null)
+            || (pf.trainingSessions > 0
+                ? (allTRows.find(r => !(r.name || '').toLowerCase().includes('bundle')) || allTRows[0])
+                : null)
           if (selectedRow) {
             const isBundle = (selectedRow.name || '').toLowerCase().includes('bundle')
             const goalsNote = pf.trainingGoals ? ` — "${pf.trainingGoals.slice(0, 40)}"` : ''
@@ -151,7 +153,9 @@ export function computeLineItems(serviceType, perPetForms, serviceOptions, price
           const allTRows = prices.training_addon || []
           const trainingAddonId = pf.trainingAddonId
           const selectedRow = allTRows.find(r => r.id === trainingAddonId)
-            || (pf.trainingSessions > 0 ? allTRows[0] : null)
+            || (pf.trainingSessions > 0
+                ? (allTRows.find(r => !(r.name || '').toLowerCase().includes('bundle')) || allTRows[0])
+                : null)
           if (selectedRow) {
             const isBundle = (selectedRow.name || '').toLowerCase().includes('bundle')
             const goalsNote = pf.trainingGoals ? ` — "${pf.trainingGoals.slice(0, 40)}"` : ''
@@ -225,7 +229,9 @@ export function computeLineItems(serviceType, perPetForms, serviceOptions, price
       const allTRows = prices.training || []
       const trainingId = pf.trainingId
       const selectedRow = allTRows.find(r => r.id === trainingId)
-        || (pf.sessionCount > 0 ? allTRows[0] : null)
+        || (pf.sessionCount > 0
+            ? (allTRows.find(r => !(r.name || '').toLowerCase().includes('bundle')) || allTRows[0])
+            : null)
       if (!selectedRow) return []
       const isBundle = (selectedRow.name || '').toLowerCase().includes('bundle')
       const goalsNote = pf.trainingGoals ? ` — "${pf.trainingGoals.slice(0, 40)}"` : ''
