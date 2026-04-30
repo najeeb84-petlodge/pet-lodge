@@ -314,6 +314,9 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
       .finally(() => setPetsLoading(false))
   }, [selectedCustomer])
 
+  // groupedPrices must be declared before the useEffect that lists it as a dependency
+  const groupedPrices = useMemo(() => groupPrices(allServices), [allServices])
+
   // ── Auto-compute line items ───────────────────────────────────────────────────
   useEffect(() => {
     if (!serviceType || !allServices.length) { setLineItems([]); return }
@@ -369,7 +372,6 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
     : subtotal * ((parseFloat(discountValue) || 0) / 100)
   const finalTotal    = Math.max(0, subtotal - discountAmt)
   const selectedPets  = customerPets.filter(p => selectedPetIds.includes(p.id))
-  const groupedPrices = useMemo(() => groupPrices(allServices), [allServices])
 
   // Packages for selected service type (exclude add-on categories)
   const ADDON_CATS = ['grooming_addon', 'training_addon']
