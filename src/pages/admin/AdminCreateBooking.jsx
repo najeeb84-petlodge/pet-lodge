@@ -173,7 +173,7 @@ function SectionBox({ title, yellow, children }) {
 
 function FieldWrap({ label, required, error, children }) {
   return (
-    <div style={{ marginBottom: '0.75rem' }}>
+    <div style={{ marginBottom: '0.75rem' }} {...(error ? { 'data-field-error': 'true' } : {})}>
       <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '600', color: 'var(--muted)', marginBottom: '0.25rem' }}>
         {label}{required && <span style={{ color: '#ef4444', marginLeft: '2px' }}>*</span>}
       </label>
@@ -399,14 +399,25 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
     setInviteLink(null)
   }
 
+  function clearError(key) {
+    setErrors(prev => {
+      if (!prev[key]) return prev
+      const next = { ...prev }
+      delete next[key]
+      return next
+    })
+  }
+
   function setField(key, val) {
     setCustomerFields(f => ({ ...f, [key]: val }))
+    clearError(key)
   }
 
   function togglePet(petId) {
     setSelectedPetIds(prev =>
       prev.includes(petId) ? prev.filter(id => id !== petId) : [...prev, petId]
     )
+    clearError('pets')
   }
 
   function setExtra(petId, key, val) {
@@ -534,9 +545,11 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
 
   function validate() {
     const e = {}
+    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!customerFields.first_name.trim()) e.first_name = 'Required'
     if (!customerFields.last_name.trim())  e.last_name  = 'Required'
-    if (!customerFields.email.trim())      e.email      = 'Required'
+    if (!customerFields.email.trim())      e.email = 'Required'
+    else if (!emailRe.test(customerFields.email.trim())) e.email = 'Enter a valid email'
     if (!customerFields.phone.trim())      e.phone      = 'Required'
     if (selectedPetIds.length === 0)       e.pets       = 'Select at least one pet'
     if (!serviceType)                      e.serviceType = 'Required'
@@ -887,10 +900,8 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 0.75rem' }}>
               <FieldWrap label="First name" required error={errors.first_name}>
-                <div data-field-error={errors.first_name ? 'true' : undefined}>
-                  <input style={{ ...inp, ...autofillStyle(isAutofilled) }} value={customerFields.first_name}
-                    onChange={e => setField('first_name', e.target.value)} />
-                </div>
+                <input style={{ ...inp, ...autofillStyle(isAutofilled) }} value={customerFields.first_name}
+                  onChange={e => setField('first_name', e.target.value)} />
               </FieldWrap>
               <FieldWrap label="Last name" required error={errors.last_name}>
                 <input style={{ ...inp, ...autofillStyle(isAutofilled) }} value={customerFields.last_name}
@@ -1049,19 +1060,19 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
           {/* ══ Section 3: Booking details ══ */}
           <SectionBox title="3 · Booking details">
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 0.75rem' }}>
-              <FieldWrap label="Service" required error={errors.serviceType} style={{ gridColumn: '1 / -1' }}>
-                <select style={sel} value={serviceType} onChange={e => { setServiceType(e.target.value); setServicePackageId('') }}>
+              <FieldWrap label="Service" required error={errors.serviceType}>
+                <select style={sel} value={serviceType} onChange={e => { setServiceType(e.target.value); setServicePackageId(''); clearError('serviceType'); clearError('servicePackageId') }}>
                   <option value="">Select service type...</option>
                   {SERVICE_TYPES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                 </select>
               </FieldWrap>
 
               {serviceType && (
-                <div style={{ gridColumn: '1 / -1', marginBottom: '0.75rem' }}>
+                <div style={{ gridColumn: '1 / -1', marginBottom: '0.75rem' }} {...(errors.servicePackageId ? { 'data-field-error': 'true' } : {})}>
                   <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '600', color: 'var(--muted)', marginBottom: '0.25rem' }}>
                     Package <span style={{ color: '#ef4444', marginLeft: '2px' }}>*</span>
                   </label>
-                  <select style={sel} value={servicePackageId} onChange={e => setServicePackageId(e.target.value)}>
+                  <select style={sel} value={servicePackageId} onChange={e => { setServicePackageId(e.target.value); clearError('servicePackageId') }}>
                     <option value="">Select package...</option>
                     {packages.map(p => (
                       <option key={p.id} value={p.id}>{p.name}{p.price ? ` — JD ${parseFloat(p.price).toFixed(2)}` : ''}</option>
@@ -1072,10 +1083,10 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
               )}
 
               <FieldWrap label="Check-in date" required error={errors.checkIn}>
-                <input style={inp} type="date" value={checkIn} onChange={e => setCheckIn(e.target.value)} />
+                <input style={inp} type="date" value={checkIn} onChange={e => { setCheckIn(e.target.value); clearError('checkIn') }} />
               </FieldWrap>
               <FieldWrap label="Check-out date" required error={errors.checkOut}>
-                <input style={inp} type="date" value={checkOut} onChange={e => setCheckOut(e.target.value)} min={checkIn} />
+                <input style={inp} type="date" value={checkOut} onChange={e => { setCheckOut(e.target.value); clearError('checkOut') }} min={checkIn} />
               </FieldWrap>
             </div>
 
