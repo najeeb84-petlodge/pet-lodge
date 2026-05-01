@@ -260,7 +260,8 @@ export default function Login() {
             <Link to="/signup" style={{ color:'var(--accent)', fontWeight:'600' }}>Sign up</Link>
           </p>
 
-          {/* Guest booking */}
+          {/* Guest path hidden — RLS blocks guest booking INSERT. See backlog item: Guest booking flow */}
+          {/*
           <div style={{ marginTop:'1.5rem', borderTop:'1px solid #e2e8d9', paddingTop:'1.5rem' }}>
             {!showGuest ? (
               <p style={{ textAlign:'center', fontSize:'0.8rem', color:'var(--muted)' }}>
@@ -305,6 +306,7 @@ export default function Login() {
               </div>
             )}
           </div>
+          */}
 
         </div>
       </div>
