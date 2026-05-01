@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { CalendarPlus, PawPrint, ClipboardList, User, LogOut, Pencil, X, Check, Loader2 } from 'lucide-react'
+import { CalendarPlus, PawPrint, ClipboardList, User, LogOut, Pencil, X, Check, Loader2, Lock } from 'lucide-react'
 import TopNav from '../../components/TopNav'
+import ChangePasswordModal from '../../components/ChangePasswordModal'
 import { useAuth } from '../../contexts/AuthContext'
 import { SUPABASE_URL, SUPABASE_KEY, getAccessToken } from '../../lib/supabase'
 
@@ -45,6 +46,7 @@ export default function CustomerDashboard() {
   const [editForm, setEditForm]         = useState({})
   const [saving, setSaving]             = useState(false)
   const [saveError, setSaveError]       = useState('')
+  const [showChangePassword, setShowChangePassword] = useState(false)
 
   // Use first_name from the fetched profile only — avoids showing email username
   const firstName = fullProfile?.first_name || ''
@@ -261,9 +263,14 @@ export default function CustomerDashboard() {
                 <span className="font-medium text-sm" style={{ color: 'var(--text)' }}>Profile Information</span>
               </div>
               {!editing ? (
-                <button onClick={startEdit} className="btn-secondary text-xs flex items-center gap-1.5">
-                  <Pencil size={12} /> Edit Profile
-                </button>
+                <div className="flex items-center gap-2">
+                  <button onClick={startEdit} className="btn-secondary text-xs flex items-center gap-1.5">
+                    <Pencil size={12} /> Edit Profile
+                  </button>
+                  <button onClick={() => setShowChangePassword(true)} className="btn-secondary text-xs flex items-center gap-1.5">
+                    <Lock size={12} /> Change Password
+                  </button>
+                </div>
               ) : (
                 <div className="flex items-center gap-2">
                   <button onClick={saveEdit} disabled={saving} className="btn-primary text-xs flex items-center gap-1.5">
@@ -316,6 +323,13 @@ export default function CustomerDashboard() {
         </div>
 
       </div>
+
+      {showChangePassword && (
+        <ChangePasswordModal
+          userEmail={profile?.email}
+          onClose={() => setShowChangePassword(false)}
+        />
+      )}
     </div>
   )
 }
