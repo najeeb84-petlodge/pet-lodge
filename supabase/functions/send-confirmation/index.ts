@@ -4,7 +4,8 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-const LOGO_URL = 'https://pet-lodge.vercel.app/logo-email.jpg'
+const SUPABASE_URL = 'https://qcwbkpcwtxpokgseethp.supabase.co'
+const LOGO_URL     = 'https://pet-lodge.vercel.app/logo-email.jpg'
 
 interface EmailPayload {
   bookingRef:           string
@@ -208,14 +209,25 @@ Deno.serve(async (req: Request) => {
     })
   }
 
-  // Auth check temporarily disabled for debugging
-  // const authHeader = req.headers.get('Authorization') || ''
-  // if (!authHeader.startsWith('Bearer ')) {
-  //   return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-  //     status: 401,
-  //     headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-  //   })
-  // }
+  // Verify auth token
+  const authHeader = req.headers.get('Authorization') || ''
+  const token = authHeader.replace(/^Bearer\s+/i, '')
+  if (!token) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    })
+  }
+
+  const userRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    headers: { Authorization: `Bearer ${token}`, apikey: Deno.env.get('SUPABASE_ANON_KEY') ?? '' },
+  })
+  if (!userRes.ok) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    })
+  }
 
   let payload: Partial<EmailPayload>
   try {
