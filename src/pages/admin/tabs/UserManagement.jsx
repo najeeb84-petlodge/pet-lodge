@@ -3,6 +3,7 @@ import { dbQuery } from '../../../lib/supabase'
 import { Loader2, Download } from 'lucide-react'
 import { useAuth } from '../../../contexts/AuthContext'
 import { format } from 'date-fns'
+import { resendWelcome } from '../../../utils/resendWelcome'
 
 const ROLE_BADGE = {
   super_admin: { bg:'#d1fae5', color:'#065f46', label:'⊙ Super Admin' },
@@ -24,6 +25,8 @@ export default function UserManagement({ isSuperAdmin }) {
   // Customer Base state
   const [customers,        setCustomers]        = useState([])
   const [customersLoading, setCustomersLoading] = useState(true)
+  const [actionLoading,    setActionLoading]    = useState(null) // email of row in-flight
+  const [actionSuccess,    setActionSuccess]    = useState('')
 
   async function fetchUsers() {
     setLoading(true)
@@ -107,6 +110,20 @@ export default function UserManagement({ isSuperAdmin }) {
     setUsers(prev => prev.map(u => u.id === id ? { ...u, role } : u))
   }
 
+  async function handleResendWelcome(email, firstName) {
+    setActionLoading(email)
+    setError('')
+    try {
+      await resendWelcome({ email, firstName: firstName || '' })
+      setActionSuccess('Welcome email sent successfully.')
+      setTimeout(() => setActionSuccess(''), 3000)
+    } catch (e) {
+      setError(e?.message || 'Failed to send welcome email.')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
   return (
     <div className="space-y-6">
     <div className="card">
@@ -119,6 +136,11 @@ export default function UserManagement({ isSuperAdmin }) {
       {error && (
         <div style={{ background:'#fee2e2', border:'1px solid #fca5a5', color:'#991b1b', padding:'0.75rem', borderRadius:'0.5rem', fontSize:'0.875rem', marginBottom:'1rem' }}>
           {error}
+        </div>
+      )}
+      {actionSuccess && (
+        <div style={{ background:'#dcfce7', border:'1px solid #86efac', color:'#166534', padding:'0.75rem', borderRadius:'0.5rem', fontSize:'0.875rem', marginBottom:'1rem' }}>
+          {actionSuccess}
         </div>
       )}
 
@@ -263,9 +285,18 @@ export default function UserManagement({ isSuperAdmin }) {
                   </td>
                   <td style={{ padding: '0.75rem' }}>
                     <button
-                      style={{ fontSize: '0.75rem', padding: '2px 10px', borderRadius: '4px', border: '1px solid var(--border)', color: 'var(--primary)', background: 'white', cursor: 'pointer' }}
+                      onClick={() => handleResendWelcome(c.email, c.first_name)}
+                      disabled={actionLoading === c.email}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '4px',
+                        fontSize: '0.75rem', padding: '2px 10px', borderRadius: '4px',
+                        border: '1px solid #a7f3d0', color: '#065f46', background: 'white',
+                        cursor: actionLoading === c.email ? 'default' : 'pointer',
+                        opacity: actionLoading === c.email ? 0.7 : 1,
+                      }}
                     >
-                      View
+                      {actionLoading === c.email && <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} />}
+                      Resend welcome
                     </button>
                   </td>
                 </tr>
