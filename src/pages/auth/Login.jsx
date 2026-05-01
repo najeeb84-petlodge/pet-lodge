@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Mail, Lock, Loader2, ArrowRight, Eye, EyeOff } from 'lucide-react'
 import Footer from '../../components/Footer'
+import ForgotPasswordModal from '../../components/ForgotPasswordModal'
 
 const SUPABASE_URL = 'https://qcwbkpcwtxpokgseethp.supabase.co'
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjd2JrcGN3dHhwb2tnc2VldGhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzNDA1MDMsImV4cCI6MjA4OTkxNjUwM30.8kV-I-9skyBk8wlELT3Ft6j2iBCOtKuoYF7wXbcMZFU'
@@ -35,9 +36,10 @@ export default function Login() {
   const [error, setError]         = useState('')
   const [mode, setMode]           = useState('password') // 'password' | 'magic'
   const [magicSent, setMagicSent] = useState(false)
-  const [guestEmail, setGuestEmail]   = useState('')
-  const [showGuest, setShowGuest]     = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
+  const [guestEmail, setGuestEmail]         = useState('')
+  const [showGuest, setShowGuest]           = useState(false)
+  const [showPassword, setShowPassword]     = useState(false)
+  const [showForgotPassword, setShowForgotPassword] = useState(false)
 
   function handleGoogle() {
     window.location.href = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(CALLBACK_URL)}`
@@ -213,6 +215,14 @@ export default function Login() {
                     </button>
                   </div>
                 </div>
+                <div style={{ textAlign: 'right', marginTop: '-0.25rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotPassword(true)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--muted)', textDecoration: 'underline', padding: 0 }}>
+                    Forgot password?
+                  </button>
+                </div>
                 <button type="submit" disabled={loading} className="btn-primary" style={{ justifyContent:'center', padding:'0.625rem', fontSize:'0.9rem' }}>
                   {loading && <Loader2 size={17} style={{ animation:'spin 1s linear infinite' }}/>}
                   Sign In
@@ -322,6 +332,10 @@ export default function Login() {
       `}</style>
       </div>
       <Footer />
+
+      {showForgotPassword && (
+        <ForgotPasswordModal onClose={() => setShowForgotPassword(false)} />
+      )}
     </div>
   )
 }

@@ -143,11 +143,7 @@ export default function ChangePasswordModal({ onClose, userEmail }) {
             Change Password
           </h2>
           <p style={{ margin: '0 0 24px', fontSize: '0.875rem', color: '#6b7280', textAlign: 'center', lineHeight: 1.6 }}>
-            Your account uses Google Sign-In and doesn&apos;t have a password set. Contact us at{' '}
-            <a href="mailto:info@petlodgejo.com" style={{ color: '#5a7a2e', fontWeight: '600', textDecoration: 'underline' }}>
-              info@petlodgejo.com
-            </a>
-            {' '}if you&apos;d like to add one.
+            Your account uses Google Sign-In and doesn&apos;t have a password set. To add one, sign out and use the &ldquo;Forgot password?&rdquo; link on the sign-in page.
           </p>
           <button
             type="button"
