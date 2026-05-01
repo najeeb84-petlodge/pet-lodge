@@ -181,7 +181,6 @@ Deno.serve(async (req: Request) => {
     html:     buildHtml(receiptPayload),
     headers: {
       'X-Entity-Ref-ID': bookingRef,
-      'Precedence': 'bulk',
     },
   }
 
