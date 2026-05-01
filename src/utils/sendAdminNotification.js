@@ -29,9 +29,14 @@
  */
 export async function sendAdminNotification(data) {
   try {
+    const session = JSON.parse(localStorage.getItem('sb-qcwbkpcwtxpokgseethp-auth-token') || 'null')
+    const token   = session?.access_token
     const res = await fetch('https://qcwbkpcwtxpokgseethp.supabase.co/functions/v1/send-admin-notification', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify(data),
     })
 

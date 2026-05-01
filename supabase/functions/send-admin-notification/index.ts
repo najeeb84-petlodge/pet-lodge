@@ -4,6 +4,7 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
+const SUPABASE_URL    = 'https://qcwbkpcwtxpokgseethp.supabase.co'
 const LOGO_URL        = 'https://pet-lodge.vercel.app/logo-email.jpg'
 const ADMIN_EMAIL     = 'pet.lodge.jo@gmail.com'
 const DASHBOARD_BASE  = 'https://booking.petlodgejo.com/admin/dashboard'
@@ -300,6 +301,26 @@ Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    })
+  }
+
+  // Verify auth token
+  const authHeader = req.headers.get('Authorization') || ''
+  const token = authHeader.replace(/^Bearer\s+/i, '')
+  if (!token) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    })
+  }
+
+  const userRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    headers: { Authorization: `Bearer ${token}`, apikey: Deno.env.get('SUPABASE_ANON_KEY') ?? '' },
+  })
+  if (!userRes.ok) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     })
   }
