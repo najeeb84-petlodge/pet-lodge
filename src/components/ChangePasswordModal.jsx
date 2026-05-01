@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Eye, EyeOff } from 'lucide-react'
 import { SUPABASE_URL, SUPABASE_KEY, getAccessToken } from '../lib/supabase'
 
 const LS_KEY = 'sb-qcwbkpcwtxpokgseethp-auth-token'
@@ -12,6 +12,9 @@ export default function ChangePasswordModal({ onClose, userEmail }) {
   const [loading,          setLoading]           = useState(false)
   const [error,            setError]             = useState('')
   const [success,          setSuccess]           = useState(false)
+  const [showCurrent,      setShowCurrent]       = useState(false)
+  const [showNew,          setShowNew]           = useState(false)
+  const [showConfirmPw,    setShowConfirmPw]     = useState(false)
 
   useEffect(() => {
     try {
@@ -201,39 +204,57 @@ export default function ChangePasswordModal({ onClose, userEmail }) {
           <label style={labelStyle}>
             Current password <span style={{ color: '#ef4444' }}>*</span>
           </label>
-          <input
-            style={{ ...inputStyle, ...(loading ? { opacity: 0.6 } : {}) }}
-            type="password"
-            value={currentPassword}
-            onChange={e => { setCurrentPassword(e.target.value); setError('') }}
-            placeholder="Enter your current password"
-            disabled={loading}
-            autoFocus
-          />
+          <div style={{ position: 'relative' }}>
+            <input
+              style={{ ...inputStyle, paddingRight: '2.5rem', ...(loading ? { opacity: 0.6 } : {}) }}
+              type={showCurrent ? 'text' : 'password'}
+              value={currentPassword}
+              onChange={e => { setCurrentPassword(e.target.value); setError('') }}
+              placeholder="Enter your current password"
+              disabled={loading}
+              autoFocus
+            />
+            <button type="button" onClick={() => setShowCurrent(v => !v)} tabIndex={-1}
+              style={{ position:'absolute', right:'10px', top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', padding:'2px', color:'#9ca3af', display:'flex', alignItems:'center' }}>
+              {showCurrent ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
 
           <label style={labelStyle}>
             New password <span style={{ color: '#ef4444' }}>*</span>
           </label>
-          <input
-            style={{ ...inputStyle, ...(loading ? { opacity: 0.6 } : {}) }}
-            type="password"
-            value={newPassword}
-            onChange={e => { setNewPassword(e.target.value); setError('') }}
-            placeholder="At least 8 characters"
-            disabled={loading}
-          />
+          <div style={{ position: 'relative' }}>
+            <input
+              style={{ ...inputStyle, paddingRight: '2.5rem', ...(loading ? { opacity: 0.6 } : {}) }}
+              type={showNew ? 'text' : 'password'}
+              value={newPassword}
+              onChange={e => { setNewPassword(e.target.value); setError('') }}
+              placeholder="At least 8 characters"
+              disabled={loading}
+            />
+            <button type="button" onClick={() => setShowNew(v => !v)} tabIndex={-1}
+              style={{ position:'absolute', right:'10px', top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', padding:'2px', color:'#9ca3af', display:'flex', alignItems:'center' }}>
+              {showNew ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
 
           <label style={labelStyle}>
             Confirm new password <span style={{ color: '#ef4444' }}>*</span>
           </label>
-          <input
-            style={{ ...inputStyle, ...(loading ? { opacity: 0.6 } : {}) }}
-            type="password"
-            value={confirmPassword}
-            onChange={e => { setConfirmPassword(e.target.value); setError('') }}
-            placeholder="Repeat your new password"
-            disabled={loading}
-          />
+          <div style={{ position: 'relative' }}>
+            <input
+              style={{ ...inputStyle, paddingRight: '2.5rem', ...(loading ? { opacity: 0.6 } : {}) }}
+              type={showConfirmPw ? 'text' : 'password'}
+              value={confirmPassword}
+              onChange={e => { setConfirmPassword(e.target.value); setError('') }}
+              placeholder="Repeat your new password"
+              disabled={loading}
+            />
+            <button type="button" onClick={() => setShowConfirmPw(v => !v)} tabIndex={-1}
+              style={{ position:'absolute', right:'10px', top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', padding:'2px', color:'#9ca3af', display:'flex', alignItems:'center' }}>
+              {showConfirmPw ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
 
           <button
             type="submit"

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { Mail, Lock, User, Loader2 } from 'lucide-react'
+import { Mail, Lock, User, Loader2, Eye, EyeOff } from 'lucide-react'
 
 const SUPABASE_URL = 'https://qcwbkpcwtxpokgseethp.supabase.co'
 const CALLBACK_URL = 'https://pet-lodge.vercel.app/auth/callback'
@@ -26,6 +26,7 @@ export default function Signup() {
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState('')
   const [success, setSuccess]     = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   function handleGoogle() {
     window.location.href = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(CALLBACK_URL)}`
@@ -33,7 +34,7 @@ export default function Signup() {
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (password.length < 6) { setError('Password must be at least 6 characters'); return }
+    if (password.length < 8) { setError('Password must be at least 8 characters'); return }
     setError(''); setLoading(true)
     try {
       const { error } = await signUp(email, password, fullName)
@@ -118,8 +119,12 @@ export default function Signup() {
               <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
               <div className="relative">
                 <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
-                <input className="input pl-9" type="password" placeholder="Min 6 characters" value={password}
+                <input className="input pl-9 pr-9" type={showPassword ? 'text' : 'password'} placeholder="Min 8 characters" value={password}
                   onChange={e => setPassword(e.target.value)} required/>
+                <button type="button" onClick={() => setShowPassword(v => !v)} tabIndex={-1}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 bg-transparent border-none cursor-pointer p-0 flex items-center">
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
             </div>
             <button type="submit" disabled={loading} className="btn-primary w-full flex items-center justify-center gap-2 py-2.5">

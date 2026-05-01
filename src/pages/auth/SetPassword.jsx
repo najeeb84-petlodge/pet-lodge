@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Eye, EyeOff } from 'lucide-react'
 import { SUPABASE_URL, SUPABASE_KEY } from '../../lib/supabase'
 
 const LS_KEY = 'sb-qcwbkpcwtxpokgseethp-auth-token'
@@ -16,6 +17,8 @@ export default function SetPassword() {
   const [saving,       setSaving]       = useState(false)
   const [error,        setError]        = useState('')
   const [done,         setDone]         = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirm,  setShowConfirm]  = useState(false)
 
   useEffect(() => {
     const hash   = window.location.hash.slice(1)
@@ -201,25 +204,37 @@ export default function SetPassword() {
           <label style={labelStyle}>
             New password<span style={{ color: '#ef4444' }}> *</span>
           </label>
-          <input
-            style={inputStyle}
-            type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            placeholder="At least 8 characters"
-            autoFocus
-          />
+          <div style={{ position: 'relative' }}>
+            <input
+              style={{ ...inputStyle, paddingRight: '2.5rem' }}
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder="At least 8 characters"
+              autoFocus
+            />
+            <button type="button" onClick={() => setShowPassword(v => !v)} tabIndex={-1}
+              style={{ position:'absolute', right:'10px', top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', padding:'2px', color:'#9ca3af', display:'flex', alignItems:'center' }}>
+              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
 
           <label style={labelStyle}>
             Confirm password<span style={{ color: '#ef4444' }}> *</span>
           </label>
-          <input
-            style={inputStyle}
-            type="password"
-            value={confirm}
-            onChange={e => setConfirm(e.target.value)}
-            placeholder="Repeat your password"
-          />
+          <div style={{ position: 'relative' }}>
+            <input
+              style={{ ...inputStyle, paddingRight: '2.5rem' }}
+              type={showConfirm ? 'text' : 'password'}
+              value={confirm}
+              onChange={e => setConfirm(e.target.value)}
+              placeholder="Repeat your password"
+            />
+            <button type="button" onClick={() => setShowConfirm(v => !v)} tabIndex={-1}
+              style={{ position:'absolute', right:'10px', top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', padding:'2px', color:'#9ca3af', display:'flex', alignItems:'center' }}>
+              {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
 
           <button type="submit" disabled={saving}
             style={{

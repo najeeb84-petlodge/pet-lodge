@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Mail, Lock, Loader2, ArrowRight } from 'lucide-react'
+import { Mail, Lock, Loader2, ArrowRight, Eye, EyeOff } from 'lucide-react'
 import Footer from '../../components/Footer'
 
 const SUPABASE_URL = 'https://qcwbkpcwtxpokgseethp.supabase.co'
@@ -35,8 +35,9 @@ export default function Login() {
   const [error, setError]         = useState('')
   const [mode, setMode]           = useState('password') // 'password' | 'magic'
   const [magicSent, setMagicSent] = useState(false)
-  const [guestEmail, setGuestEmail] = useState('')
-  const [showGuest, setShowGuest]   = useState(false)
+  const [guestEmail, setGuestEmail]   = useState('')
+  const [showGuest, setShowGuest]     = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   function handleGoogle() {
     window.location.href = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(CALLBACK_URL)}`
@@ -204,8 +205,12 @@ export default function Login() {
                   <label style={{ display:'block', fontSize:'0.875rem', fontWeight:'500', color:'var(--text)', marginBottom:'0.25rem' }}>Password</label>
                   <div style={{ position:'relative' }}>
                     <Lock size={15} style={{ position:'absolute', left:'12px', top:'50%', transform:'translateY(-50%)', color:'var(--muted)' }}/>
-                    <input className="input" style={{ paddingLeft:'2.25rem' }} type="password" placeholder="••••••••"
+                    <input className="input" style={{ paddingLeft:'2.25rem', paddingRight:'2.25rem' }} type={showPassword ? 'text' : 'password'} placeholder="••••••••"
                       value={password} onChange={e => setPassword(e.target.value)} required/>
+                    <button type="button" onClick={() => setShowPassword(v => !v)} tabIndex={-1}
+                      style={{ position:'absolute', right:'10px', top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', padding:'2px', color:'#9ca3af', display:'flex', alignItems:'center' }}>
+                      {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
                   </div>
                 </div>
                 <button type="submit" disabled={loading} className="btn-primary" style={{ justifyContent:'center', padding:'0.625rem', fontSize:'0.9rem' }}>
