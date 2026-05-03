@@ -159,8 +159,7 @@ export default function BookingDetail() {
   const total        = parseFloat(b.total_amount ?? 0)
 
   // ── Payments ───────────────────────────────────────────────────────────────
-  const prepaid      = parseFloat(b.prepaid_amount || 0)
-  const totalPaid    = payments.reduce((s, p) => s + parseFloat(p.amount || 0), 0) + prepaid
+  const totalPaid    = payments.reduce((s, p) => s + parseFloat(p.amount || 0), 0)
   const balanceDue   = Math.max(0, total - totalPaid)
   const paymentBadge = balanceDue <= 0 && totalPaid > 0
     ? { label: 'Paid in full',    bg: '#d1fae5', color: '#065f46' }
@@ -184,9 +183,6 @@ export default function BookingDetail() {
     if (pp.walkerNotes)   notes.push({ label: `Walker notes (${n})`,   text: pp.walkerNotes })
     if (pp.trainingGoals) notes.push({ label: `Training goals (${n})`, text: pp.trainingGoals })
   })
-
-  // ── Transport ──────────────────────────────────────────────────────────────
-  const hasTransport = b.pickup_required || b.dropoff_required || parseFloat(b.transport_fee || 0) > 0
 
   return (
     <div className="min-h-screen" style={{ background: '#f8f9f6' }}>
@@ -338,17 +334,10 @@ export default function BookingDetail() {
             </span>
           </div>
 
-          {payments.length === 0 && !prepaid ? (
+          {payments.length === 0 ? (
             <p className="text-sm mb-3" style={{ color: 'var(--muted)' }}>No payments recorded yet.</p>
           ) : (
             <div className="space-y-1 mb-3">
-              {prepaid > 0 && (
-                <div className="flex justify-between items-center text-sm py-1"
-                  style={{ borderBottom: '1px solid var(--border)' }}>
-                  <span style={{ color: 'var(--muted)' }}>Deposit / Prepaid</span>
-                  <span className="font-semibold">JD {fmtAmt(prepaid)}</span>
-                </div>
-              )}
               {payments.map((p, i) => (
                 <div key={i} className="flex justify-between items-center text-sm py-1"
                   style={{ borderBottom: '1px solid var(--border)' }}>
@@ -391,43 +380,6 @@ export default function BookingDetail() {
             </div>
           )}
         </div>
-
-        {/* ── Transport (conditional) ── */}
-        {hasTransport && (
-          <div className="card mb-4">
-            <SectionTitle>Transport</SectionTitle>
-            <div className="space-y-1.5 text-sm">
-              {b.pickup_required && (
-                <div className="flex justify-between">
-                  <span style={{ color: 'var(--muted)' }}>Pickup</span>
-                  <span className="font-medium" style={{ color: 'var(--text)' }}>Required</span>
-                </div>
-              )}
-              {b.dropoff_required && (
-                <div className="flex justify-between">
-                  <span style={{ color: 'var(--muted)' }}>Drop-off</span>
-                  <span className="font-medium" style={{ color: 'var(--text)' }}>Required</span>
-                </div>
-              )}
-              {parseFloat(b.transport_fee || 0) > 0 && (
-                <div className="flex justify-between">
-                  <span style={{ color: 'var(--muted)' }}>Transport fee</span>
-                  <span className="font-medium" style={{ color: 'var(--text)' }}>
-                    JD {fmtAmt(b.transport_fee)}
-                  </span>
-                </div>
-              )}
-              {b.transport_notes && (
-                <div className="flex justify-between gap-4">
-                  <span style={{ color: 'var(--muted)', flexShrink: 0 }}>Notes</span>
-                  <span className="font-medium text-right" style={{ color: 'var(--text)' }}>
-                    {b.transport_notes}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
 
       </div>
     </div>
