@@ -947,34 +947,38 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
             </div>
 
             {/* Amber possible-match warning already handled by dropdown; show autofill tint note */}
-            {isAutofilled && (
-              <p style={{ fontSize: '0.72rem', color: '#5a7a2e', marginBottom: '0.75rem', marginTop: '-0.25rem' }}>
-                ✓ Fields autofilled from customer profile — you may edit below
-              </p>
-            )}
+            {!newCustomerPanelOpen && (
+              <>
+                {isAutofilled && (
+                  <p style={{ fontSize: '0.72rem', color: '#5a7a2e', marginBottom: '0.75rem', marginTop: '-0.25rem' }}>
+                    ✓ Fields autofilled from customer profile — you may edit below
+                  </p>
+                )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 0.75rem' }}>
-              <FieldWrap label="First name" required error={errors.first_name}>
-                <input style={{ ...inp, ...autofillStyle(isAutofilled) }} value={customerFields.first_name}
-                  onChange={e => setField('first_name', e.target.value)} />
-              </FieldWrap>
-              <FieldWrap label="Last name" required error={errors.last_name}>
-                <input style={{ ...inp, ...autofillStyle(isAutofilled) }} value={customerFields.last_name}
-                  onChange={e => setField('last_name', e.target.value)} />
-              </FieldWrap>
-              <FieldWrap label="Email" required error={errors.email}>
-                <input style={{ ...inp, ...autofillStyle(isAutofilled) }} type="email" value={customerFields.email}
-                  onChange={e => setField('email', e.target.value)} />
-              </FieldWrap>
-              <FieldWrap label="Phone" required error={errors.phone}>
-                <input style={{ ...inp, ...autofillStyle(isAutofilled) }} type="tel" value={customerFields.phone}
-                  onChange={e => setField('phone', e.target.value)} />
-              </FieldWrap>
-              <FieldWrap label="WhatsApp">
-                <input style={{ ...inp, ...autofillStyle(isAutofilled) }} type="tel" value={customerFields.whatsapp_number}
-                  onChange={e => setField('whatsapp_number', e.target.value)} />
-              </FieldWrap>
-            </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 0.75rem' }}>
+                  <FieldWrap label="First name" required error={errors.first_name}>
+                    <input style={{ ...inp, ...autofillStyle(isAutofilled) }} value={customerFields.first_name}
+                      onChange={e => setField('first_name', e.target.value)} />
+                  </FieldWrap>
+                  <FieldWrap label="Last name" required error={errors.last_name}>
+                    <input style={{ ...inp, ...autofillStyle(isAutofilled) }} value={customerFields.last_name}
+                      onChange={e => setField('last_name', e.target.value)} />
+                  </FieldWrap>
+                  <FieldWrap label="Email" required error={errors.email}>
+                    <input style={{ ...inp, ...autofillStyle(isAutofilled) }} type="email" value={customerFields.email}
+                      onChange={e => setField('email', e.target.value)} />
+                  </FieldWrap>
+                  <FieldWrap label="Phone" required error={errors.phone}>
+                    <input style={{ ...inp, ...autofillStyle(isAutofilled) }} type="tel" value={customerFields.phone}
+                      onChange={e => setField('phone', e.target.value)} />
+                  </FieldWrap>
+                  <FieldWrap label="WhatsApp">
+                    <input style={{ ...inp, ...autofillStyle(isAutofilled) }} type="tel" value={customerFields.whatsapp_number}
+                      onChange={e => setField('whatsapp_number', e.target.value)} />
+                  </FieldWrap>
+                </div>
+              </>
+            )}
           </SectionBox>
 
           {/* ══ Section 2: Pet selector ══ */}
@@ -1455,7 +1459,7 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
             <button onClick={onClose} style={{ padding: '8px 18px', borderRadius: '6px', border: '1px solid var(--border)', background: 'white', cursor: 'pointer', fontSize: '0.875rem', color: 'var(--text)' }}>
               Cancel
             </button>
-            <button onClick={handleSubmit} disabled={submitting || success}
+            <button onClick={handleSubmit} disabled={submitting || success || newCustomerPanelOpen}
               style={{ padding: '8px 20px', borderRadius: '6px', border: 'none', background: submitting || success ? '#9db899' : '#5a7a2e', color: 'white', cursor: submitting || success ? 'default' : 'pointer', fontSize: '0.875rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
               {submitting && <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />}
               {success ? 'Created ✓' : 'Create booking'}
