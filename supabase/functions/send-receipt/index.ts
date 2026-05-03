@@ -60,9 +60,19 @@ function buildHtml(p: ReceiptPayload): string {
           You can settle payment at any time via cash, card, or CliQ (0795535405 / Saleh Abdelhadi).
         </p>
 
-        <p style="margin:0 0 24px;font-size:14px;color:#374151;line-height:1.65;">
+        <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.65;">
           Please find your receipt attached. Let us know if you have any questions.
         </p>
+
+        <!-- View booking online -->
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;border-collapse:collapse;">
+          <tr>
+            <td align="center" style="padding:4px 0 8px;">
+              <a href="https://booking.petlodgejo.com/my-bookings/${p.bookingRef}" style="display:inline-block;background:#5a7a2e;color:#ffffff;text-decoration:none;padding:11px 28px;border-radius:6px;font-size:14px;font-weight:700;">View your booking online</a>
+              <p style="margin:8px 0 0;font-size:11px;color:#9ca3af;">Or copy this link: <a href="https://booking.petlodgejo.com/my-bookings/${p.bookingRef}" style="color:#5a7a2e;word-break:break-all;">https://booking.petlodgejo.com/my-bookings/${p.bookingRef}</a></p>
+            </td>
+          </tr>
+        </table>
 
         <p style="margin:0;font-size:14px;color:#374151;line-height:1.65;">
           Thank you for your trust — we really appreciate it.<br>
