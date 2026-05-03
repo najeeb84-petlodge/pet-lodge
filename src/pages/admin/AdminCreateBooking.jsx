@@ -589,11 +589,6 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
     try {
       const token = getAccessToken()
 
-      const medicationNotes = selectedPets
-        .map(p => perPetNotes[p.id]?.medication).filter(Boolean).join('; ') || null
-      const foodNotesCombined = selectedPets
-        .map(p => perPetNotes[p.id]?.food).filter(Boolean).join('; ') || null
-
       // Enrich pets_data with per-pet notes
       const petsData = selectedPets.map((p, i) => ({
         id:   p.id,
@@ -658,8 +653,6 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
         is_staff_booking:    true,
         additional_comments: additionalComments || null,
         admin_notes:         internalNote       || null,
-        medication_notes:    medicationNotes,
-        special_food_req:    foodNotesCombined,
         driver_comments:     driverComments     || null,
         vaccination_consent: null,
         condition_consent:   null,
