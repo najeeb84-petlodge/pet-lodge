@@ -11,6 +11,7 @@ import AdminDashboard  from './pages/admin/AdminDashboard'
 import CustomerDashboard from './pages/customer/CustomerDashboard'
 import MyPets          from './pages/customer/MyPets'
 import MyBookings      from './pages/customer/MyBookings'
+import BookingDetail  from './pages/customer/BookingDetail'
 import BookingWizard   from './pages/BookingWizard'
 import { WizardProvider } from './contexts/WizardContext'
 import PrivacyPolicy   from './pages/PrivacyPolicy'
@@ -46,6 +47,9 @@ export default function App() {
           } />
           <Route path="/my-bookings" element={
             <ProtectedRoute><MyBookings /></ProtectedRoute>
+          } />
+          <Route path="/my-bookings/:bookingRef" element={
+            <ProtectedRoute><BookingDetail /></ProtectedRoute>
           } />
           <Route path="/customer/bookings" element={
             <ProtectedRoute><MyBookings /></ProtectedRoute>

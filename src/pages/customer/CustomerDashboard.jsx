@@ -238,6 +238,13 @@ export default function CustomerDashboard() {
                       ? `${formatDate(b.start_date)}${b.end_date ? ` → ${formatDate(b.end_date)}` : ''}`
                       : '—'}
                   </p>
+                  {b.booking_ref && (
+                    <Link to={`/my-bookings/${b.booking_ref}`}
+                      className="text-xs font-medium mt-1 inline-block"
+                      style={{ color: 'var(--accent)' }}>
+                      View details →
+                    </Link>
+                  )}
                 </div>
               ))}
             </div>

@@ -226,14 +226,23 @@ export default function MyBookings() {
                     <p className="text-xs" style={{ color: 'var(--muted)' }}>
                       Submitted {formatDate(b.created_at)}
                     </p>
-                    {canRequest && openChangeId !== b.id && (
-                      <button
-                        onClick={() => setOpenChangeId(b.id)}
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
-                        style={{ background: 'var(--light)', border: '1px solid var(--border)', color: 'var(--primary)', cursor: 'pointer' }}>
-                        <Edit2 size={12} /> Request Change
-                      </button>
-                    )}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {b.booking_ref && (
+                        <Link to={`/my-bookings/${b.booking_ref}`}
+                          className="inline-flex items-center text-xs font-semibold px-3 py-1.5 rounded-lg"
+                          style={{ color: 'var(--accent)', background: 'var(--light)', border: '1px solid var(--border)', textDecoration: 'none' }}>
+                          View details →
+                        </Link>
+                      )}
+                      {canRequest && openChangeId !== b.id && (
+                        <button
+                          onClick={() => setOpenChangeId(b.id)}
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
+                          style={{ background: 'var(--light)', border: '1px solid var(--border)', color: 'var(--primary)', cursor: 'pointer' }}>
+                          <Edit2 size={12} /> Request Change
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {openChangeId === b.id && (
