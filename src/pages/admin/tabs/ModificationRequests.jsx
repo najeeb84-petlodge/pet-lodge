@@ -44,7 +44,7 @@ export default function ModificationRequests({ isOwner }) {
     setLoading(true)
     setError(null)
     const { data, error: err } = await restFetch(
-      'modification_requests?select=*&order=created_at.desc'
+      'modification_requests?select=*,bookings(booking_ref,customer_first_name,customer_last_name)&order=created_at.desc'
     )
     if (err) { setError(err); setLoading(false); return }
     console.log('[ModReqs] rows:', data)
@@ -93,11 +93,11 @@ export default function ModificationRequests({ isOwner }) {
               <div className="flex items-start justify-between mb-3">
                 <div>
                   <p className="font-semibold text-sm">
-                    Booking #{r.booking_ref || r.booking_id?.slice(0, 8) || '—'}
+                    Booking #{r.bookings?.booking_ref || r.booking_id?.slice(0, 8) || '—'}
+                    {r.bookings?.customer_first_name && (
+                      <span className="font-normal text-gray-500"> — {r.bookings.customer_first_name} {r.bookings.customer_last_name}</span>
+                    )}
                   </p>
-                  {r.customer_name && (
-                    <p className="text-xs text-gray-500">{r.customer_name}</p>
-                  )}
                   <p className="text-xs text-gray-400 mt-0.5">
                     {r.created_at ? format(new Date(r.created_at), 'dd MMM yyyy, HH:mm') : '—'}
                   </p>
