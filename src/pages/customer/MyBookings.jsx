@@ -4,6 +4,7 @@ import { ChevronLeft, ClipboardList, Loader2, CalendarDays, PawPrint, Edit2, Che
 import TopNav from '../../components/TopNav'
 import { useAuth } from '../../contexts/AuthContext'
 import { SUPABASE_URL, SUPABASE_KEY, getAccessToken } from '../../lib/supabase'
+import { sendModificationNotification } from '../../utils/sendModificationNotification'
 
 const STATUS_STYLES = {
   pending:   { bg: '#fef9c3', color: '#854d0e', label: 'Pending' },
@@ -37,7 +38,7 @@ function formatDate(d) {
   return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-function RequestChangeForm({ booking, profileId, onClose }) {
+function RequestChangeForm({ booking, profileId, profileFirstName, profileLastName, onClose }) {
   const [text, setText]       = useState('')
   const [saving, setSaving]   = useState(false)
   const [success, setSuccess] = useState(false)
@@ -65,6 +66,16 @@ function RequestChangeForm({ booking, profileId, onClose }) {
       })
       if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b?.message || `HTTP ${res.status}`) }
       setSuccess(true)
+      sendModificationNotification({
+        bookingRef:        booking.booking_ref,
+        customerFirstName: profileFirstName,
+        customerLastName:  profileLastName,
+        serviceType:       booking.service_type,
+        startDate:         booking.start_date,
+        endDate:           booking.end_date,
+        petNames:          booking.pet_names || [],
+        requestDetails:    text.trim(),
+      }).catch(err => console.warn('[RequestChange] notification failed:', err))
     } catch (e) {
       setErr(e.message || 'Failed to submit. Please try again.')
     } finally {
@@ -247,6 +258,8 @@ export default function MyBookings() {
                     <RequestChangeForm
                       booking={b}
                       profileId={profile?.id}
+                      profileFirstName={profile?.first_name || ''}
+                      profileLastName={profile?.last_name || ''}
                       onClose={() => setOpenChangeId(null)}
                     />
                   )}
