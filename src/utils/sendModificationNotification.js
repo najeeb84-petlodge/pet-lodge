@@ -18,6 +18,7 @@ export async function sendModificationNotification(data) {
   try {
     const session = JSON.parse(localStorage.getItem('sb-qcwbkpcwtxpokgseethp-auth-token') || 'null')
     const token   = session?.access_token
+    console.log('[modification-notification] sending payload:', JSON.stringify(data, null, 2))
     const res = await fetch('https://qcwbkpcwtxpokgseethp.supabase.co/functions/v1/send-modification-notification', {
       method: 'POST',
       headers: {
@@ -26,6 +27,11 @@ export async function sendModificationNotification(data) {
       },
       body: JSON.stringify(data),
     })
+
+    if (!res.ok) {
+      const errorBody = await res.clone().text()
+      console.error('[modification-notification] error response:', res.status, errorBody)
+    }
 
     const body = await res.json().catch(() => ({}))
 
