@@ -38,7 +38,7 @@ function formatDate(d) {
   return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-function RequestChangeForm({ booking, profileId, profileFirstName, profileLastName, onClose }) {
+function RequestChangeForm({ booking, profileId, onClose }) {
   const [text, setText]       = useState('')
   const [saving, setSaving]   = useState(false)
   const [success, setSuccess] = useState(false)
@@ -68,8 +68,8 @@ function RequestChangeForm({ booking, profileId, profileFirstName, profileLastNa
       setSuccess(true)
       sendModificationNotification({
         bookingRef:        booking.booking_ref,
-        customerFirstName: profileFirstName,
-        customerLastName:  profileLastName,
+        customerFirstName: booking.customer_first_name || '',
+        customerLastName:  booking.customer_last_name  || '',
         serviceType:       booking.service_type,
         startDate:         booking.start_date,
         endDate:           booking.end_date,
@@ -136,7 +136,7 @@ export default function MyBookings() {
     if (!profile?.id) return
     const token = getAccessToken()
     fetch(
-      `${SUPABASE_URL}/rest/v1/bookings?customer_id=eq.${profile.id}&order=created_at.desc&select=id,booking_ref,service_type,status,payment_status,start_date,end_date,total_amount,pet_names,num_pets,created_at`,
+      `${SUPABASE_URL}/rest/v1/bookings?customer_id=eq.${profile.id}&order=created_at.desc&select=id,booking_ref,service_type,status,payment_status,start_date,end_date,total_amount,pet_names,num_pets,created_at,customer_first_name,customer_last_name`,
       { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token || SUPABASE_KEY}` } }
     )
       .then(r => r.json())
@@ -258,8 +258,6 @@ export default function MyBookings() {
                     <RequestChangeForm
                       booking={b}
                       profileId={profile?.id}
-                      profileFirstName={profile?.first_name || ''}
-                      profileLastName={profile?.last_name || ''}
                       onClose={() => setOpenChangeId(null)}
                     />
                   )}
