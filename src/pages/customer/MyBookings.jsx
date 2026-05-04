@@ -37,7 +37,7 @@ function formatDate(d) {
   return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-function RequestChangeForm({ booking, customerName, onClose }) {
+function RequestChangeForm({ booking, profileId, onClose }) {
   const [text, setText]       = useState('')
   const [saving, setSaving]   = useState(false)
   const [success, setSuccess] = useState(false)
@@ -57,11 +57,10 @@ function RequestChangeForm({ booking, customerName, onClose }) {
           Prefer: 'return=minimal',
         },
         body: JSON.stringify({
-          booking_id:     booking.id,
-          booking_ref:    booking.booking_ref,
-          customer_name:  customerName,
+          booking_id:      booking.id,
+          requested_by:    profileId,
           request_details: text.trim(),
-          status:         'pending',
+          status:          'pending',
         }),
       })
       if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b?.message || `HTTP ${res.status}`) }
@@ -175,7 +174,6 @@ export default function MyBookings() {
             {bookings.map(b => {
               const status = STATUS_STYLES[b.status] || STATUS_STYLES.pending
               const canRequest = b.status !== 'cancelled' && b.status !== 'completed'
-              const customerName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Customer'
               return (
                 <div key={b.id} className="card p-4 sm:p-5"
                   style={{ borderLeft: `4px solid ${status.color}` }}>
@@ -248,7 +246,7 @@ export default function MyBookings() {
                   {openChangeId === b.id && (
                     <RequestChangeForm
                       booking={b}
-                      customerName={customerName}
+                      profileId={profile?.id}
                       onClose={() => setOpenChangeId(null)}
                     />
                   )}
