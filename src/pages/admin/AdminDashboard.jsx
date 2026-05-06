@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import TopNav from '../../components/TopNav'
 import AllBookings from './tabs/AllBookings'
@@ -19,7 +20,11 @@ const TABS = [
 
 export default function AdminDashboard() {
   const { profile } = useAuth()
-  const [activeTab, setActiveTab] = useState('bookings')
+  const [searchParams] = useSearchParams()
+  const [activeTab, setActiveTab] = useState(
+    searchParams.get('tab') === 'mods' ? 'mods' : 'bookings'
+  )
+  const [highlightRequestId] = useState(searchParams.get('request'))
 
   const isSuperAdmin = profile?.role === 'super_admin'
   const isAdmin      = profile?.role === 'admin' || isSuperAdmin
@@ -54,7 +59,7 @@ export default function AdminDashboard() {
 
         {/* Tab content */}
         {activeTab === 'bookings'  && <AllBookings  isSuperAdmin={isSuperAdmin} isAdmin={isAdmin} isOwner={isOwner}/>}
-        {activeTab === 'mods'      && <ModificationRequests isOwner={isOwner}/>}
+        {activeTab === 'mods'      && <ModificationRequests isOwner={isOwner} highlightId={highlightRequestId}/>}
         {activeTab === 'calendar'  && <WeeklyCalendar isOwner={isOwner}/>}
         {activeTab === 'prices'    && <PricesMaster isSuperAdmin={isSuperAdmin}/>}
         {activeTab === 'responses' && <FormResponses isSuperAdmin={isSuperAdmin} isAdmin={isAdmin} isOwner={isOwner}/>}

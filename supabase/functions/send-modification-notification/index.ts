@@ -31,6 +31,7 @@ interface ModificationNotificationPayload {
   endDate:           string
   petNames:          string[]
   requestDetails:    string
+  requestId?:        string
 }
 
 function htmlEscape(str: string): string {
@@ -150,7 +151,7 @@ function buildHtml(p: ModificationNotificationPayload): string {
         <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
           <tr>
             <td align="center" style="padding:16px 0;">
-              <a href="${DASHBOARD_URL}" style="display:inline-block;background:#2d3a1e;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:12px 32px;border-radius:8px;letter-spacing:0.02em;">View in Dashboard →</a>
+              <a href="${p.requestId ? `${DASHBOARD_URL}?tab=mods&request=${p.requestId}` : `${DASHBOARD_URL}?tab=mods`}" style="display:inline-block;background:#2d3a1e;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:12px 32px;border-radius:8px;letter-spacing:0.02em;">View in Dashboard →</a>
             </td>
           </tr>
         </table>
@@ -240,6 +241,7 @@ Deno.serve(async (req: Request) => {
     endDate:        payload.endDate        || '',
     petNames:       Array.isArray(payload.petNames) ? payload.petNames : [],
     requestDetails,
+    requestId:      payload.requestId,
   }
 
   const subject = `Change request — ${customerFirstName} ${customerLastName} — Booking ${bookingRef}`

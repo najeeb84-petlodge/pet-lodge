@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { format } from 'date-fns'
 import { Loader2 } from 'lucide-react'
 import { SUPABASE_URL, SUPABASE_KEY, getAccessToken } from '../../../lib/supabase'
@@ -33,12 +33,14 @@ async function restFetch(path, opts = {}) {
   }
 }
 
-export default function ModificationRequests({ isOwner }) {
-  const [requests, setRequests] = useState([])
-  const [loading,  setLoading]  = useState(true)
-  const [error,    setError]    = useState(null)
-  const [notes,    setNotes]    = useState({})
-  const [saving,   setSaving]   = useState(null)
+export default function ModificationRequests({ isOwner, highlightId }) {
+  const [requests,     setRequests]     = useState([])
+  const [loading,      setLoading]      = useState(true)
+  const [error,        setError]        = useState(null)
+  const [notes,        setNotes]        = useState({})
+  const [saving,       setSaving]       = useState(null)
+  const [highlightedId, setHighlightedId] = useState(highlightId || null)
+  const rowRefs = useRef({})
 
   async function load() {
     setLoading(true)
@@ -53,6 +55,16 @@ export default function ModificationRequests({ isOwner }) {
   }
 
   useEffect(() => { load() }, [])
+
+  useEffect(() => {
+    if (!highlightedId || loading) return
+    const el = rowRefs.current[highlightedId]
+    if (el) {
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      const timer = setTimeout(() => setHighlightedId(null), 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [highlightedId, loading])
 
   async function updateStatus(id, status) {
     setSaving(id)
@@ -89,7 +101,16 @@ export default function ModificationRequests({ isOwner }) {
       ) : (
         <div className="space-y-3">
           {requests.map(r => (
-            <div key={r.id} className="rounded-xl border p-4" style={{ borderColor: 'var(--border)' }}>
+            <div
+              key={r.id}
+              ref={el => { rowRefs.current[r.id] = el }}
+              className="rounded-xl border p-4"
+              style={{
+                borderColor: highlightedId === r.id ? '#f59e0b' : 'var(--border)',
+                boxShadow:   highlightedId === r.id ? '0 0 0 3px rgba(245,158,11,0.2)' : undefined,
+                transition:  'box-shadow 0.4s ease, border-color 0.4s ease',
+              }}
+            >
               <div className="flex items-start justify-between mb-3">
                 <div>
                   <p className="font-semibold text-sm">

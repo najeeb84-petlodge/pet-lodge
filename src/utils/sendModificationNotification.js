@@ -11,6 +11,7 @@
  * @param {string} [data.endDate]     – ISO date e.g. "2026-05-10"
  * @param {string[]} [data.petNames]
  * @param {string} data.requestDetails
+ * @param {string} [data.requestId]    – UUID of the new modification_requests row (for deep-link)
  *
  * @returns {Promise<{ success: boolean, id?: string, error?: string }>}
  */

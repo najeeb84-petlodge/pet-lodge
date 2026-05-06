@@ -55,7 +55,7 @@ function RequestChangeForm({ booking, profileId, onClose }) {
           'Content-Type': 'application/json',
           apikey: SUPABASE_KEY,
           Authorization: `Bearer ${token || SUPABASE_KEY}`,
-          Prefer: 'return=minimal',
+          Prefer: 'return=representation',
         },
         body: JSON.stringify({
           booking_id:      booking.id,
@@ -65,6 +65,8 @@ function RequestChangeForm({ booking, profileId, onClose }) {
         }),
       })
       if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b?.message || `HTTP ${res.status}`) }
+      const resBody = await res.json().catch(() => [])
+      const newRequestId = resBody[0]?.id
       setSuccess(true)
       sendModificationNotification({
         bookingRef:        booking.booking_ref,
@@ -75,6 +77,7 @@ function RequestChangeForm({ booking, profileId, onClose }) {
         endDate:           booking.end_date,
         petNames:          booking.pet_names || [],
         requestDetails:    text.trim(),
+        requestId:         newRequestId,
       }).catch(err => console.warn('[RequestChange] notification failed:', err))
     } catch (e) {
       setErr(e.message || 'Failed to submit. Please try again.')
