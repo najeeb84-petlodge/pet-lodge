@@ -33,7 +33,7 @@ async function restFetch(path, opts = {}) {
   }
 }
 
-export default function ModificationRequests({ isOwner, highlightId }) {
+export default function ModificationRequests({ isOwner, highlightId, clearHighlightParam }) {
   const [requests,     setRequests]     = useState([])
   const [loading,      setLoading]      = useState(true)
   const [error,        setError]        = useState(null)
@@ -61,6 +61,7 @@ export default function ModificationRequests({ isOwner, highlightId }) {
     const el = rowRefs.current[highlightedId]
     if (el) {
       el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      clearHighlightParam?.()
       const timer = setTimeout(() => setHighlightedId(null), 3000)
       return () => clearTimeout(timer)
     }

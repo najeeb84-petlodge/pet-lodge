@@ -20,11 +20,20 @@ const TABS = [
 
 export default function AdminDashboard() {
   const { profile } = useAuth()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState(
     searchParams.get('tab') === 'mods' ? 'mods' : 'bookings'
   )
-  const [highlightRequestId] = useState(searchParams.get('request'))
+  const [highlightRequestId, setHighlightRequestId] = useState(searchParams.get('request'))
+
+  function clearHighlightParam() {
+    setHighlightRequestId(null)
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      next.delete('request')
+      return next
+    }, { replace: true })
+  }
 
   const isSuperAdmin = profile?.role === 'super_admin'
   const isAdmin      = profile?.role === 'admin' || isSuperAdmin
@@ -59,7 +68,7 @@ export default function AdminDashboard() {
 
         {/* Tab content */}
         {activeTab === 'bookings'  && <AllBookings  isSuperAdmin={isSuperAdmin} isAdmin={isAdmin} isOwner={isOwner}/>}
-        {activeTab === 'mods'      && <ModificationRequests isOwner={isOwner} highlightId={highlightRequestId}/>}
+        {activeTab === 'mods'      && <ModificationRequests isOwner={isOwner} highlightId={highlightRequestId} clearHighlightParam={clearHighlightParam}/>}
         {activeTab === 'calendar'  && <WeeklyCalendar isOwner={isOwner}/>}
         {activeTab === 'prices'    && <PricesMaster isSuperAdmin={isSuperAdmin}/>}
         {activeTab === 'responses' && <FormResponses isSuperAdmin={isSuperAdmin} isAdmin={isAdmin} isOwner={isOwner}/>}
