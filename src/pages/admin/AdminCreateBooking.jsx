@@ -297,7 +297,7 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
         const esc    = encodeURIComponent(q)
         const wild   = `%25${esc}%25`
         const orFilter = `(first_name.ilike.${wild},last_name.ilike.${wild},email.ilike.${wild},phone.ilike.${wild},whatsapp_number.ilike.${wild})`
-        const url = `${SUPABASE_URL}/rest/v1/profiles?or=${orFilter}&role=eq.customer&limit=5&select=id,first_name,last_name,email,phone,whatsapp_number`
+        const url = `${SUPABASE_URL}/rest/v1/profiles?or=${orFilter}&role=eq.customer&limit=50&select=id,first_name,last_name,email,phone,whatsapp_number`
         const res  = await fetch(url, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token || SUPABASE_KEY}` } })
         const data = await res.json().catch(() => [])
         setSearchResults(Array.isArray(data) ? data : [])
@@ -849,25 +849,27 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
               {/* Dropdown results */}
               {showDropdown && (
                 <div style={{ position: 'relative', background: 'white', border: '1px solid var(--border)', borderRadius: '8px', marginTop: '4px' }}>
-                  {searchResults.length === 0 && !searching && (
-                    <p style={{ margin: 0, padding: '10px 14px', fontSize: '0.8rem', color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                      No matching customers found.
-                    </p>
-                  )}
-                  {searchResults.map(c => (
-                    <button key={c.id} onClick={() => selectCustomer(c)}
-                      style={{ width: '100%', display: 'block', padding: '10px 14px', background: 'none', border: 'none', borderBottom: '1px solid var(--border)', cursor: 'pointer', textAlign: 'left' }}
-                      onMouseEnter={e => e.currentTarget.style.background = '#f5f5f3'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'none'}>
-                      <p style={{ margin: 0, fontWeight: '600', fontSize: '0.875rem', color: 'var(--text)' }}>
-                        {`${c.first_name || ''} ${c.last_name || ''}`.trim() || '—'}
+                  <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
+                    {searchResults.length === 0 && !searching && (
+                      <p style={{ margin: 0, padding: '10px 14px', fontSize: '0.8rem', color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                        No matching customers found.
                       </p>
-                      <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--muted)' }}>
-                        {[c.email, c.phone].filter(Boolean).join(' · ')}
-                      </p>
-                    </button>
-                  ))}
-                  {/* Divider + Create new customer */}
+                    )}
+                    {searchResults.map(c => (
+                      <button key={c.id} onClick={() => selectCustomer(c)}
+                        style={{ width: '100%', display: 'block', padding: '10px 14px', background: 'none', border: 'none', borderBottom: '1px solid var(--border)', cursor: 'pointer', textAlign: 'left' }}
+                        onMouseEnter={e => e.currentTarget.style.background = '#f5f5f3'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                        <p style={{ margin: 0, fontWeight: '600', fontSize: '0.875rem', color: 'var(--text)' }}>
+                          {`${c.first_name || ''} ${c.last_name || ''}`.trim() || '—'}
+                        </p>
+                        <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--muted)' }}>
+                          {[c.email, c.phone].filter(Boolean).join(' · ')}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                  {/* Divider + Create new customer — pinned outside scroll area */}
                   <div style={{ borderTop: searchResults.length > 0 ? '1px solid var(--border)' : 'none' }}>
                     {newCustomerPanelOpen ? (
                       <div style={{ padding: '12px 14px' }}>
