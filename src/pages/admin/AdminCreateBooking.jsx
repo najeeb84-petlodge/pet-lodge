@@ -367,7 +367,7 @@ export default function AdminCreateBooking({ onClose, onCreated }) {
     if (newCustomerPanelOpen) {
       // Give React one frame to render the form, then scroll the action buttons into view
       requestAnimationFrame(() => {
-        newCustomerBtnsRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' })
+        newCustomerBtnsRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
       })
     }
   }, [newCustomerPanelOpen])
